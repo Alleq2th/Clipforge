@@ -26,9 +26,10 @@ def _cookies():
 def download(url):
     os.makedirs(WORK_DIR, exist_ok=True)
     opts = {
-        "format": "bestvideo*[height<=1080]+bestaudio/best[height<=1080]/best",
+        "format": "bv*[height<=1080]+ba/b[height<=1080]/b",
         "outtmpl": f"{WORK_DIR}/%(id)s.%(ext)s",
         "merge_output_format": "mp4",
+        "remote_components": ["ejs:github"],
         "quiet": True,
     }
     c, status = _cookies()
