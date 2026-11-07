@@ -4,7 +4,7 @@ from config import WORK_DIR
 def _cookies():
     src = os.getenv("YT_COOKIES")
     if src and os.path.exists(src):
-        shutil.copy(src, "/tmp/cookies.txt")  # secret files are read-only; yt-dlp needs a writable copy
+        shutil.copy(src, "/tmp/cookies.txt")
         return "/tmp/cookies.txt"
 
 def download(url):
@@ -16,4 +16,5 @@ def download(url):
     if c: opts["cookiefile"] = c
     with yt_dlp.YoutubeDL(opts) as y:
         info = y.extract_info(url, download=True)
-        return os.path.splitext(
+        path = os.path.splitext(y.prepare_filename(info))[0] + ".mp4"
+        return path, info["id"]
