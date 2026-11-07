@@ -1,3 +1,28 @@
+import os, shutil, yt_dlp
+from config import WORK_DIR
+
+def _cookies():
+    dst = "/tmp/cookies.txt"
+    txt = os.getenv("YT_COOKIES_TEXT")
+    if txt:
+        open(dst, "w").write(txt.replace("\\n", "\n"))
+    else:
+        paths = [
+            p for p in (
+                os.getenv("YT_COOKIES"),
+                "/etc/secrets/cookies.txt",
+                "cookies.txt",
+                "/app/cookies.txt",
+                "/etc/secrets/cookies"
+            ) if p
+        ]
+        src = next((p for p in paths if os.path.isfile(p)), None)
+        if not src:
+            return None, "COOKIES: file not found"
+        shutil.copy(src, dst)
+    n = sum("youtube.com" in l for l in open(dst, errors="ignore"))
+    return dst, f"COOKIES: loaded {n} youtube cookies"
+
 def download(url):
     os.makedirs(WORK_DIR, exist_ok=True)
     opts = {
@@ -12,7 +37,8 @@ def download(url):
         },
     }
     c, status = _cookies()
-    if c: opts["cookiefile"] = c
+    if c:
+        opts["cookiefile"] = c
     try:
         with yt_dlp.YoutubeDL(opts) as y:
             info = y.extract_info(url, download=True)
