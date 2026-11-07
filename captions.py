@@ -12,15 +12,12 @@ def make_srt(segs, start, end, path, words=4):
         a, b = max(s["start"], start), min(s["end"], end)
         d = (b - a) / max(len(chunks), 1)
         for i, c in enumerate(chunks):
-            lines.append(f"{n}
-{_t(a - start + i * d)} --> {_t(a - start + (i + 1) * d)}
-{' '.join(c).upper()}
-")
+            t1 = _t(a - start + i * d)
+            t2 = _t(a - start + (i + 1) * d)
+            text = " ".join(c).upper()
+            lines.append(f"{n}\n{t1} --> {t2}\n{text}\n")
             n += 1
     if not lines:
-        lines = ["1
-00:00:00,000 --> 00:00:01,000
- 
-"]
-    open(path, "w", encoding="utf-8").write("
-".join(lines))
+        lines = ["1\n00:00:00,000 --> 00:00:01,000\n \n"]
+    with open(path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
