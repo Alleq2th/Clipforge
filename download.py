@@ -2,14 +2,22 @@ import os, shutil, yt_dlp
 from config import WORK_DIR
 
 def _cookies():
-    src = os.getenv("YT_COOKIES")
-    if not src:
-        return None, "COOKIES: YT_COOKIES variable is not set"
-    if not os.path.exists(src):
-        return None, f"COOKIES: file not found at {src}"
-    shutil.copy(src, "/tmp/cookies.txt")
-    n = sum("youtube.com" in l for l in open("/tmp/cookies.txt", errors="ignore"))
-    return "/tmp/cookies.txt", f"COOKIES: loaded {n} youtube cookies"
+    dst = "/tmp/cookies.txt"
+    txt = os.getenv("YT_COOKIES_TEXT")  # fallback: cookies pasted straight into an env var
+    if txt:
+        open(dst, "w").write(txt.replace("\\n", "\n"))
+    else:
+        paths = [p for p in (os.getenv("YT_COOKIES"), "/etc/secrets/cookies.txt", "cookies.txt",
+                             "/app/cookies.txt", "/etc/secrets/cookies") if p]
+        src = next((p for p in paths if os.path.isfile(p)), None)
+        if not src:
+            def ls(d):
+                try: return os.listdir(d)
+                except Exception as e: return f"unreadable({type(e).__name__})"
+            return None, f"COOKIES: not found. /etc/secrets={ls('/etc/secrets')} cwd={os.getcwd()} files={[f for f in ls('.') if 'cook' in f.lower()]}"
+        shutil.copy(src, dst)
+    n = sum("youtube.com" in l for l in open(dst, errors="ignore"))
+    return dst, f"COOKIES: loaded {n} youtube cookies"
 
 def download(url):
     os.makedirs(WORK_DIR, exist_ok=True)
@@ -25,4 +33,4 @@ def download(url):
             return path, info["id"]
     except Exception as e:
         raise RuntimeError(f"{status}. {str(e)[:140]}") from None
-        
+            
