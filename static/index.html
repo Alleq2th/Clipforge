@@ -1,1 +1,128 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClipForge — long video in, short clips out</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#161616;--bg2:#232323;--line:#2C2C2C;--ink:#eeeef0;--mute:#9a9a9f;--acc:#5c985a;--acc2:#56754b;--r:6px}
+*{box-sizing:border-box;margin:0}
+html{background:var(--bg)}
+body{font:400 16px/1.5 Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;overflow-x:hidden;position:relative}
+.beam{position:fixed;top:-20%;width:140px;height:140%;background:linear-gradient(#dedede00,#dedede1f,#dedede00);filter:blur(36px);transform:rotate(18deg);pointer-events:none;animation:sway 14s ease-in-out infinite alternate}
+.b1{left:58%}.b2{left:74%;width:70px;animation-delay:-5s;opacity:.7}.b3{left:6%;width:50px;animation-delay:-9s;opacity:.5}
+@keyframes sway{to{transform:rotate(26deg) translateX(40px)}}
+nav{display:flex;justify-content:space-between;align-items:center;padding:24px 24px 0;position:relative}
+.logo{font:400 24px 'Instrument Serif',serif;letter-spacing:.2px}
+.logo b{color:var(--acc);font-weight:400}
+nav span{font-size:13px;color:var(--mute);border:1px solid var(--line);padding:4px 16px;border-radius:var(--r);background:#16161699;backdrop-filter:blur(8px)}
+main{position:relative;max-width:1080px;margin:0 auto;padding:0 24px 96px}
+.hero{padding:96px 0 40px;max-width:760px}
+h1{font:400 clamp(48px,11vw,104px)/.95 'Instrument Serif',serif;letter-spacing:-1px}
+h1 em{color:var(--acc);font-style:italic}
+.sub{margin-top:24px;max-width:420px;color:var(--mute);margin-left:clamp(0px,8vw,96px)}
+form{display:flex;gap:0;margin:48px 0 0 clamp(0px,4vw,48px);max-width:720px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg2);overflow:hidden}
+form:focus-within{border-color:var(--acc2)}
+input{flex:1;min-width:0;background:none;border:0;color:var(--ink);font:inherit;padding:16px 16px;outline:0}
+input::placeholder{color:#6d6d72}
+button{font:600 15px Inter,sans-serif;border:0;background:var(--acc);color:#161616;padding:0 24px;cursor:pointer}
+button:disabled{background:var(--line);color:var(--mute);cursor:wait}
+.hint{margin:16px 0 0 clamp(0px,4vw,48px);font-size:13px;color:var(--mute)}
+#run{display:none;margin-top:72px}
+.steps{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:#6d6d72}
+.steps div{padding-bottom:8px;border-bottom:2px solid var(--line)}
+.steps .on{color:var(--ink);border-color:var(--acc)}.steps .ok{color:var(--mute);border-color:var(--acc2)}
+.label{margin-top:16px;color:var(--ink)}
+.err{margin-top:16px;color:#d9826f;border-left:2px solid #d9826f;padding-left:16px}
+.sk{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;margin-top:40px}
+.sk i{display:block;background:linear-gradient(90deg,var(--bg2),var(--line),var(--bg2));background-size:200% 100%;animation:sh 1.4s infinite;border-radius:var(--r);height:120px}
+.sk i:first-child{height:360px;grid-row:span 3}
+@keyframes sh{to{background-position:-200% 0}}
+#res{display:none;margin-top:72px}
+.done{display:flex;align-items:baseline;gap:16px;margin-bottom:40px}
+.done h2{font:400 clamp(32px,6vw,48px) 'Instrument Serif',serif}
+.done a{color:var(--acc);text-decoration:underline;text-underline-offset:4px;font-size:14px;cursor:pointer}
+.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:start}
+.feat video{width:100%;max-height:640px;aspect-ratio:9/16;object-fit:cover;background:var(--bg2);border-radius:var(--r);border:1px solid var(--line)}
+.rows{display:flex;flex-direction:column;gap:24px}
+.row{display:grid;grid-template-columns:96px 1fr;gap:16px;border-top:1px solid var(--line);padding-top:16px}
+.row:nth-child(even){margin-left:clamp(0px,3vw,32px)}
+.row video{width:96px;aspect-ratio:9/16;object-fit:cover;border-radius:var(--r);background:var(--bg2)}
+.t{font:400 22px/1.2 'Instrument Serif',serif}
+.cap{font-size:14px;color:var(--mute);margin-top:8px}
+.tags{font-size:13px;color:var(--acc);margin-top:8px}
+.act{display:flex;gap:16px;margin-top:16px;font-size:14px}
+.act a,.act span{color:var(--ink);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
+.act a::after{content:" ↓"}
+.feat .t{font-size:32px;margin-top:16px}
+.tag-top{font-size:12px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin-top:16px}
+@media(max-width:720px){.sk,.grid{grid-template-columns:1fr}.hero{padding-top:56px}form{margin-left:0}.hint{margin-left:0}.sub{margin-left:0}}
+</style>
+</head>
+<body>
+<div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
+<nav><div class="logo">Clip<b>Forge</b></div><span>No watermark. Ever.</span></nav>
+<main>
+<section class="hero">
+<h1>Long video in. <em>Short clips</em> out.</h1>
+<p class="sub">Drop a YouTube link. ClipForge finds the moments worth posting, cuts them vertical, burns in captions, and writes the hashtags.</p>
+<form id="f"><input id="u" placeholder="Paste a YouTube link, e.g. youtube.com/watch?v=..." autocomplete="off"><button id="go">Clip it</button></form>
+<p class="hint">Works best on talks, streams, podcasts and gameplay under 60 minutes.</p>
+</section>
+<section id="run">
+<div class="steps" id="steps"><div>1 Download</div><div>2 Transcribe</div><div>3 Find moments</div><div>4 Cut clips</div></div>
+<p class="label" id="lab">Starting...</p>
+<p class="err" id="err" hidden></p>
+<div class="sk" id="sk"><i></i><i></i><i></i><i></i></div>
+</section>
+<section id="res"></section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const stepOf=s=>/Download/i.test(s)?0:/Transcrib/i.test(s)?1:/picking/i.test(s)?2:/Cutting|Done/i.test(s)?3:0;
+let timer;
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+$("f").onsubmit=async e=>{
+ e.preventDefault();clearInterval(timer);
+ $("go").disabled=true;$("res").style.display="none";$("err").hidden=true;$("sk").style.display="grid";
+ $("run").style.display="block";$("lab").textContent="Starting...";paint(0,false);
+ const r=await fetch("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:$("u").value})});
+ const d=await r.json();
+ if(d.error)return fail(d.error);
+ timer=setInterval(()=>poll(d.id),2000);
+};
+function paint(i,done){[...$("steps").children].forEach((s,n)=>s.className=done||n<i?"ok":n==i?"on":"")}
+function fail(m){clearInterval(timer);$("go").disabled=false;$("err").textContent=m;$("err").hidden=false;$("sk").style.display="none"}
+async function poll(id){
+ const d=await (await fetch("/api/jobs/"+id)).json();
+ if(d.error)return fail(d.error);
+ $("lab").textContent=d.status;paint(stepOf(d.status),d.done);
+ if(d.done){clearInterval(timer);$("go").disabled=false;show(d.clips)}
+}
+function copy(t,b){navigator.clipboard.writeText(t);b.textContent="Copied";setTimeout(()=>b.textContent="Copy caption",1500)}
+function info(c,feat){
+ const w=el("div");
+ if(feat)w.append(el("div","tag-top","Top pick"));
+ w.append(el("div","t",c.title),el("div","cap",c.caption),el("div","tags",c.hashtags.join(" ")));
+ const a=el("div","act"),dl=el("a",null,"Download");
+ dl.href=`/clips/${c.vid}/${c.file}?dl=1`;
+ const cp=el("span",null,"Copy caption");cp.onclick=()=>copy(c.caption+"\n\n"+c.hashtags.join(" "),cp);
+ a.append(dl,cp);w.append(a);return w;
+}
+function vid(c){const v=el("video");v.src=`/clips/${c.vid}/${c.file}`;v.controls=true;v.preload="metadata";v.playsInline=true;return v}
+function show(clips){
+ $("run").style.display="none";const r=$("res");r.replaceChildren();r.style.display="block";
+ if(!clips.length){r.append(el("h2",null,"No strong moments found. Try a longer or more talkative video."));return}
+ const top=el("div","done");top.append(el("h2",null,clips.length+" clips ready"));
+ const again=el("a",null,"Clip another");again.onclick=()=>{r.style.display="none";$("u").value="";$("u").focus()};
+ top.append(again);r.append(top);
+ const g=el("div","grid"),f=el("div","feat");f.append(vid(clips[0]),info(clips[0],true));
+ const rows=el("div","rows");
+ clips.slice(1).forEach(c=>{const row=el("div","row");row.append(vid(c),info(c,false));rows.append(row)});
+ g.append(f,rows);r.append(g);r.scrollIntoView({behavior:"smooth"});
+}
+</script>
+</body>
+</html>
