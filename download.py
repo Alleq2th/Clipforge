@@ -30,11 +30,6 @@ def download(url):
         "outtmpl": f"{WORK_DIR}/%(id)s.%(ext)s",
         "merge_output_format": "mp4",
         "quiet": True,
-        "extractor_args": {
-            "youtube": {
-                "player_client": ["all"]
-            }
-        },
     }
     c, status = _cookies()
     if c:
@@ -46,4 +41,3 @@ def download(url):
             return path, info["id"]
     except Exception as e:
         raise RuntimeError(f"{status}. {str(e)[:140]}") from None
-        
