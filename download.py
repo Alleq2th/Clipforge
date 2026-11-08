@@ -25,13 +25,17 @@ def _cookies():
 
 def download(url):
     os.makedirs(WORK_DIR, exist_ok=True)
-    # Target 720p maximum to accelerate downloads and minimize RAM usage during FFmpeg processing
+    # Download 720p maximum to accelerate processing + extract subtitles instantly
     opts = {
         "format": "bv*[height<=720]+ba/b[height<=720]/bv*+ba/b",
         "outtmpl": f"{WORK_DIR}/%(id)s.%(ext)s",
         "merge_output_format": "mp4",
         "remote_components": ["ejs:github"],
         "quiet": True,
+        "writesubtitles": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": ["en", "en-US", "en-GB", "a.en", "en-orig"],
+        "subtitlesformat": "vtt/json3/srt",
     }
     c, status = _cookies()
     if c:
