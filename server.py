@@ -3,6 +3,7 @@ from flask import Flask, jsonify, request, send_from_directory
 from config import OUT_DIR, WORK_DIR
 from llm import providers
 from pipeline import run
+from storage import get_dir_size_mb, cleanup_storage
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 jobs = {}
@@ -77,6 +78,17 @@ def preview():
     meta = get_yt_meta(url)
     return jsonify(meta)
 
+@app.get("/api/storage")
+def storage_info():
+    out_mb = get_dir_size_mb(OUT_DIR)
+    work_mb = get_dir_size_mb(WORK_DIR)
+    return jsonify({
+        "output_mb": round(out_mb, 1),
+        "work_mb": round(work_mb, 1),
+        "total_mb": round(out_mb + work_mb, 1),
+        "limit_mb": 400
+    })
+
 @app.post("/api/jobs")
 def create():
     data = request.json or {}
@@ -87,6 +99,8 @@ def create():
     count = int(data.get("count", 5))
     dur = data.get("duration", "30to60")
     focus = data.get("focus", "viral")
+    aspect_ratio = data.get("aspect_ratio", "9:16")
+    caption_style = data.get("caption_style", "beasty")
 
     if dur == "under30":
         min_len, max_len = 15, 30
@@ -98,10 +112,12 @@ def create():
         min_len, max_len = 20, 60
 
     options = {
-        "count": max(1, min(count, 12)),
+        "count": max(1, min(count, 20)),
         "min_len": min_len,
         "max_len": max_len,
         "focus": focus,
+        "aspect_ratio": aspect_ratio,
+        "caption_style": caption_style,
     }
 
     meta = get_yt_meta(url)

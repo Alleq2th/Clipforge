@@ -3,6 +3,7 @@ from download import download
 from transcribe import transcribe
 from pick import pick
 from cut import cut
+from storage import cleanup_source_video, cleanup_storage
 
 def run(url, cb=print, options=None):
     opts = options or {}
@@ -10,21 +11,32 @@ def run(url, cb=print, options=None):
     min_len = int(opts.get("min_len", 20))
     max_len = int(opts.get("max_len", 60))
     focus = opts.get("focus", "viral")
+    aspect_ratio = opts.get("aspect_ratio", "9:16")
+    caption_style = opts.get("caption_style", "beasty")
+
+    # Proactively free space before starting new download
+    cleanup_storage()
 
     cb("Downloading video (optimizing 720p)...")
     video, vid = download(url)
 
-    cb("Transcribing audio...")
-    segs = transcribe(video, vid)
+    try:
+        cb("Transcribing audio...")
+        segs = transcribe(video, vid)
 
-    cb(f"AI detecting {count} {focus} moments...")
-    clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus)
+        cb(f"AI discovering & ranking {count} viral moments...")
+        clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus)
 
-    out = []
-    total = len(clips)
-    for i, c in enumerate(clips, 1):
-        cb(f"Cutting clip {i} of {total} (9:16 + captions)...")
-        f = cut(video, segs, c, i, vid)
-        out.append({**c, "file": os.path.basename(f), "vid": vid})
-    cb("Done")
-    return out
+        out = []
+        total = len(clips)
+        for i, c in enumerate(clips, 1):
+            cb(f"Cutting clip {i} of {total} ({aspect_ratio} • {caption_style.capitalize()} style)...")
+            f = cut(video, segs, c, i, vid, aspect_ratio=aspect_ratio, caption_style=caption_style)
+            out.append({**c, "file": os.path.basename(f), "vid": vid})
+        cb("Done")
+        return out
+    finally:
+        # Crucial for Render Free Tier: delete source video immediately after clips are cut.
+        # This recovers 300MB - 1GB instantly and avoids storage exhaustion.
+        cleanup_source_video(video)
+        cleanup_storage()
