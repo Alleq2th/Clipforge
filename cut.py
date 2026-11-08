@@ -19,10 +19,10 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt"):
     style_str = STYLES[style_key].format(margin_v=margin_v)
 
     if ratio == "1:1":
-        # 720x720 Square with blurred backdrop
+        # Ultra-fast 4x downscaled background blur for 720x720 Square
         vf = (
             "[0:v]split[a][b];"
-            "[a]scale=360:360:force_original_aspect_ratio=increase,crop=360:360,boxblur=10:2,scale=720:720[bg];"
+            "[a]scale=180:180:force_original_aspect_ratio=increase,crop=180:180,boxblur=5:1,scale=720:720[bg];"
             "[b]scale=720:-2[fg];"
             f"[bg][fg]overlay=(W-w)/2:(H-h)/2,subtitles={srt_filename}:force_style='{style_str}'"
         )
@@ -33,10 +33,10 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt"):
             f"subtitles={srt_filename}:force_style='{style_str}'"
         )
     else:
-        # 9:16 Vertical HD (720x1280) with ultra-fast blurred background
+        # Ultra-fast 4x downscaled background blur for 9:16 Vertical HD (720x1280)
         vf = (
             "[0:v]split[a][b];"
-            "[a]scale=360:640:force_original_aspect_ratio=increase,crop=360:640,boxblur=10:2,scale=720:1280[bg];"
+            "[a]scale=180:320:force_original_aspect_ratio=increase,crop=180:320,boxblur=5:1,scale=720:1280[bg];"
             "[b]scale=720:-2[fg];"
             f"[bg][fg]overlay=(W-w)/2:(H-h)/2,subtitles={srt_filename}:force_style='{style_str}'"
         )
@@ -52,13 +52,14 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty"):
     out = f"clip{i}.mp4"
     cmd = [
         "ffmpeg", "-y",
-        "-threads", "2",
+        "-threads", "0",
         "-ss", str(c["start"]),
         "-i", os.path.abspath(video),
         "-t", str(c["end"] - c["start"]),
         "-filter_complex", vf,
         "-c:v", "libx264",
         "-preset", "ultrafast",
+        "-tune", "fastdecode",
         "-crf", "26",
         "-c:a", "aac",
         "-b:a", "96k",
