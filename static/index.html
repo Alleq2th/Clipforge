@@ -3,126 +3,1148 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClipForge — long video in, short clips out</title>
+<title>ClipForge — AI Video Repurposing & Viral Clips</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#161616;--bg2:#232323;--line:#2C2C2C;--ink:#eeeef0;--mute:#9a9a9f;--acc:#5c985a;--acc2:#56754b;--r:6px}
-*{box-sizing:border-box;margin:0}
-html{background:var(--bg)}
-body{font:400 16px/1.5 Inter,system-ui,sans-serif;color:var(--ink);min-height:100vh;overflow-x:hidden;position:relative}
-.beam{position:fixed;top:-20%;width:140px;height:140%;background:linear-gradient(#dedede00,#dedede1f,#dedede00);filter:blur(36px);transform:rotate(18deg);pointer-events:none;animation:sway 14s ease-in-out infinite alternate}
-.b1{left:58%}.b2{left:74%;width:70px;animation-delay:-5s;opacity:.7}.b3{left:6%;width:50px;animation-delay:-9s;opacity:.5}
-@keyframes sway{to{transform:rotate(26deg) translateX(40px)}}
-nav{display:flex;justify-content:space-between;align-items:center;padding:24px 24px 0;position:relative}
-.logo{font:400 24px 'Instrument Serif',serif;letter-spacing:.2px}
-.logo b{color:var(--acc);font-weight:400}
-nav span{font-size:13px;color:var(--mute);border:1px solid var(--line);padding:4px 16px;border-radius:var(--r);background:#16161699;backdrop-filter:blur(8px)}
-main{position:relative;max-width:1080px;margin:0 auto;padding:0 24px 96px}
-.hero{padding:96px 0 40px;max-width:760px}
-h1{font:400 clamp(48px,11vw,104px)/.95 'Instrument Serif',serif;letter-spacing:-1px}
-h1 em{color:var(--acc);font-style:italic}
-.sub{margin-top:24px;max-width:420px;color:var(--mute);margin-left:clamp(0px,8vw,96px)}
-form{display:flex;gap:0;margin:48px 0 0 clamp(0px,4vw,48px);max-width:720px;border:1px solid var(--line);border-radius:var(--r);background:var(--bg2);overflow:hidden}
-form:focus-within{border-color:var(--acc2)}
-input{flex:1;min-width:0;background:none;border:0;color:var(--ink);font:inherit;padding:16px 16px;outline:0}
-input::placeholder{color:#6d6d72}
-button{font:600 15px Inter,sans-serif;border:0;background:var(--acc);color:#161616;padding:0 24px;cursor:pointer}
-button:disabled{background:var(--line);color:var(--mute);cursor:wait}
-.hint{margin:16px 0 0 clamp(0px,4vw,48px);font-size:13px;color:var(--mute)}
-#run{display:none;margin-top:72px}
-.steps{display:flex;gap:24px;flex-wrap:wrap;font-size:13px;color:#6d6d72}
-.steps div{padding-bottom:8px;border-bottom:2px solid var(--line)}
-.steps .on{color:var(--ink);border-color:var(--acc)}.steps .ok{color:var(--mute);border-color:var(--acc2)}
-.label{margin-top:16px;color:var(--ink)}
-.err{margin-top:16px;color:#d9826f;border-left:2px solid #d9826f;padding-left:16px}
-.sk{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;margin-top:40px}
-.sk i{display:block;background:linear-gradient(90deg,var(--bg2),var(--line),var(--bg2));background-size:200% 100%;animation:sh 1.4s infinite;border-radius:var(--r);height:120px}
-.sk i:first-child{height:360px;grid-row:span 3}
-@keyframes sh{to{background-position:-200% 0}}
-#res{display:none;margin-top:72px}
-.done{display:flex;align-items:baseline;gap:16px;margin-bottom:40px}
-.done h2{font:400 clamp(32px,6vw,48px) 'Instrument Serif',serif}
-.done a{color:var(--acc);text-decoration:underline;text-underline-offset:4px;font-size:14px;cursor:pointer}
-.grid{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:24px;align-items:start}
-.feat video{width:100%;max-height:640px;aspect-ratio:9/16;object-fit:cover;background:var(--bg2);border-radius:var(--r);border:1px solid var(--line)}
-.rows{display:flex;flex-direction:column;gap:24px}
-.row{display:grid;grid-template-columns:96px 1fr;gap:16px;border-top:1px solid var(--line);padding-top:16px}
-.row:nth-child(even){margin-left:clamp(0px,3vw,32px)}
-.row video{width:96px;aspect-ratio:9/16;object-fit:cover;border-radius:var(--r);background:var(--bg2)}
-.t{font:400 22px/1.2 'Instrument Serif',serif}
-.cap{font-size:14px;color:var(--mute);margin-top:8px}
-.tags{font-size:13px;color:var(--acc);margin-top:8px}
-.act{display:flex;gap:16px;margin-top:16px;font-size:14px}
-.act a,.act span{color:var(--ink);text-decoration:underline;text-underline-offset:4px;cursor:pointer}
-.act a::after{content:" ↓"}
-.feat .t{font-size:32px;margin-top:16px}
-.tag-top{font-size:12px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin-top:16px}
-@media(max-width:720px){.sk,.grid{grid-template-columns:1fr}.hero{padding-top:56px}form{margin-left:0}.hint{margin-left:0}.sub{margin-left:0}}
+:root {
+  --bg: #121214;
+  --bg2: #1a1a1e;
+  --bg3: #24242a;
+  --line: #2e2e36;
+  --line-strong: #3f3f4a;
+  --ink: #f4f4f6;
+  --mute: #9e9ea8;
+  --acc: #10b981;
+  --acc-glow: rgba(16, 185, 129, 0.2);
+  --acc2: #059669;
+  --err: #f87171;
+  --r: 8px;
+  --r-lg: 14px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { background: var(--bg); color-scheme: dark; }
+body {
+  font: 400 15px/1.55 Inter, system-ui, -apple-system, sans-serif;
+  color: var(--ink);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+.beam {
+  position: fixed;
+  top: -20%;
+  width: 140px;
+  height: 140%;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0), rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0));
+  filter: blur(48px);
+  transform: rotate(20deg);
+  pointer-events: none;
+  animation: sway 16s ease-in-out infinite alternate;
+}
+.b1 { left: 65%; }
+.b2 { left: 80%; width: 90px; animation-delay: -6s; opacity: 0.6; }
+.b3 { left: 4%; width: 70px; animation-delay: -11s; opacity: 0.4; }
+@keyframes sway { to { transform: rotate(28deg) translateX(50px); } }
+
+/* Nav */
+nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  max-width: 1160px;
+  margin: 0 auto;
+  position: relative;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.logo {
+  font: 400 26px 'Instrument Serif', serif;
+  letter-spacing: 0.2px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.logo b { color: var(--acc); font-weight: 400; font-style: italic; }
+.nav-actions { display: flex; align-items: center; gap: 12px; }
+.badge {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--mute);
+  border: 1px solid var(--line);
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(22, 22, 24, 0.8);
+  backdrop-filter: blur(8px);
+}
+.nav-btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nav-btn:hover { border-color: var(--line-strong); background: var(--bg3); }
+.count-pill {
+  background: var(--acc);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+/* Layout */
+main {
+  position: relative;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 20px 96px;
+}
+.hero {
+  padding: 56px 0 32px;
+  text-align: center;
+  max-width: 780px;
+  margin: 0 auto;
+}
+h1 {
+  font: 400 clamp(42px, 8vw, 76px)/1.02 'Instrument Serif', serif;
+  letter-spacing: -1px;
+  margin-bottom: 16px;
+}
+h1 em { color: var(--acc); font-style: italic; }
+.sub {
+  color: var(--mute);
+  font-size: clamp(15px, 2vw, 17px);
+  max-width: 580px;
+  margin: 0 auto 32px;
+}
+
+/* Builder Container */
+.builder-box {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  margin-top: 12px;
+}
+
+/* Link input */
+.input-row {
+  display: flex;
+  gap: 10px;
+  position: relative;
+}
+.url-input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  color: var(--ink);
+  font: inherit;
+  padding: 14px 18px;
+  font-size: 15px;
+  outline: 0;
+  transition: border-color 0.2s;
+}
+.url-input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-glow); }
+.url-input::placeholder { color: #62626e; }
+
+.btn-add {
+  background: var(--bg3);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r);
+  padding: 0 20px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+.btn-add:hover { background: #2f2f38; }
+
+/* Video Queue Previews */
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 18px;
+}
+.queue-card {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 16px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 10px 14px;
+  align-items: center;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+.queue-thumb {
+  width: 140px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg3);
+}
+.queue-meta { min-width: 0; }
+.queue-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+.queue-author { font-size: 12px; color: var(--mute); }
+.queue-status-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--acc);
+  background: var(--acc-glow);
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-top: 6px;
+}
+.queue-remove {
+  background: none;
+  border: 0;
+  color: var(--mute);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  line-height: 1;
+  transition: color 0.2s;
+}
+.queue-remove:hover { color: var(--err); }
+
+/* Settings Wizard Grid */
+.settings-section {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.settings-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--mute);
+}
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.setting-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  color: var(--mute);
+  padding: 8px 14px;
+  border-radius: var(--r);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.chip:hover { border-color: var(--line-strong); color: var(--ink); }
+.chip.active {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: var(--acc);
+  color: var(--acc);
+  font-weight: 600;
+}
+
+/* Main Action Button */
+.action-row {
+  margin-top: 32px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
+}
+.btn-primary {
+  font: 600 16px Inter, sans-serif;
+  background: var(--acc);
+  color: #0b291d;
+  border: 0;
+  border-radius: var(--r);
+  padding: 14px 32px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 4px 16px var(--acc-glow);
+}
+.btn-primary:hover:not(:disabled) {
+  background: #22c55e;
+  transform: translateY(-1px);
+}
+.btn-primary:disabled {
+  background: var(--line);
+  color: var(--mute);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Running / Live Progress Card */
+#run-section {
+  display: none;
+  margin-top: 40px;
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.run-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.run-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.pulse-spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--acc);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulse 1.6s infinite;
+}
+@keyframes pulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+.timer-pill {
+  font-size: 13px;
+  font-family: monospace;
+  color: var(--mute);
+  border: 1px solid var(--line);
+  padding: 4px 10px;
+  border-radius: var(--r);
+  background: var(--bg);
+}
+
+/* Stepper */
+.stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.step-item {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  padding: 12px 14px;
+  transition: all 0.3s;
+}
+.step-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--mute);
+  margin-bottom: 4px;
+}
+.step-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--mute);
+}
+.step-item.active {
+  border-color: var(--acc);
+  background: rgba(16, 185, 129, 0.08);
+}
+.step-item.active .step-num,
+.step-item.active .step-name { color: var(--acc); }
+.step-item.completed {
+  border-color: var(--line-strong);
+  background: var(--bg);
+}
+.step-item.completed .step-num,
+.step-item.completed .step-name { color: var(--ink); }
+
+.current-status-box {
+  background: var(--bg);
+  border-left: 3px solid var(--acc);
+  padding: 12px 16px;
+  border-radius: 0 var(--r) var(--r) 0;
+  margin-bottom: 24px;
+}
+.current-status-text {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 500;
+}
+.err-box {
+  background: rgba(248, 113, 113, 0.1);
+  border-left: 3px solid var(--err);
+  padding: 14px 18px;
+  border-radius: 0 var(--r) var(--r) 0;
+  color: #fca5a5;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+/* Shimmer Loader */
+.shimmer-wrap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.shimmer-card {
+  height: 280px;
+  background: linear-gradient(90deg, var(--bg) 0%, var(--bg3) 50%, var(--bg) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--r);
+  border: 1px solid var(--line);
+}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* Results Section */
+#results-section {
+  display: none;
+  margin-top: 48px;
+}
+.results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.results-header h2 {
+  font: 400 clamp(28px, 5vw, 42px) 'Instrument Serif', serif;
+}
+.results-actions {
+  display: flex;
+  gap: 12px;
+}
+.btn-secondary {
+  background: var(--bg2);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  padding: 8px 18px;
+  border-radius: var(--r);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-secondary:hover { background: var(--bg3); }
+
+/* Clips Grid */
+.clips-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 24px;
+}
+.clip-card {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.clip-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--line-strong);
+}
+.clip-video-wrap {
+  width: 100%;
+  aspect-ratio: 9/16;
+  background: #000;
+  position: relative;
+}
+.clip-video-wrap video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.clip-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+.clip-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--acc);
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.clip-title {
+  font: 600 16px Inter, sans-serif;
+  color: var(--ink);
+  line-height: 1.35;
+  margin-bottom: 8px;
+}
+.clip-caption {
+  font-size: 13px;
+  color: var(--mute);
+  margin-bottom: 12px;
+  line-height: 1.45;
+  flex: 1;
+}
+.clip-tags {
+  font-size: 12px;
+  color: var(--acc);
+  margin-bottom: 16px;
+}
+.clip-footer {
+  display: flex;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+.btn-dl {
+  flex: 1;
+  background: var(--acc);
+  color: #0b291d;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 10px;
+  border-radius: var(--r);
+  text-align: center;
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+.btn-dl:hover { opacity: 0.9; }
+.btn-copy {
+  background: var(--bg3);
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.btn-copy:hover { background: #2f2f38; }
+
+/* History Drawer / Modal */
+#history-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.history-dialog {
+  background: var(--bg2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  max-width: 800px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 28px;
+  position: relative;
+}
+.history-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.history-header h3 {
+  font: 400 32px 'Instrument Serif', serif;
+}
+.btn-close {
+  background: none;
+  border: 0;
+  color: var(--mute);
+  font-size: 24px;
+  cursor: pointer;
+}
+.btn-close:hover { color: var(--ink); }
+
+@media (max-width: 768px) {
+  .hero { padding: 36px 0 20px; }
+  .stepper { grid-template-columns: repeat(2, 1fr); }
+  .queue-card { grid-template-columns: 100px 1fr auto; gap: 12px; }
+  .queue-thumb { width: 100px; height: 60px; }
+  .input-row { flex-direction: column; }
+  .btn-add { padding: 12px; }
+}
 </style>
 </head>
 <body>
-<div class="beam b1"></div><div class="beam b2"></div><div class="beam b3"></div>
-<nav><div class="logo">Clip<b>Forge</b></div><span>No watermark. Ever.</span></nav>
+<div class="beam b1"></div>
+<div class="beam b2"></div>
+<div class="beam b3"></div>
+
+<nav>
+  <div class="logo" onclick="location.reload()">Clip<b>Forge</b></div>
+  <div class="nav-actions">
+    <span class="badge">🔥 GTA 6 & Viral Shorts Ready</span>
+    <button class="nav-btn" id="open-history">
+      📁 My Clips <span class="count-pill" id="history-badge">0</span>
+    </button>
+  </div>
+</nav>
+
 <main>
-<section class="hero">
-<h1>Long video in. <em>Short clips</em> out.</h1>
-<p class="sub">Drop a YouTube link. ClipForge finds the moments worth posting, cuts them vertical, burns in captions, and writes the hashtags.</p>
-<form id="f"><input id="u" placeholder="Paste a YouTube link, e.g. youtube.com/watch?v=..." autocomplete="off"><button id="go">Clip it</button></form>
-<p class="hint">Works best on talks, streams, podcasts and gameplay under 60 minutes.</p>
-</section>
-<section id="run">
-<div class="steps" id="steps"><div>1 Download</div><div>2 Transcribe</div><div>3 Find moments</div><div>4 Cut clips</div></div>
-<p class="label" id="lab">Starting...</p>
-<p class="err" id="err" hidden></p>
-<div class="sk" id="sk"><i></i><i></i><i></i><i></i></div>
-</section>
-<section id="res"></section>
+  <section class="hero">
+    <h1>Long video in. <em>Viral clips</em> out.</h1>
+    <p class="sub">Paste 1 to 5 YouTube links. Customize duration, count, and hype focus. ClipForge transcribes, finds viral moments, and renders ready-to-post 9:16 Shorts with burned-in subtitles.</p>
+  </section>
+
+  <!-- Main Builder -->
+  <section class="builder-box" id="builder-box">
+    <!-- Link Input Bar -->
+    <div class="input-row">
+      <input type="text" class="url-input" id="url-input" placeholder="Paste YouTube link (e.g. youtube.com/watch?v=...)" autocomplete="off">
+      <button class="btn-add" id="btn-add-url">+ Add to Queue</button>
+    </div>
+
+    <!-- Active Video Queue Previews -->
+    <div class="queue-list" id="queue-list"></div>
+
+    <!-- Settings Wizard -->
+    <div class="settings-section">
+      <div class="settings-header">
+        <span class="settings-title">Clip Customization Options</span>
+      </div>
+      <div class="settings-grid">
+        <!-- Target Duration -->
+        <div class="setting-group">
+          <label>Clip Duration</label>
+          <div class="chips" id="duration-chips">
+            <div class="chip" data-val="under30">⚡ Under 30s</div>
+            <div class="chip active" data-val="30to60">🔥 30 - 60s (Recommended)</div>
+            <div class="chip" data-val="1to3m">⏱️ 1 - 3 mins</div>
+            <div class="chip" data-val="auto">🎯 Auto</div>
+          </div>
+        </div>
+
+        <!-- Number of Clips -->
+        <div class="setting-group">
+          <label>Clips per Video</label>
+          <div class="chips" id="count-chips">
+            <div class="chip" data-val="3">3 clips</div>
+            <div class="chip active" data-val="5">5 clips</div>
+            <div class="chip" data-val="7">7 clips</div>
+            <div class="chip" data-val="10">10 clips</div>
+          </div>
+        </div>
+
+        <!-- Content Vibe / Focus -->
+        <div class="setting-group">
+          <label>Moment Focus</label>
+          <div class="chips" id="focus-chips">
+            <div class="chip active" data-val="action">🎮 Action & Gameplay</div>
+            <div class="chip" data-val="viral">🚀 Viral Hook</div>
+            <div class="chip" data-val="funny">😂 Comedy & Fails</div>
+            <div class="chip" data-val="insight">💡 Insights & Talk</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Bar -->
+    <div class="action-row">
+      <span class="queue-counter-text" id="queue-counter" style="color:var(--mute); font-size:13px;">0 videos queued</span>
+      <button class="btn-primary" id="btn-start" disabled>
+        <span>⚡ Start Clipping</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- Live Animated Progress Section -->
+  <section id="run-section">
+    <div class="run-header">
+      <div class="run-title-wrap">
+        <div class="pulse-spinner"></div>
+        <h3 style="font-size:16px; font-weight:600;" id="run-video-title">Processing Video...</h3>
+      </div>
+      <div class="timer-pill" id="timer-display">00:00</div>
+    </div>
+
+    <!-- Stepper -->
+    <div class="stepper" id="stepper">
+      <div class="step-item active" id="step-1">
+        <div class="step-num">STEP 1</div>
+        <div class="step-name">Download 720p</div>
+      </div>
+      <div class="step-item" id="step-2">
+        <div class="step-num">STEP 2</div>
+        <div class="step-name">Transcribe</div>
+      </div>
+      <div class="step-item" id="step-3">
+        <div class="step-num">STEP 3</div>
+        <div class="step-name">Find Moments</div>
+      </div>
+      <div class="step-item" id="step-4">
+        <div class="step-num">STEP 4</div>
+        <div class="step-name">Cut & Caption</div>
+      </div>
+    </div>
+
+    <div class="current-status-box" id="status-box">
+      <div class="current-status-text" id="status-text">Starting pipeline...</div>
+    </div>
+
+    <div class="err-box" id="error-box" style="display:none;"></div>
+
+    <!-- Shimmer Skeleton -->
+    <div class="shimmer-wrap" id="shimmer-wrap">
+      <div class="shimmer-card"></div>
+      <div class="shimmer-card"></div>
+      <div class="shimmer-card"></div>
+    </div>
+  </section>
+
+  <!-- Results Section -->
+  <section id="results-section">
+    <div class="results-header">
+      <div>
+        <h2 id="results-count-title">Clips Ready</h2>
+        <p style="color:var(--mute); font-size:14px; margin-top:4px;" id="results-subtitle">Preview, download MP4, or copy captions with one click.</p>
+      </div>
+      <div class="results-actions">
+        <button class="btn-secondary" id="btn-clip-another">Clip Another Video</button>
+      </div>
+    </div>
+
+    <div class="clips-grid" id="clips-grid"></div>
+  </section>
 </main>
+
+<!-- History Modal -->
+<div id="history-modal">
+  <div class="history-dialog">
+    <div class="history-header">
+      <h3>My Generated Clips</h3>
+      <button class="btn-close" id="close-history">&times;</button>
+    </div>
+    <div id="history-content" style="display:flex; flex-direction:column; gap:16px;"></div>
+  </div>
+</div>
+
 <script>
-const $=id=>document.getElementById(id);
-const stepOf=s=>/Download/i.test(s)?0:/Transcrib/i.test(s)?1:/picking/i.test(s)?2:/Cutting|Done/i.test(s)?3:0;
-let timer;
-function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
-$("f").onsubmit=async e=>{
- e.preventDefault();clearInterval(timer);
- $("go").disabled=true;$("res").style.display="none";$("err").hidden=true;$("sk").style.display="grid";
- $("run").style.display="block";$("lab").textContent="Starting...";paint(0,false);
- const r=await fetch("/api/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({url:$("u").value})});
- const d=await r.json();
- if(d.error)return fail(d.error);
- timer=setInterval(()=>poll(d.id),2000);
+// State
+const state = {
+  queue: [], // [{ url, id, title, author, thumbnail }]
+  options: {
+    duration: '30to60',
+    count: 5,
+    focus: 'action'
+  },
+  running: false,
+  timerInterval: null,
+  startTime: null
 };
-function paint(i,done){[...$("steps").children].forEach((s,n)=>s.className=done||n<i?"ok":n==i?"on":"")}
-function fail(m){clearInterval(timer);$("go").disabled=false;$("err").textContent=m;$("err").hidden=false;$("sk").style.display="none"}
-async function poll(id){
- const d=await (await fetch("/api/jobs/"+id)).json();
- if(d.error)return fail(d.error);
- $("lab").textContent=d.status;paint(stepOf(d.status),d.done);
- if(d.done){clearInterval(timer);$("go").disabled=false;show(d.clips)}
+
+const $ = id => document.getElementById(id);
+
+// Init chip selectors
+function setupChips(containerId, stateKey) {
+  const container = $(containerId);
+  container.addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    state.options[stateKey] = chip.dataset.val;
+  });
 }
-function copy(t,b){navigator.clipboard.writeText(t);b.textContent="Copied";setTimeout(()=>b.textContent="Copy caption",1500)}
-function info(c,feat){
- const w=el("div");
- if(feat)w.append(el("div","tag-top","Top pick"));
- w.append(el("div","t",c.title),el("div","cap",c.caption),el("div","tags",c.hashtags.join(" ")));
- const a=el("div","act"),dl=el("a",null,"Download");
- dl.href=`/clips/${c.vid}/${c.file}?dl=1`;
- const cp=el("span",null,"Copy caption");cp.onclick=()=>copy(c.caption+"\n\n"+c.hashtags.join(" "),cp);
- a.append(dl,cp);w.append(a);return w;
+setupChips('duration-chips', 'duration');
+setupChips('count-chips', 'count');
+setupChips('focus-chips', 'focus');
+
+// Extract YouTube ID
+function extractVideoId(url) {
+  const m = url.match(/(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
 }
-function vid(c){const v=el("video");v.src=`/clips/${c.vid}/${c.file}`;v.controls=true;v.preload="metadata";v.playsInline=true;return v}
-function show(clips){
- $("run").style.display="none";const r=$("res");r.replaceChildren();r.style.display="block";
- if(!clips.length){r.append(el("h2",null,"No strong moments found. Try a longer or more talkative video."));return}
- const top=el("div","done");top.append(el("h2",null,clips.length+" clips ready"));
- const again=el("a",null,"Clip another");again.onclick=()=>{r.style.display="none";$("u").value="";$("u").focus()};
- top.append(again);r.append(top);
- const g=el("div","grid"),f=el("div","feat");f.append(vid(clips[0]),info(clips[0],true));
- const rows=el("div","rows");
- clips.slice(1).forEach(c=>{const row=el("div","row");row.append(vid(c),info(c,false));rows.append(row)});
- g.append(f,rows);r.append(g);r.scrollIntoView({behavior:"smooth"});
+
+// Fetch preview metadata
+async function fetchPreview(url) {
+  const vid = extractVideoId(url);
+  if (!vid) return null;
+  try {
+    const res = await fetch('/api/preview?url=' + encodeURIComponent(url));
+    const data = await res.json();
+    if (data.ok) return data;
+  } catch(e) {}
+  return {
+    id: vid,
+    title: 'YouTube Video (' + vid + ')',
+    author: 'YouTube',
+    thumbnail: 'https://img.youtube.com/vi/' + vid + '/hqdefault.jpg'
+  };
 }
+
+// Add link to queue
+async function addLinkToQueue(url) {
+  const trimmed = url.trim();
+  if (!trimmed) return;
+  const vid = extractVideoId(trimmed);
+  if (!vid) {
+    alert('Please enter a valid YouTube link.');
+    return;
+  }
+  if (state.queue.find(q => q.id === vid)) {
+    alert('This video is already in your queue.');
+    return;
+  }
+  if (state.queue.length >= 5) {
+    alert('Maximum 5 videos can be queued at once.');
+    return;
+  }
+
+  // Placeholder while loading
+  const tempItem = {
+    url: trimmed,
+    id: vid,
+    title: 'Loading video preview...',
+    author: 'YouTube',
+    thumbnail: 'https://img.youtube.com/vi/' + vid + '/hqdefault.jpg'
+  };
+  state.queue.push(tempItem);
+  renderQueue();
+  $('url-input').value = '';
+
+  const meta = await fetchPreview(trimmed);
+  if (meta) {
+    tempItem.title = meta.title;
+    tempItem.author = meta.author;
+    tempItem.thumbnail = meta.thumbnail;
+    renderQueue();
+  }
+}
+
+$('btn-add-url').onclick = () => addLinkToQueue($('url-input').value);
+$('url-input').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); addLinkToQueue($('url-input').value); } };
+
+// Auto-detect pasted text
+$('url-input').onpaste = e => {
+  setTimeout(() => {
+    const val = $('url-input').value;
+    if (val.includes('youtube.com') || val.includes('youtu.be')) {
+      addLinkToQueue(val);
+    }
+  }, 50);
+};
+
+// Render Queue
+function renderQueue() {
+  const list = $('queue-list');
+  list.innerHTML = '';
+  state.queue.forEach((item, idx) => {
+    const card = document.createElement('div');
+    card.className = 'queue-card';
+    card.innerHTML = `
+      <img src="${item.thumbnail}" class="queue-thumb" alt="Thumbnail">
+      <div class="queue-meta">
+        <div class="queue-title" title="${item.title}">${item.title}</div>
+        <div class="queue-author">${item.author}</div>
+        <div class="queue-status-tag">Ready in Queue</div>
+      </div>
+      <button class="queue-remove" onclick="removeQueueItem(${idx})">&times;</button>
+    `;
+    list.appendChild(card);
+  });
+
+  const count = state.queue.length;
+  $('queue-counter').textContent = count === 1 ? '1 video queued' : count + ' videos queued';
+  $('btn-start').disabled = count === 0 || state.running;
+}
+
+window.removeQueueItem = function(idx) {
+  state.queue.splice(idx, 1);
+  renderQueue();
+};
+
+// Stepper updater
+function updateStep(status) {
+  const steps = [$('step-1'), $('step-2'), $('step-3'), $('step-4')];
+  let activeIdx = 0;
+  if (/Download/i.test(status)) activeIdx = 0;
+  else if (/Transcrib/i.test(status)) activeIdx = 1;
+  else if (/picking|finding|moment/i.test(status)) activeIdx = 2;
+  else if (/Cutting|Done|style|caption/i.test(status)) activeIdx = 3;
+
+  steps.forEach((s, idx) => {
+    s.classList.remove('active', 'completed');
+    if (idx < activeIdx) s.classList.add('completed');
+    else if (idx === activeIdx) s.classList.add('active');
+  });
+}
+
+// Timer
+function startTimer() {
+  state.startTime = Date.now();
+  clearInterval(state.timerInterval);
+  state.timerInterval = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+    const s = String(elapsed % 60).padStart(2, '0');
+    $('timer-display').textContent = m + ':' + s;
+  }, 1000);
+}
+function stopTimer() {
+  clearInterval(state.timerInterval);
+}
+
+// Run Process
+$('btn-start').onclick = async () => {
+  if (!state.queue.length || state.running) return;
+  state.running = true;
+  $('btn-start').disabled = true;
+  $('builder-box').style.display = 'none';
+  $('results-section').style.display = 'none';
+  $('error-box').style.display = 'none';
+  $('run-section').style.display = 'block';
+
+  startTimer();
+
+  // Process items in queue sequentially
+  for (let i = 0; i < state.queue.length; i++) {
+    const item = state.queue[i];
+    $('run-video-title').textContent = `Processing (${i + 1}/${state.queue.length}): ${item.title}`;
+    $('status-text').textContent = 'Submitting video to worker pipeline...';
+    updateStep('Download');
+
+    try {
+      const res = await fetch('/api/jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: item.url,
+          count: parseInt(state.options.count),
+          duration: state.options.duration,
+          focus: state.options.focus
+        })
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      // Poll until done
+      const clips = await pollJob(data.id);
+      showResults(clips, item);
+      saveToHistory(item, clips);
+    } catch(err) {
+      stopTimer();
+      $('error-box').textContent = 'Error: ' + err.message;
+      $('error-box').style.display = 'block';
+      state.running = false;
+      return;
+    }
+  }
+
+  stopTimer();
+  state.running = false;
+  $('run-section').style.display = 'none';
+  $('results-section').style.display = 'block';
+};
+
+// Poll job
+function pollJob(jid) {
+  return new Promise((resolve, reject) => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/jobs/' + jid);
+        const data = await res.json();
+        if (data.error) {
+          clearInterval(interval);
+          reject(new Error(data.error));
+          return;
+        }
+        $('status-text').textContent = data.status || 'Processing...';
+        updateStep(data.status || '');
+        if (data.done) {
+          clearInterval(interval);
+          resolve(data.clips || []);
+        }
+      } catch(e) {
+        clearInterval(interval);
+        reject(e);
+      }
+    }, 2500);
+  });
+}
+
+// Display results
+function showResults(clips, videoMeta) {
+  $('results-count-title').textContent = `${clips.length} Viral Clips Ready`;
+  $('results-subtitle').textContent = `Generated from "${videoMeta.title}" with burned-in subtitles.`;
+
+  const grid = $('clips-grid');
+  grid.innerHTML = '';
+
+  if (!clips.length) {
+    grid.innerHTML = '<p style="color:var(--mute); padding:20px;">No clips extracted. Try choosing different moment settings or a longer video.</p>';
+    return;
+  }
+
+  clips.forEach((c, idx) => {
+    const card = document.createElement('div');
+    card.className = 'clip-card';
+    const tagsText = (c.hashtags || []).join(' ');
+    card.innerHTML = `
+      <div class="clip-video-wrap">
+        <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
+      </div>
+      <div class="clip-body">
+        <div class="clip-badge">Clip #${idx + 1} • Top Hook</div>
+        <div class="clip-title">${c.title || 'Highlight #' + (idx + 1)}</div>
+        <div class="clip-caption">${c.caption || ''}</div>
+        <div class="clip-tags">${tagsText}</div>
+        <div class="clip-footer">
+          <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
+          <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
+        </div>
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+
+  // Store clips on window for easy copying
+  window._currentClips = clips;
+}
+
+window.copyCaption = function(idx, btn) {
+  const clip = window._currentClips[idx];
+  if (!clip) return;
+  const text = `${clip.title}\n\n${clip.caption}\n\n${(clip.hashtags || []).join(' ')}`;
+  navigator.clipboard.writeText(text);
+  const oldText = btn.textContent;
+  btn.textContent = 'Copied!';
+  setTimeout(() => btn.textContent = oldText, 1500);
+};
+
+$('btn-clip-another').onclick = () => {
+  $('results-section').style.display = 'none';
+  $('builder-box').style.display = 'block';
+  state.queue = [];
+  renderQueue();
+};
+
+// History storage
+function saveToHistory(video, clips) {
+  let hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
+  hist.unshift({
+    video,
+    clips,
+    date: new Date().toLocaleDateString()
+  });
+  hist = hist.slice(0, 30);
+  localStorage.setItem('clipforge_history', JSON.stringify(hist));
+  updateHistoryBadge();
+}
+
+function updateHistoryBadge() {
+  const hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
+  $('history-badge').textContent = hist.length;
+}
+updateHistoryBadge();
+
+// History Modal
+$('open-history').onclick = async () => {
+  $('history-modal').style.display = 'flex';
+  const container = $('history-content');
+  container.innerHTML = '<p style="color:var(--mute);">Loading clips...</p>';
+
+  let serverJobs = [];
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    serverJobs = data.jobs || [];
+  } catch(e) {}
+
+  const localHist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
+
+  if (!serverJobs.length && !localHist.length) {
+    container.innerHTML = '<p style="color:var(--mute); padding:16px 0;">No clips saved yet. Clip a video to see it here!</p>';
+    return;
+  }
+
+  container.innerHTML = '';
+  // Render server jobs
+  serverJobs.forEach(job => {
+    const card = document.createElement('div');
+    card.className = 'queue-card';
+    const thumb = job.preview?.thumbnail || (job.clips?.[0] ? `https://img.youtube.com/vi/${job.clips[0].vid}/hqdefault.jpg` : '');
+    const title = job.preview?.title || `Processed Video (${job.clips?.length || 0} clips)`;
+    card.innerHTML = `
+      ${thumb ? `<img src="${thumb}" class="queue-thumb">` : ''}
+      <div class="queue-meta">
+        <div class="queue-title">${title}</div>
+        <div class="queue-author">${job.clips?.length || 0} clips generated</div>
+      </div>
+      <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="loadJobClips('${job.id}')">View Clips</button>
+    `;
+    container.appendChild(card);
+  });
+};
+
+window.loadJobClips = async function(jid) {
+  $('history-modal').style.display = 'none';
+  $('builder-box').style.display = 'none';
+  $('run-section').style.display = 'none';
+  $('results-section').style.display = 'block';
+
+  try {
+    const res = await fetch('/api/jobs/' + jid);
+    const data = await res.json();
+    showResults(data.clips || [], data.preview || { title: 'Saved Video' });
+  } catch(e) {
+    alert('Could not load clips: ' + e.message);
+  }
+};
+
+$('close-history').onclick = () => $('history-modal').style.display = 'none';
+$('history-modal').onclick = e => { if (e.target === $('history-modal')) $('history-modal').style.display = 'none'; };
 </script>
 </body>
 </html>
