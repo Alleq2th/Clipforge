@@ -1,4 +1,4 @@
-import os, threading, uuid, json, time, re, urllib.request
+import os, threading, uuid, json, time, re, urllib.request, urllib.parse
 from flask import Flask, jsonify, request, send_from_directory
 from config import OUT_DIR, WORK_DIR
 from llm import providers
@@ -8,24 +8,61 @@ from storage import get_dir_size_mb, cleanup_storage
 app = Flask(__name__, static_folder="static", static_url_path="")
 jobs = {}
 
-def get_yt_meta(url):
+def get_video_meta(url):
+    domain = urllib.parse.urlparse(url).netloc.lower()
+
+    # 1. YouTube
     m = re.search(r"(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})", url)
-    if not m:
-        return {"error": "Invalid YouTube URL"}
-    vid = m.group(1)
-    thumb = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
-    title = f"YouTube Video ({vid})"
-    author = "YouTube"
-    try:
-        oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"
-        req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=3) as res:
-            data = json.loads(res.read().decode())
-            title = data.get("title", title)
-            author = data.get("author_name", author)
-    except Exception:
-        pass
-    return {"ok": True, "id": vid, "title": title, "author": author, "thumbnail": thumb}
+    if m:
+        vid = m.group(1)
+        thumb = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
+        title = f"YouTube Video ({vid})"
+        author = "YouTube"
+        try:
+            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"
+            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                data = json.loads(res.read().decode())
+                title = data.get("title", title)
+                author = data.get("author_name", author)
+        except Exception:
+            pass
+        return {"ok": True, "id": vid, "title": title, "author": author, "thumbnail": thumb, "platform": "YouTube"}
+
+    # 2. TikTok
+    if "tiktok.com" in domain:
+        try:
+            oembed_url = f"https://www.tiktok.com/oembed?url={urllib.parse.quote(url)}"
+            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=3) as res:
+                data = json.loads(res.read().decode())
+                return {
+                    "ok": True,
+                    "id": str(uuid.uuid4())[:8],
+                    "title": data.get("title") or "TikTok Video",
+                    "author": data.get("author_name") or "TikTok",
+                    "thumbnail": data.get("thumbnail_url") or "",
+                    "platform": "TikTok"
+                }
+        except Exception:
+            return {"ok": True, "id": str(uuid.uuid4())[:8], "title": "TikTok Video", "author": "TikTok", "thumbnail": "", "platform": "TikTok"}
+
+    # 3. Instagram, Twitch, Facebook, Rumble, X/Twitter, or generic video link
+    platform_name = "Web Video"
+    if "twitch.tv" in domain: platform_name = "Twitch"
+    elif "instagram.com" in domain: platform_name = "Instagram"
+    elif "facebook.com" in domain or "fb.watch" in domain: platform_name = "Facebook"
+    elif "rumble.com" in domain: platform_name = "Rumble"
+    elif "twitter.com" in domain or "x.com" in domain: platform_name = "X / Twitter"
+
+    return {
+        "ok": True,
+        "id": str(uuid.uuid4())[:8],
+        "title": f"{platform_name} Stream / Clip",
+        "author": domain,
+        "thumbnail": "",
+        "platform": platform_name
+    }
 
 def job_path(jid):
     return os.path.join(WORK_DIR, "jobs", f"{jid}.json")
@@ -54,12 +91,23 @@ def load_job(jid):
 
 def work(jid, url, options):
     try:
+        if jid in jobs:
+            jobs[jid]["clips"] = []
+
         def on_status(m):
             if jid in jobs:
                 jobs[jid]["status"] = m
                 save_job(jid)
 
-        clips = run(url, on_status, options=options)
+        def on_clip(clip_item, idx, total):
+            if jid in jobs:
+                if "clips" not in jobs[jid]:
+                    jobs[jid]["clips"] = []
+                jobs[jid]["clips"].append(clip_item)
+                jobs[jid]["status"] = f"Generated clip {idx} of {total} • Ready to watch and download!"
+                save_job(jid)
+
+        clips = run(url, cb=on_status, on_clip=on_clip, options=options)
         if jid in jobs:
             jobs[jid]["clips"] = clips
             jobs[jid]["done"] = True
@@ -75,7 +123,7 @@ def preview():
     url = request.args.get("url", "").strip()
     if not url:
         return jsonify({"error": "URL required"}), 400
-    meta = get_yt_meta(url)
+    meta = get_video_meta(url)
     return jsonify(meta)
 
 @app.get("/api/storage")
@@ -93,89 +141,70 @@ def storage_info():
 def create():
     data = request.json or {}
     url = data.get("url", "").strip()
-    if not url: return jsonify(error="Paste a YouTube link"), 400
-    if not providers(): return jsonify(error="No AI key set (Set GEMINI_API_KEY or GROQ_API_KEY)"), 500
+    if not url: return jsonify({"error": "URL required"}), 400
 
     count = int(data.get("count", 5))
     dur = data.get("duration", "30to60")
-    focus = data.get("focus", "viral")
-    aspect_ratio = data.get("aspect_ratio", "9:16")
-    caption_style = data.get("caption_style", "beasty")
-
-    if dur == "under30":
-        min_len, max_len = 15, 30
-    elif dur == "30to60":
-        min_len, max_len = 30, 60
-    elif dur == "1to3m":
-        min_len, max_len = 60, 180
-    else:
-        min_len, max_len = 20, 60
+    if dur == "under30": min_len, max_len = 10, 29
+    elif dur == "1to3m": min_len, max_len = 60, 180
+    elif dur == "auto": min_len, max_len = 15, 90
+    else: min_len, max_len = 30, 60
 
     options = {
-        "count": max(1, min(count, 20)),
+        "count": count,
         "min_len": min_len,
         "max_len": max_len,
-        "focus": focus,
-        "aspect_ratio": aspect_ratio,
-        "caption_style": caption_style,
+        "focus": data.get("focus", "viral"),
+        "aspect_ratio": data.get("aspect_ratio", "9:16"),
+        "caption_style": data.get("caption_style", "beasty"),
     }
 
-    meta = get_yt_meta(url)
-    jid = uuid.uuid4().hex[:8]
+    meta = get_video_meta(url)
+    jid = str(uuid.uuid4())
     jobs[jid] = {
         "id": jid,
-        "url": url,
-        "preview": meta,
-        "options": options,
-        "status": "Starting...",
+        "status": "Queued...",
         "done": False,
         "clips": [],
-        "error": None,
-        "created_at": time.time(),
+        "preview": meta,
+        "options": options,
+        "created_at": time.time()
     }
     save_job(jid)
     threading.Thread(target=work, args=(jid, url, options), daemon=True).start()
-    return jsonify(id=jid, preview=meta)
+    return jsonify({"id": jid})
 
 @app.get("/api/jobs/<jid>")
 def status(jid):
     j = load_job(jid)
-    if not j:
-        return jsonify({"error": "Job not found. The server may have restarted or the link expired."}), 404
+    if not j: return jsonify({"error": "Job not found"}), 404
     return jsonify(j)
 
 @app.get("/api/history")
 def history():
-    jobs_dir = os.path.join(WORK_DIR, "jobs")
-    if not os.path.exists(jobs_dir):
-        return jsonify({"jobs": []})
-    out = []
-    try:
-        files = sorted(
-            [os.path.join(jobs_dir, f) for f in os.listdir(jobs_dir) if f.endswith(".json")],
-            key=os.path.getmtime,
-            reverse=True
-        )
-        for f in files[:25]:
-            try:
-                with open(f, "r", encoding="utf-8") as jf:
-                    data = json.load(jf)
-                    if data.get("clips") or data.get("done"):
-                        out.append(data)
-            except Exception:
-                continue
-    except Exception:
-        pass
-    return jsonify({"jobs": out})
+    saved = []
+    p = os.path.join(WORK_DIR, "jobs")
+    if os.path.exists(p):
+        for f in sorted(os.listdir(p), reverse=True):
+            if f.endswith(".json"):
+                try:
+                    with open(os.path.join(p, f), "r", encoding="utf-8") as fp:
+                        data = json.load(fp)
+                        if data.get("done") and data.get("clips"):
+                            saved.append(data)
+                except Exception:
+                    pass
+    return jsonify({"jobs": saved[:20]})
 
-@app.get("/clips/<vid>/<name>")
-def clip(vid, name):
-    return send_from_directory(os.path.abspath(os.path.join(OUT_DIR, vid)), name,
-                               as_attachment=request.args.get("dl") == "1")
+@app.get("/clips/<vid>/<filename>")
+def get_clip(vid, filename):
+    d = os.path.join(OUT_DIR, vid)
+    dl = request.args.get("dl") == "1"
+    return send_from_directory(d, filename, as_attachment=dl)
 
 @app.get("/")
 def index():
-    return app.send_static_file("index.html") if os.path.exists("static/index.html") else "ClipForge API running"
+    return send_from_directory("static", "index.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 5000)))
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True)
