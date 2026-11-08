@@ -1,1152 +1,1416 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ClipForge Studio — AI Video Repurposing & Viral Clips</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap">
-<style>
-:root {
-  --bg: #111114;
-  --bg2: #18181c;
-  --bg3: #22222a;
-  --line: #2b2b36;
-  --line-strong: #3e3e4e;
-  --ink: #f4f4f7;
-  --mute: #9d9da8;
-  --acc: #10b981;
-  --acc-glow: rgba(16, 185, 129, 0.2);
-  --acc-gold: #f59e0b;
-  --gold-glow: rgba(245, 158, 11, 0.2);
-  --err: #f87171;
-  --r: 8px;
-  --r-lg: 14px;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html { background: var(--bg); color-scheme: dark; }
-body {
-  font: 400 15px/1.55 Inter, system-ui, -apple-system, sans-serif;
-  color: var(--ink);
-  min-height: 100vh;
-  overflow-x: hidden;
-  position: relative;
-}
-.beam {
-  position: fixed;
-  top: -20%;
-  width: 140px;
-  height: 140%;
-  background: linear-gradient(180deg, rgba(16, 185, 129, 0), rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0));
-  filter: blur(48px);
-  transform: rotate(20deg);
-  pointer-events: none;
-  animation: sway 16s ease-in-out infinite alternate;
-}
-.b1 { left: 65%; }
-.b2 { left: 80%; width: 90px; animation-delay: -6s; opacity: 0.6; }
-.b3 { left: 4%; width: 70px; animation-delay: -11s; opacity: 0.4; }
-@keyframes sway { to { transform: rotate(28deg) translateX(50px); } }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>ClipForge — AI Video Repurposing & Viral Clips</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+  <style>
+    :root {
+      --bg: #0b0d14;
+      --card: #131722;
+      --card-inner: #1a1f2e;
+      --line: #262c3e;
+      --line-active: #3d4661;
+      --ink: #f8fafc;
+      --mute: #94a3b8;
+      --acc: #10b981;
+      --acc-glow: rgba(16, 185, 129, 0.25);
+      --acc-light: #34d399;
+      --gold: #f59e0b;
+      --gold-glow: rgba(245, 158, 11, 0.2);
+      --err: #ef4444;
+      --radius: 12px;
+      --radius-sm: 8px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { background: var(--bg); color-scheme: dark; }
+    body {
+      font: 400 15px/1.5 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      min-height: 100vh;
+      overflow-x: hidden;
+      background: radial-gradient(circle at 50% -20%, #1e293b 0%, var(--bg) 60%);
+      -webkit-font-smoothing: antialiased;
+    }
 
-/* Nav */
-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 24px;
-  max-width: 1180px;
-  margin: 0 auto;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-.logo {
-  font: 400 26px 'Instrument Serif', serif;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-.logo b { color: var(--acc); font-weight: 400; font-style: italic; }
-.nav-actions { display: flex; align-items: center; gap: 10px; }
-.badge-storage {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--acc);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(16, 185, 129, 0.08);
-}
-.nav-btn {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--ink);
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  padding: 6px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.nav-btn:hover { border-color: var(--line-strong); background: var(--bg3); }
-.count-pill {
-  background: var(--acc);
-  color: #000;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 1px 6px;
-  border-radius: 999px;
-}
+    /* Top Nav */
+    header {
+      border-bottom: 1px solid var(--line);
+      background: rgba(11, 13, 20, 0.85);
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+    .nav-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 12px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      cursor: pointer;
+    }
+    .brand-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--acc), #059669);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .brand span { color: var(--acc); }
+    .nav-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-lib {
+      background: var(--card);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-lib:hover { border-color: var(--line-active); background: var(--card-inner); }
+    .badge-count {
+      background: var(--acc);
+      color: #000;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
 
-/* Layout */
-main {
-  position: relative;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 0 20px 96px;
-}
-.hero {
-  padding: 48px 0 28px;
-  text-align: center;
-  max-width: 820px;
-  margin: 0 auto;
-}
-h1 {
-  font: 400 clamp(40px, 7vw, 72px)/1.04 'Instrument Serif', serif;
-  letter-spacing: -1px;
-  margin-bottom: 14px;
-}
-h1 em { color: var(--acc); font-style: italic; }
-.sub {
-  color: var(--mute);
-  font-size: clamp(15px, 2vw, 17px);
-  max-width: 620px;
-  margin: 0 auto 28px;
-}
+    /* Main Container */
+    main {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 24px 16px 80px;
+    }
 
-/* Builder Container */
-.builder-box {
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 24px;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  margin-top: 8px;
-}
+    /* Hero */
+    .hero {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: var(--acc-glow);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: var(--acc-light);
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    h1 {
+      font-size: clamp(24px, 5.5vw, 36px);
+      font-weight: 800;
+      line-height: 1.2;
+      letter-spacing: -0.8px;
+      margin-bottom: 8px;
+    }
+    h1 span {
+      background: linear-gradient(135deg, var(--acc-light), #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--mute);
+      font-size: 14px;
+      line-height: 1.5;
+    }
 
-/* Link input */
-.input-row {
-  display: flex;
-  gap: 10px;
-  position: relative;
-}
-.url-input {
-  flex: 1;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  color: var(--ink);
-  font: inherit;
-  padding: 14px 18px;
-  font-size: 15px;
-  outline: 0;
-  transition: border-color 0.2s;
-}
-.url-input:focus { border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-glow); }
-.url-input::placeholder { color: #62626e; }
+    /* Wizard Card */
+    .wizard-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+      overflow: hidden;
+    }
 
-.btn-add {
-  background: var(--bg3);
-  color: var(--ink);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--r);
-  padding: 0 22px;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-}
-.btn-add:hover { background: #2f2f3a; }
+    /* Step Indicator Bar */
+    .steps-header {
+      display: flex;
+      border-bottom: 1px solid var(--line);
+      background: rgba(19, 23, 34, 0.6);
+    }
+    .step-tab {
+      flex: 1;
+      padding: 12px 6px;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--mute);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .step-tab.active {
+      color: var(--acc-light);
+      border-bottom-color: var(--acc);
+      background: rgba(16, 185, 129, 0.05);
+    }
+    .step-tab.completed {
+      color: var(--ink);
+    }
+    .step-circle {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--line);
+      color: var(--mute);
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+    .step-tab.active .step-circle {
+      background: var(--acc);
+      color: #000;
+    }
+    .step-tab.completed .step-circle {
+      background: var(--line-active);
+      color: var(--ink);
+    }
 
-/* Video Queue Previews */
-.queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 18px;
-}
-.queue-card {
-  display: grid;
-  grid-template-columns: 140px 1fr auto;
-  gap: 16px;
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 10px 14px;
-  align-items: center;
-  animation: fadeIn 0.3s ease;
-}
-@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
-.queue-thumb {
-  width: 140px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 4px;
-  background: var(--bg3);
-}
-.queue-meta { min-width: 0; }
-.queue-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-.queue-author { font-size: 12px; color: var(--mute); }
-.queue-status-tag {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--acc);
-  background: var(--acc-glow);
-  padding: 2px 8px;
-  border-radius: 999px;
-  margin-top: 6px;
-}
-.queue-remove {
-  background: none;
-  border: 0;
-  color: var(--mute);
-  font-size: 20px;
-  cursor: pointer;
-  padding: 8px;
-  line-height: 1;
-  transition: color 0.2s;
-}
-.queue-remove:hover { color: var(--err); }
+    /* Step Content Area */
+    .step-body {
+      padding: 20px 16px;
+    }
+    .step-pane {
+      display: none;
+    }
+    .step-pane.active {
+      display: block;
+      animation: slideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
 
-/* Settings Wizard Grid */
-.settings-section {
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-}
-.settings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-.settings-title {
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.9px;
-  color: var(--mute);
-}
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px;
-}
-.setting-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  margin-bottom: 8px;
-}
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.chip {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  color: var(--mute);
-  padding: 8px 12px;
-  border-radius: var(--r);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-  user-select: none;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.chip:hover { border-color: var(--line-strong); color: var(--ink); }
-.chip.active {
-  background: rgba(16, 185, 129, 0.12);
-  border-color: var(--acc);
-  color: var(--acc);
-  font-weight: 600;
-}
-.color-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
+    .pane-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pane-subtitle {
+      font-size: 13px;
+      color: var(--mute);
+      margin-bottom: 16px;
+    }
 
-/* Main Action Button */
-.action-row {
-  margin-top: 28px;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 16px;
-}
-.btn-primary {
-  font: 600 16px Inter, sans-serif;
-  background: var(--acc);
-  color: #0b291d;
-  border: 0;
-  border-radius: var(--r);
-  padding: 14px 32px;
-  cursor: pointer;
-  transition: all 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  box-shadow: 0 4px 16px var(--acc-glow);
-}
-.btn-primary:hover:not(:disabled) {
-  background: #22c55e;
-  transform: translateY(-1px);
-}
-.btn-primary:disabled {
-  background: var(--line);
-  color: var(--mute);
-  cursor: not-allowed;
-  box-shadow: none;
-}
+    /* Step 1: Input & Queue */
+    .input-box {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    @media (min-width: 520px) {
+      .input-box { flex-direction: row; }
+    }
+    .url-input {
+      flex: 1;
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      color: var(--ink);
+      font-size: 14px;
+      font-family: inherit;
+      padding: 14px 16px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .url-input:focus {
+      border-color: var(--acc);
+      box-shadow: 0 0 0 3px var(--acc-glow);
+    }
+    .url-input::placeholder { color: #525c76; }
+    .btn-add {
+      background: var(--acc);
+      color: #000;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 14px 20px;
+      font-size: 14px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-add:hover { background: var(--acc-light); }
+    .btn-add:disabled { opacity: 0.6; cursor: not-allowed; }
 
-/* Running / Live Progress Card */
-#run-section {
-  display: none;
-  margin-top: 40px;
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  padding: 28px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-.run-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.run-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.pulse-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: var(--acc);
-  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
-  animation: pulse 1.6s infinite;
-}
-@keyframes pulse {
-  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
-  70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
-  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
-}
-.timer-pill {
-  font-size: 13px;
-  font-family: monospace;
-  color: var(--mute);
-  border: 1px solid var(--line);
-  padding: 4px 10px;
-  border-radius: var(--r);
-  background: var(--bg);
-}
+    /* Video Queue Cards */
+    .queue-container {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .video-card {
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .video-thumb {
+      width: 90px;
+      height: 54px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: #000;
+      flex-shrink: 0;
+    }
+    .video-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .video-name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 2px;
+    }
+    .video-author {
+      font-size: 11px;
+      color: var(--mute);
+    }
+    .video-status {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--acc-light);
+      background: var(--acc-glow);
+      padding: 2px 6px;
+      border-radius: 4px;
+      margin-top: 4px;
+    }
+    .btn-remove {
+      background: none;
+      border: none;
+      color: var(--mute);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 6px;
+      line-height: 1;
+    }
+    .btn-remove:hover { color: var(--err); }
 
-/* Stepper */
-.stepper {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-}
-.step-item {
-  background: var(--bg);
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  padding: 12px 14px;
-  transition: all 0.3s;
-}
-.step-num {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--mute);
-  margin-bottom: 4px;
-}
-.step-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--mute);
-}
-.step-item.active {
-  border-color: var(--acc);
-  background: rgba(16, 185, 129, 0.08);
-}
-.step-item.active .step-num,
-.step-item.active .step-name { color: var(--acc); }
-.step-item.completed {
-  border-color: var(--line-strong);
-  background: var(--bg);
-}
-.step-item.completed .step-num,
-.step-item.completed .step-name { color: var(--ink); }
+    /* Step 2 & 3: Options Grids */
+    .option-group {
+      margin-bottom: 20px;
+    }
+    .option-label {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .option-hint {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--mute);
+    }
 
-.current-status-box {
-  background: var(--bg);
-  border-left: 3px solid var(--acc);
-  padding: 12px 16px;
-  border-radius: 0 var(--r) var(--r) 0;
-  margin-bottom: 24px;
-}
-.current-status-text {
-  font-size: 14px;
-  color: var(--ink);
-  font-weight: 500;
-}
-.err-box {
-  background: rgba(248, 113, 113, 0.1);
-  border-left: 3px solid var(--err);
-  padding: 14px 18px;
-  border-radius: 0 var(--r) var(--r) 0;
-  color: #fca5a5;
-  margin-bottom: 24px;
-  font-size: 14px;
-}
+    /* Big Visual Cards (Aspect Ratio) */
+    .ratio-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .ratio-card {
+      background: var(--card-inner);
+      border: 1.5px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 14px 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .ratio-card:hover { border-color: var(--line-active); }
+    .ratio-card.active {
+      border-color: var(--acc);
+      background: rgba(16, 185, 129, 0.08);
+      box-shadow: 0 0 0 2px var(--acc-glow);
+    }
+    .ratio-badge {
+      position: absolute;
+      top: -8px;
+      right: 6px;
+      background: var(--acc);
+      color: #000;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 5px;
+      border-radius: 10px;
+      text-transform: uppercase;
+    }
+    .ratio-icon {
+      font-size: 24px;
+      margin-bottom: 6px;
+      display: block;
+    }
+    .ratio-title {
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+    .ratio-desc {
+      font-size: 10px;
+      color: var(--mute);
+      line-height: 1.3;
+    }
 
-/* Results Section */
-#results-section {
-  display: none;
-  margin-top: 48px;
-}
-.results-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  margin-bottom: 28px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-.results-header h2 {
-  font: 400 clamp(28px, 5vw, 42px) 'Instrument Serif', serif;
-}
-.results-actions {
-  display: flex;
-  gap: 12px;
-}
-.btn-secondary {
-  background: var(--bg2);
-  border: 1px solid var(--line-strong);
-  color: var(--ink);
-  padding: 8px 18px;
-  border-radius: var(--r);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-secondary:hover { background: var(--bg3); }
+    /* Option Pill Chips */
+    .chips-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      color: var(--mute);
+      padding: 9px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      user-select: none;
+    }
+    .chip:hover { border-color: var(--line-active); color: var(--ink); }
+    .chip.active {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: var(--acc);
+      color: var(--acc-light);
+    }
+    .color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
 
-/* Clips Grid */
-.clips-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
-  gap: 24px;
-}
-.clip-card {
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s, border-color 0.2s;
-}
-.clip-card:hover {
-  transform: translateY(-2px);
-  border-color: var(--line-strong);
-}
-.clip-video-wrap {
-  width: 100%;
-  aspect-ratio: 9/16;
-  background: #000;
-  position: relative;
-}
-.clip-video-wrap.ratio-1-1 { aspect-ratio: 1/1; }
-.clip-video-wrap.ratio-16-9 { aspect-ratio: 16/9; }
-.clip-video-wrap video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-.clip-body {
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-}
-.clip-top-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.score-badge {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--acc-gold);
-  background: var(--gold-glow);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  padding: 3px 8px;
-  border-radius: 999px;
-  letter-spacing: 0.2px;
-}
-.cat-pill {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--acc);
-  background: var(--acc-glow);
-  padding: 3px 8px;
-  border-radius: 999px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-.clip-title {
-  font: 600 16px Inter, sans-serif;
-  color: var(--ink);
-  line-height: 1.35;
-  margin-bottom: 8px;
-}
-.hook-box {
-  background: var(--bg);
-  border-left: 2px solid var(--acc-gold);
-  padding: 8px 10px;
-  border-radius: 0 var(--r) var(--r) 0;
-  font-size: 12px;
-  color: var(--mute);
-  margin-bottom: 12px;
-  line-height: 1.4;
-}
-.hook-box b { color: var(--ink); }
-.clip-caption {
-  font-size: 13px;
-  color: var(--mute);
-  margin-bottom: 12px;
-  line-height: 1.45;
-  flex: 1;
-}
-.clip-tags {
-  font-size: 12px;
-  color: var(--acc);
-  margin-bottom: 16px;
-}
-.clip-footer {
-  display: flex;
-  gap: 10px;
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-.btn-dl {
-  flex: 1;
-  background: var(--acc);
-  color: #0b291d;
-  font-weight: 600;
-  font-size: 13px;
-  padding: 10px;
-  border-radius: var(--r);
-  text-align: center;
-  text-decoration: none;
-  transition: opacity 0.2s;
-}
-.btn-dl:hover { opacity: 0.9; }
-.btn-copy {
-  background: var(--bg3);
-  border: 1px solid var(--line-strong);
-  color: var(--ink);
-  font-size: 13px;
-  padding: 10px 14px;
-  border-radius: var(--r);
-  cursor: pointer;
-  transition: all 0.2s;
-}
-.btn-copy:hover { background: #2f2f38; }
+    /* Navigation / Footer in Wizard */
+    .wizard-footer {
+      border-top: 1px solid var(--line);
+      padding: 14px 16px;
+      background: rgba(19, 23, 34, 0.8);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-back {
+      background: transparent;
+      border: 1px solid var(--line);
+      color: var(--mute);
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-back:hover { border-color: var(--line-active); color: var(--ink); }
+    .btn-next {
+      flex: 1;
+      max-width: 280px;
+      background: var(--acc);
+      color: #000;
+      border: none;
+      padding: 13px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 800;
+      font-family: inherit;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      margin-left: auto;
+    }
+    .btn-next:hover:not(:disabled) {
+      background: var(--acc-light);
+      box-shadow: 0 4px 16px var(--acc-glow);
+    }
+    .btn-next:disabled {
+      background: var(--line);
+      color: #525c76;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+    .btn-generate {
+      background: linear-gradient(135deg, var(--acc-light), #059669);
+      box-shadow: 0 4px 20px var(--acc-glow);
+    }
 
-/* History Drawer / Modal */
-#history-modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(8px);
-  z-index: 100;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-.history-dialog {
-  background: var(--bg2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  max-width: 800px;
-  width: 100%;
-  max-height: 85vh;
-  overflow-y: auto;
-  padding: 28px;
-  position: relative;
-}
-.history-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-}
-.history-header h3 {
-  font: 400 32px 'Instrument Serif', serif;
-}
-</style>
+    /* Progress Stage */
+    #run-view {
+      display: none;
+      padding: 24px 16px;
+    }
+    .run-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .pulse-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .pulse-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--acc);
+      box-shadow: 0 0 12px var(--acc);
+      animation: pulse 1.6s infinite;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.7; }
+      50% { transform: scale(1.15); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.7; }
+    }
+    .timer-badge {
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      font-family: monospace;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      color: var(--mute);
+    }
+
+    /* Vertical Stepper */
+    .pipe-stepper {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .pipe-step {
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.3s;
+    }
+    .pipe-step.active {
+      border-color: var(--acc);
+      background: rgba(16, 185, 129, 0.08);
+    }
+    .pipe-step.completed {
+      border-color: var(--line-active);
+      opacity: 0.8;
+    }
+    .pipe-num {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--line);
+      color: var(--mute);
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .pipe-step.active .pipe-num {
+      background: var(--acc);
+      color: #000;
+    }
+    .pipe-step.completed .pipe-num {
+      background: var(--line-active);
+      color: var(--acc-light);
+    }
+    .pipe-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--mute);
+    }
+    .pipe-step.active .pipe-name { color: var(--ink); }
+    .pipe-step.completed .pipe-name { color: var(--ink); }
+
+    .status-alert {
+      background: var(--card-inner);
+      border-left: 3px solid var(--acc);
+      padding: 12px 14px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+    .error-alert {
+      background: rgba(239, 68, 68, 0.1);
+      border-left: 3px solid var(--err);
+      color: #fca5a5;
+      padding: 12px 14px;
+      border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      font-size: 13px;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    /* Results Screen */
+    #results-view {
+      display: none;
+      margin-top: 24px;
+    }
+    .results-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .results-title {
+      font-size: 22px;
+      font-weight: 800;
+    }
+    .results-sub {
+      font-size: 13px;
+      color: var(--mute);
+      margin-top: 2px;
+    }
+    .btn-new {
+      background: var(--card-inner);
+      border: 1px solid var(--line-active);
+      color: var(--ink);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+    .btn-new:hover { background: var(--line); }
+
+    .clips-stream {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    @media (min-width: 600px) {
+      .clips-stream {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    .clip-card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .video-wrap {
+      width: 100%;
+      aspect-ratio: 9/16;
+      background: #000;
+      position: relative;
+    }
+    .video-wrap.ratio-1-1 { aspect-ratio: 1/1; }
+    .video-wrap.ratio-16-9 { aspect-ratio: 16/9; }
+    .video-wrap video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .clip-details {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+    .clip-badges {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .score-badge {
+      background: var(--gold-glow);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 12px;
+    }
+    .cat-badge {
+      background: var(--acc-glow);
+      color: var(--acc-light);
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .clip-heading {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      line-height: 1.3;
+    }
+    .hook-alert {
+      background: var(--card-inner);
+      border-left: 2px solid var(--gold);
+      padding: 6px 8px;
+      border-radius: 0 4px 4px 0;
+      font-size: 11px;
+      color: var(--mute);
+      margin-bottom: 8px;
+    }
+    .hook-alert b { color: var(--ink); }
+    .clip-snippet {
+      font-size: 12px;
+      color: var(--mute);
+      margin-bottom: 12px;
+      flex: 1;
+    }
+    .clip-acts {
+      display: flex;
+      gap: 8px;
+      margin-top: auto;
+      border-top: 1px solid var(--line);
+      padding-top: 10px;
+    }
+    .btn-dl {
+      flex: 1;
+      background: var(--acc);
+      color: #000;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      padding: 9px;
+      border-radius: var(--radius-sm);
+      text-decoration: none;
+    }
+    .btn-dl:hover { background: var(--acc-light); }
+    .btn-copy {
+      background: var(--card-inner);
+      border: 1px solid var(--line);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 9px 12px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+
+    /* Modal */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-box {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      max-width: 500px;
+      width: 100%;
+      max-height: 80vh;
+      overflow-y: auto;
+      padding: 20px;
+    }
+  </style>
 </head>
 <body>
-<div class="beam b1"></div>
-<div class="beam b2"></div>
-<div class="beam b3"></div>
 
-<nav>
-  <div class="logo" onclick="location.reload()">Clip<b>Forge</b> Studio</div>
-  <div class="nav-actions">
-    <span class="badge-storage" id="storage-badge">Auto-Prune Active</span>
-    <button class="nav-btn" id="open-history">
-      <span>Library</span>
-      <span class="count-pill" id="history-badge">0</span>
-    </button>
-  </div>
-</nav>
+  <header>
+    <div class="nav-inner">
+      <div class="brand" onclick="location.reload()">
+        <div class="brand-icon">⚡</div>
+        <div>Clip<span>Forge</span></div>
+      </div>
+      <div class="nav-right">
+        <button class="btn-lib" id="open-library">
+          <span>Library</span>
+          <span class="badge-count" id="lib-badge">0</span>
+        </button>
+      </div>
+    </div>
+  </header>
 
-<main>
-  <div class="hero">
-    <h1>Turn long videos into <em>viral 20-clip batches</em></h1>
-    <p class="sub">AI discovery, virality ranking, word-level animated subtitles, and intelligent aspect reframing for YouTube Shorts, TikTok, and Reels.</p>
-  </div>
-
-  <div class="builder-box" id="builder-box">
-    <div class="input-row">
-      <input type="text" class="url-input" id="yt-url" placeholder="Paste YouTube link (e.g. https://www.youtube.com/watch?v=...)">
-      <button class="btn-add" id="btn-add">Add to Queue</button>
+  <main>
+    <div class="hero">
+      <div class="hero-badge">AI Video Clipper</div>
+      <h1>Turn long videos into <span>viral clips</span></h1>
+      <p>Intelligent highlight detection, virality ranking, and dynamic subtitles for TikTok, Shorts & Reels.</p>
     </div>
 
-    <!-- Video Queue -->
-    <div class="queue-list" id="queue-list"></div>
-
-    <!-- Settings Wizard -->
-    <div class="settings-section">
-      <div class="settings-header">
-        <span class="settings-title">Engine Customization (OpusClip & Vizard Intelligence)</span>
+    <!-- Wizard Card -->
+    <div class="wizard-card" id="wizard-box">
+      <!-- Steps Header -->
+      <div class="steps-header">
+        <div class="step-tab active" id="tab-1">
+          <div class="step-circle">1</div>
+          <span>Video</span>
+        </div>
+        <div class="step-tab" id="tab-2">
+          <div class="step-circle">2</div>
+          <span>Format</span>
+        </div>
+        <div class="step-tab" id="tab-3">
+          <div class="step-circle">3</div>
+          <span>Style & AI</span>
+        </div>
       </div>
-      <div class="settings-grid">
-        <!-- Number of Clips -->
-        <div class="setting-group">
-          <label>Clips to Extract</label>
-          <div class="chips" id="count-chips">
-            <div class="chip" data-val="3">3 clips</div>
-            <div class="chip" data-val="5">5 clips</div>
-            <div class="chip" data-val="10">10 clips</div>
-            <div class="chip" data-val="15">15 clips</div>
-            <div class="chip active" data-val="20">🔥 20 clips (Max Batch)</div>
+
+      <!-- Step 1: Video Input -->
+      <div class="step-body">
+        <div class="step-pane active" id="pane-1">
+          <div class="pane-title">📺 Add YouTube Video</div>
+          <div class="pane-subtitle">Paste a YouTube link to fetch the video and prepare clipping.</div>
+
+          <div class="input-box">
+            <input type="text" class="url-input" id="yt-url" placeholder="https://www.youtube.com/watch?v=...">
+            <button class="btn-add" id="btn-add">Add Video</button>
+          </div>
+
+          <div class="queue-container" id="queue-list"></div>
+        </div>
+
+        <!-- Step 2: Format & Duration -->
+        <div class="step-pane" id="pane-2">
+          <div class="pane-title">📐 Platform & Length</div>
+          <div class="pane-subtitle">Choose where you want to publish and how long each clip should be.</div>
+
+          <!-- Aspect Ratio Cards -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Platform Aspect Ratio</span>
+              <span class="option-hint">Auto-reframed</span>
+            </div>
+            <div class="ratio-grid" id="aspect-cards">
+              <div class="ratio-card active" data-val="9:16">
+                <span class="ratio-badge">Best</span>
+                <span class="ratio-icon">📱</span>
+                <div class="ratio-title">9:16 Vertical</div>
+                <div class="ratio-desc">Shorts, Reels, TikTok</div>
+              </div>
+              <div class="ratio-card" data-val="1:1">
+                <span class="ratio-icon">🟦</span>
+                <div class="ratio-title">1:1 Square</div>
+                <div class="ratio-desc">Instagram Feed</div>
+              </div>
+              <div class="ratio-card" data-val="16:9">
+                <span class="ratio-icon">🖥️</span>
+                <div class="ratio-title">16:9 Wide</div>
+                <div class="ratio-desc">YouTube Landscape</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Clip Duration -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Target Clip Length</span>
+            </div>
+            <div class="chips-grid" id="duration-chips">
+              <div class="chip" data-val="under30">⚡ Under 30s</div>
+              <div class="chip active" data-val="30to60">🔥 30 – 60s (Recommended)</div>
+              <div class="chip" data-val="1to3m">⏱️ 1 – 3 mins</div>
+              <div class="chip" data-val="auto">🎯 Auto (AI Choice)</div>
+            </div>
           </div>
         </div>
 
-        <!-- Aspect Ratio -->
-        <div class="setting-group">
-          <label>Aspect Ratio</label>
-          <div class="chips" id="aspect-chips">
-            <div class="chip active" data-val="9:16">📱 9:16 (Shorts / Reels / TikTok)</div>
-            <div class="chip" data-val="1:1">🟦 1:1 (Instagram Feed)</div>
-            <div class="chip" data-val="16:9">🖥️ 16:9 (YouTube Widescreen)</div>
-          </div>
-        </div>
+        <!-- Step 3: Style & AI Focus -->
+        <div class="step-pane" id="pane-3">
+          <div class="pane-title">🎨 Subtitles & Virality</div>
+          <div class="pane-subtitle">Customize dynamic captions and highlight discovery strategy.</div>
 
-        <!-- Subtitle Styling -->
-        <div class="setting-group">
-          <label>Subtitle Preset</label>
-          <div class="chips" id="style-chips">
-            <div class="chip active" data-val="beasty"><span class="color-dot" style="background:#eab308;"></span> Beasty Yellow</div>
-            <div class="chip" data-val="karaoke"><span class="color-dot" style="background:#22c55e;"></span> Karaoke Green</div>
-            <div class="chip" data-val="classic"><span class="color-dot" style="background:#f8fafc;"></span> Classic White</div>
-            <div class="chip" data-val="cyber"><span class="color-dot" style="background:#ec4899;"></span> Cyber Pink</div>
+          <!-- Number of Clips -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Number of Clips to Extract</span>
+            </div>
+            <div class="chips-grid" id="count-chips">
+              <div class="chip" data-val="3">3 clips</div>
+              <div class="chip" data-val="5">5 clips</div>
+              <div class="chip" data-val="10">10 clips</div>
+              <div class="chip" data-val="15">15 clips</div>
+              <div class="chip active" data-val="20">🔥 20 clips (Max Batch)</div>
+            </div>
           </div>
-        </div>
 
-        <!-- Target Duration -->
-        <div class="setting-group">
-          <label>Clip Duration</label>
-          <div class="chips" id="duration-chips">
-            <div class="chip" data-val="under30">⚡ Under 30s</div>
-            <div class="chip active" data-val="30to60">🔥 30 - 60s</div>
-            <div class="chip" data-val="1to3m">⏱️ 1 - 3 mins</div>
-            <div class="chip" data-val="auto">🎯 Auto</div>
+          <!-- Subtitle Style -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Animated Subtitle Preset</span>
+            </div>
+            <div class="chips-grid" id="style-chips">
+              <div class="chip active" data-val="beasty">
+                <span class="color-dot" style="background:#eab308;"></span> Beasty Yellow
+              </div>
+              <div class="chip" data-val="karaoke">
+                <span class="color-dot" style="background:#22c55e;"></span> Karaoke Green
+              </div>
+              <div class="chip" data-val="classic">
+                <span class="color-dot" style="background:#ffffff;"></span> Classic White
+              </div>
+              <div class="chip" data-val="cyber">
+                <span class="color-dot" style="background:#ec4899;"></span> Cyber Pink
+              </div>
+            </div>
           </div>
-        </div>
 
-        <!-- Moment Focus / Category Filter -->
-        <div class="setting-group" style="grid-column: 1 / -1;">
-          <label>Highlight Focus Strategy</label>
-          <div class="chips" id="focus-chips">
-            <div class="chip active" data-val="viral">🚀 Irresistible Viral Hooks</div>
-            <div class="chip" data-val="action">🎮 Action & High Hype</div>
-            <div class="chip" data-val="funny">😂 Comedy & Fails</div>
-            <div class="chip" data-val="insight">💡 Insights & Wisdom</div>
-            <div class="chip" data-val="controversial">🔥 Controversial & Debate</div>
+          <!-- Virality Focus -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Highlight Detection Focus</span>
+            </div>
+            <div class="chips-grid" id="focus-chips">
+              <div class="chip active" data-val="viral">🚀 Irresistible Viral Hooks</div>
+              <div class="chip" data-val="action">🎮 Action & High Hype</div>
+              <div class="chip" data-val="funny">😂 Comedy & Fails</div>
+              <div class="chip" data-val="insight">💡 Insights & Wisdom</div>
+              <div class="chip" data-val="controversial">🔥 Controversial & Debate</div>
+            </div>
           </div>
         </div>
       </div>
+
+      <!-- Footer Buttons -->
+      <div class="wizard-footer">
+        <button class="btn-back" id="btn-back" style="visibility:hidden;">← Back</button>
+        <button class="btn-next" id="btn-next" disabled>
+          <span>Continue</span>
+          <span>→</span>
+        </button>
+      </div>
     </div>
 
-    <!-- Submit Bar -->
-    <div class="action-row">
-      <button class="btn-primary" id="btn-start" disabled>
-        <span>Generate Viral Clips</span>
-        <span id="btn-count-hint">(0 videos)</span>
-      </button>
+    <!-- Live Processing View -->
+    <div class="wizard-card" id="run-view">
+      <div class="run-header">
+        <div class="pulse-wrap">
+          <div class="pulse-dot"></div>
+          <div style="font-weight:700;font-size:15px;">Processing Clips...</div>
+        </div>
+        <div class="timer-badge" id="run-timer">00:00</div>
+      </div>
+
+      <div class="pipe-stepper">
+        <div class="pipe-step" id="pipe-1">
+          <div class="pipe-num">1</div>
+          <div class="pipe-name">Download 720p Video</div>
+        </div>
+        <div class="pipe-step" id="pipe-2">
+          <div class="pipe-num">2</div>
+          <div class="pipe-name">Transcribe Audio & Words</div>
+        </div>
+        <div class="pipe-step" id="pipe-3">
+          <div class="pipe-num">3</div>
+          <div class="pipe-name">AI Highlight Discovery & Ranking</div>
+        </div>
+        <div class="pipe-step" id="pipe-4">
+          <div class="pipe-num">4</div>
+          <div class="pipe-name">Cut, Format & Render Subtitles</div>
+        </div>
+      </div>
+
+      <div class="status-alert" id="status-text">Starting pipeline...</div>
+      <div class="error-alert" id="error-text"></div>
+    </div>
+
+    <!-- Results View -->
+    <div id="results-view">
+      <div class="results-top">
+        <div>
+          <div class="results-title" id="results-heading">20 Viral Clips Ready</div>
+          <div class="results-sub" id="results-sub">Rendered with burned-in subtitles and ready to download.</div>
+        </div>
+        <button class="btn-new" id="btn-clip-new">Clip Another Video</button>
+      </div>
+
+      <div class="clips-stream" id="clips-stream"></div>
+    </div>
+  </main>
+
+  <!-- Library Modal -->
+  <div class="modal-backdrop" id="lib-modal">
+    <div class="modal-box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+        <h3 style="font-size:18px;font-weight:700;">Clip Library</h3>
+        <button class="btn-remove" id="close-modal">&times;</button>
+      </div>
+      <div id="lib-content"></div>
     </div>
   </div>
 
-  <!-- Live Progress Section -->
-  <div id="run-section">
-    <div class="run-header">
-      <div class="run-title-wrap">
-        <div class="pulse-spinner"></div>
-        <h3 style="font: 600 18px Inter, sans-serif;">Processing Queue...</h3>
-      </div>
-      <div class="timer-pill" id="timer">00:00</div>
-    </div>
+  <script>
+    const $ = id => document.getElementById(id);
 
-    <div class="stepper">
-      <div class="step-item" id="step-1">
-        <div class="step-num">STAGE 01</div>
-        <div class="step-name">Download (720p)</div>
-      </div>
-      <div class="step-item" id="step-2">
-        <div class="step-num">STAGE 02</div>
-        <div class="step-name">Transcribe Audio</div>
-      </div>
-      <div class="step-item" id="step-3">
-        <div class="step-num">STAGE 03</div>
-        <div class="step-name">Discover & Rank</div>
-      </div>
-      <div class="step-item" id="step-4">
-        <div class="step-num">STAGE 04</div>
-        <div class="step-name">Render & Clean</div>
-      </div>
-    </div>
+    let currentStep = 1;
+    const state = {
+      queue: [],
+      options: {
+        count: 20,
+        aspect_ratio: '9:16',
+        caption_style: 'beasty',
+        duration: '30to60',
+        focus: 'viral'
+      },
+      running: false,
+      timer: null,
+      startTime: null
+    };
 
-    <div class="current-status-box">
-      <div class="current-status-text" id="status-text">Starting pipeline...</div>
-    </div>
+    // Step Navigation
+    function goToStep(step) {
+      currentStep = step;
 
-    <div class="err-box" id="error-box" style="display:none;"></div>
-  </div>
+      // Update tabs
+      for (let i = 1; i <= 3; i++) {
+        const tab = $('tab-' + i);
+        const pane = $('pane-' + i);
+        tab.className = 'step-tab' + (i === step ? ' active' : (i < step ? ' completed' : ''));
+        pane.className = 'step-pane' + (i === step ? ' active' : '');
+      }
 
-  <!-- Results Section -->
-  <div id="results-section">
-    <div class="results-header">
-      <div>
-        <h2 id="results-count-title">Viral Clips Ready</h2>
-        <p style="color:var(--mute); margin-top:4px;" id="results-subtitle">Generated with burned-in subtitles and instant download.</p>
-      </div>
-      <div class="results-actions">
-        <button class="btn-secondary" id="btn-clip-another">Clip Another Video</button>
-      </div>
-    </div>
+      // Back button visibility
+      $('btn-back').style.visibility = step === 1 ? 'hidden' : 'visible';
 
-    <div class="clips-grid" id="clips-grid"></div>
-  </div>
-</main>
+      // Next / Generate button text
+      const nextBtn = $('btn-next');
+      if (step === 1) {
+        nextBtn.innerHTML = '<span>Next: Format</span> <span>→</span>';
+        nextBtn.disabled = state.queue.length === 0;
+        nextBtn.className = 'btn-next';
+      } else if (step === 2) {
+        nextBtn.innerHTML = '<span>Next: Subtitles</span> <span>→</span>';
+        nextBtn.disabled = false;
+        nextBtn.className = 'btn-next';
+      } else if (step === 3) {
+        const vCount = state.queue.length;
+        nextBtn.innerHTML = `<span>⚡ Generate Clips</span> <span>(${vCount})</span>`;
+        nextBtn.disabled = false;
+        nextBtn.className = 'btn-next btn-generate';
+      }
+    }
 
-<!-- History Modal -->
-<div id="history-modal">
-  <div class="history-dialog">
-    <div class="history-header">
-      <h3>Your Clip Library</h3>
-      <button class="queue-remove" id="close-history">&times;</button>
-    </div>
-    <div id="history-content"></div>
-  </div>
-</div>
+    $('btn-back').onclick = () => {
+      if (currentStep > 1) goToStep(currentStep - 1);
+    };
 
-<script>
-const $ = id => document.getElementById(id);
+    $('btn-next').onclick = () => {
+      if (currentStep < 3) {
+        goToStep(currentStep + 1);
+      } else {
+        startProcessing();
+      }
+    };
 
-const state = {
-  queue: [],
-  options: {
-    count: 20,
-    aspect_ratio: '9:16',
-    caption_style: 'beasty',
-    duration: '30to60',
-    focus: 'viral'
-  },
-  running: false,
-  timerInterval: null,
-  startTime: null
-};
+    // Chip & Card Selectors
+    function bindChips(containerId, optKey) {
+      const container = $(containerId);
+      if (!container) return;
+      container.addEventListener('click', e => {
+        const item = e.target.closest('.chip, .ratio-card');
+        if (!item) return;
+        container.querySelectorAll('.chip, .ratio-card').forEach(c => c.classList.remove('active'));
+        item.classList.add('active');
+        state.options[optKey] = item.dataset.val;
+      });
+    }
 
-// Chip selectors
-function setupChips(containerId, optKey) {
-  const container = $(containerId);
-  if (!container) return;
-  container.addEventListener('click', e => {
-    const chip = e.target.closest('.chip');
-    if (!chip) return;
-    container.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-    chip.classList.add('active');
-    state.options[optKey] = chip.dataset.val;
-  });
-}
-setupChips('count-chips', 'count');
-setupChips('aspect-chips', 'aspect_ratio');
-setupChips('style-chips', 'caption_style');
-setupChips('duration-chips', 'duration');
-setupChips('focus-chips', 'focus');
+    bindChips('aspect-cards', 'aspect_ratio');
+    bindChips('duration-chips', 'duration');
+    bindChips('count-chips', 'count');
+    bindChips('style-chips', 'caption_style');
+    bindChips('focus-chips', 'focus');
 
-// Add to Queue
-$('btn-add').onclick = async () => {
-  const input = $('yt-url');
-  const url = input.value.trim();
-  if (!url) return;
+    // Add Video to Queue
+    $('btn-add').onclick = async () => {
+      const input = $('yt-url');
+      const url = input.value.trim();
+      if (!url) return;
 
-  if (state.queue.length >= 5) {
-    alert('Maximum 5 videos in queue per batch to ensure smooth processing.');
-    return;
-  }
+      if (state.queue.length >= 5) {
+        alert('Maximum 5 videos in queue.');
+        return;
+      }
 
-  $('btn-add').disabled = true;
-  $('btn-add').textContent = 'Fetching preview...';
+      const btn = $('btn-add');
+      btn.disabled = true;
+      btn.textContent = 'Fetching...';
 
-  try {
-    const res = await fetch('/api/preview?url=' + encodeURIComponent(url));
-    const data = await res.json();
-    if (data.error) throw new Error(data.error);
+      try {
+        const res = await fetch('/api/preview?url=' + encodeURIComponent(url));
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
 
-    state.queue.push({
-      url,
-      id: data.id,
-      title: data.title || 'YouTube Video',
-      author: data.author || 'YouTube',
-      thumbnail: data.thumbnail
+        state.queue.push({
+          url,
+          id: data.id,
+          title: data.title || 'YouTube Video',
+          author: data.author || 'YouTube',
+          thumbnail: data.thumbnail
+        });
+
+        input.value = '';
+        renderQueue();
+        if (currentStep === 1) goToStep(1); // refresh next button state
+      } catch (err) {
+        alert('Could not preview video: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Add Video';
+      }
+    };
+
+    $('yt-url').addEventListener('keydown', e => {
+      if (e.key === 'Enter') $('btn-add').click();
     });
 
-    input.value = '';
-    renderQueue();
-  } catch(err) {
-    alert('Could not preview YouTube video: ' + err.message);
-  } finally {
-    $('btn-add').disabled = false;
-    $('btn-add').textContent = 'Add to Queue';
-  }
-};
+    function renderQueue() {
+      const container = $('queue-list');
+      container.innerHTML = '';
 
-$('yt-url').addEventListener('keydown', e => {
-  if (e.key === 'Enter') $('btn-add').click();
-});
-
-function renderQueue() {
-  const container = $('queue-list');
-  container.innerHTML = '';
-
-  state.queue.forEach((item, idx) => {
-    const card = document.createElement('div');
-    card.className = 'queue-card';
-    card.innerHTML = `
-      <img src="${item.thumbnail}" class="queue-thumb" alt="Thumbnail">
-      <div class="queue-meta">
-        <div class="queue-title">${item.title}</div>
-        <div class="queue-author">${item.author}</div>
-        <span class="queue-status-tag">Ready #${idx + 1}</span>
-      </div>
-      <button class="queue-remove" onclick="removeQueue(${idx})">&times;</button>
-    `;
-    container.appendChild(card);
-  });
-
-  const btn = $('btn-start');
-  btn.disabled = state.queue.length === 0;
-  $('btn-count-hint').textContent = `(${state.queue.length} video${state.queue.length === 1 ? '' : 's'})`;
-}
-
-window.removeQueue = function(idx) {
-  state.queue.splice(idx, 1);
-  renderQueue();
-};
-
-function startTimer() {
-  state.startTime = Date.now();
-  state.timerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-    const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
-    const s = String(elapsed % 60).padStart(2, '0');
-    $('timer').textContent = `${m}:${s}`;
-  }, 1000);
-}
-
-function stopTimer() {
-  clearInterval(state.timerInterval);
-}
-
-function updateStep(statusText) {
-  const s = statusText.toLowerCase();
-  ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => {
-    $(id).className = 'step-item';
-  });
-
-  if (s.includes('download')) {
-    $('step-1').className = 'step-item active';
-  } else if (s.includes('transcrib')) {
-    $('step-1').className = 'step-item completed';
-    $('step-2').className = 'step-item active';
-  } else if (s.includes('detect') || s.includes('discover') || s.includes('ai')) {
-    $('step-1').className = 'step-item completed';
-    $('step-2').className = 'step-item completed';
-    $('step-3').className = 'step-item active';
-  } else if (s.includes('cutting') || s.includes('clip') || s.includes('render')) {
-    ['step-1', 'step-2', 'step-3'].forEach(id => $(id).className = 'step-item completed');
-    $('step-4').className = 'step-item active';
-  } else if (s.includes('done')) {
-    ['step-1', 'step-2', 'step-3', 'step-4'].forEach(id => $(id).className = 'step-item completed');
-  }
-}
-
-// Start Processing
-$('btn-start').onclick = async () => {
-  if (!state.queue.length || state.running) return;
-
-  state.running = true;
-  $('builder-box').style.display = 'none';
-  $('results-section').style.display = 'none';
-  $('run-section').style.display = 'block';
-  $('error-box').style.display = 'none';
-  startTimer();
-
-  for (let i = 0; i < state.queue.length; i++) {
-    const item = state.queue[i];
-    $('status-text').textContent = `Starting video ${i + 1} of ${state.queue.length}: "${item.title}"...`;
-
-    try {
-      const res = await fetch('/api/jobs', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          url: item.url,
-          count: parseInt(state.options.count, 10),
-          duration: state.options.duration,
-          focus: state.options.focus,
-          aspect_ratio: state.options.aspect_ratio,
-          caption_style: state.options.caption_style
-        })
+      state.queue.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.innerHTML = `
+          <img src="${item.thumbnail}" class="video-thumb" alt="Thumbnail">
+          <div class="video-meta">
+            <div class="video-name">${item.title}</div>
+            <div class="video-author">${item.author}</div>
+            <div class="video-status">Queued #${idx + 1}</div>
+          </div>
+          <button class="btn-remove" onclick="removeQueue(${idx})">&times;</button>
+        `;
+        container.appendChild(card);
       });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
 
-      // Poll until done
-      const clips = await pollJob(data.id);
-      showResults(clips, item, state.options.aspect_ratio);
-      saveToHistory(item, clips);
-    } catch(err) {
-      stopTimer();
-      $('error-box').textContent = 'Error: ' + err.message;
-      $('error-box').style.display = 'block';
-      state.running = false;
-      return;
+      if (currentStep === 1) {
+        $('btn-next').disabled = state.queue.length === 0;
+      }
     }
-  }
 
-  stopTimer();
-  state.running = false;
-  $('run-section').style.display = 'none';
-  $('results-section').style.display = 'block';
-};
+    window.removeQueue = function(idx) {
+      state.queue.splice(idx, 1);
+      renderQueue();
+    };
 
-// Poll job
-function pollJob(jid) {
-  return new Promise((resolve, reject) => {
-    const interval = setInterval(async () => {
+    // Live Processing Pipeline
+    function startProcessing() {
+      if (!state.queue.length || state.running) return;
+
+      state.running = true;
+      $('wizard-box').style.display = 'none';
+      $('results-view').style.display = 'none';
+      $('run-view').style.display = 'block';
+      $('error-text').style.display = 'none';
+
+      state.startTime = Date.now();
+      state.timer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+        const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+        const s = String(elapsed % 60).padStart(2, '0');
+        $('run-timer').textContent = `${m}:${s}`;
+      }, 1000);
+
+      runQueueSequentially();
+    }
+
+    async function runQueueSequentially() {
+      for (let i = 0; i < state.queue.length; i++) {
+        const item = state.queue[i];
+        $('status-text').textContent = `Starting video ${i + 1} of ${state.queue.length}: "${item.title}"...`;
+
+        try {
+          const res = await fetch('/api/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: item.url,
+              count: parseInt(state.options.count, 10),
+              duration: state.options.duration,
+              focus: state.options.focus,
+              aspect_ratio: state.options.aspect_ratio,
+              caption_style: state.options.caption_style
+            })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error);
+
+          const clips = await pollJob(data.id);
+          showResults(clips, item, state.options.aspect_ratio);
+          saveHistory(item, clips);
+        } catch (err) {
+          clearInterval(state.timer);
+          $('error-text').textContent = 'Error: ' + err.message;
+          $('error-text').style.display = 'block';
+          state.running = false;
+          return;
+        }
+      }
+
+      clearInterval(state.timer);
+      state.running = false;
+      $('run-view').style.display = 'none';
+      $('results-view').style.display = 'block';
+    }
+
+    function updateStepIndicator(status) {
+      const s = status.toLowerCase();
+      ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step');
+
+      if (s.includes('download')) {
+        $('pipe-1').className = 'pipe-step active';
+      } else if (s.includes('transcrib')) {
+        $('pipe-1').className = 'pipe-step completed';
+        $('pipe-2').className = 'pipe-step active';
+      } else if (s.includes('detect') || s.includes('discover') || s.includes('ai')) {
+        $('pipe-1').className = 'pipe-step completed';
+        $('pipe-2').className = 'pipe-step completed';
+        $('pipe-3').className = 'pipe-step active';
+      } else if (s.includes('cutting') || s.includes('render') || s.includes('clip')) {
+        $('pipe-1').className = 'pipe-step completed';
+        $('pipe-2').className = 'pipe-step completed';
+        $('pipe-3').className = 'pipe-step completed';
+        $('pipe-4').className = 'pipe-step active';
+      } else if (s.includes('done')) {
+        ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step completed');
+      }
+    }
+
+    function pollJob(jid) {
+      return new Promise((resolve, reject) => {
+        const interval = setInterval(async () => {
+          try {
+            const res = await fetch('/api/jobs/' + jid);
+            const data = await res.json();
+            if (data.error) {
+              clearInterval(interval);
+              reject(new Error(data.error));
+              return;
+            }
+            $('status-text').textContent = data.status || 'Processing...';
+            updateStepIndicator(data.status || '');
+            if (data.done) {
+              clearInterval(interval);
+              resolve(data.clips || []);
+            }
+          } catch (e) {
+            clearInterval(interval);
+            reject(e);
+          }
+        }, 2500);
+      });
+    }
+
+    function showResults(clips, videoMeta, ratio) {
+      $('results-heading').textContent = `${clips.length} Viral Clips Ready`;
+      $('results-sub').textContent = `Extracted from "${videoMeta.title}" with animated subtitles and viral hooks.`;
+
+      const grid = $('clips-stream');
+      grid.innerHTML = '';
+
+      if (!clips.length) {
+        grid.innerHTML = '<p style="color:var(--mute);padding:20px;">No clips extracted.</p>';
+        return;
+      }
+
+      const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
+
+      clips.forEach((c, idx) => {
+        const card = document.createElement('div');
+        card.className = 'clip-card';
+        const score = c.score || 94;
+        const cat = c.category || 'Viral Hook';
+        const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
+
+        card.innerHTML = `
+          <div class="video-wrap ${ratioClass}">
+            <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
+          </div>
+          <div class="clip-details">
+            <div class="clip-badges">
+              <span class="score-badge">⚡ ${score} Virality</span>
+              <span class="cat-badge">${cat}</span>
+            </div>
+            <div class="clip-heading">${c.title || ('Highlight #' + (idx + 1))}</div>
+            <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
+            <div class="clip-snippet">${c.caption || ''}</div>
+            <div class="clip-acts">
+              <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
+              <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
+            </div>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+
+      window._currentClips = clips;
+    }
+
+    window.copyCaption = function(idx, btn) {
+      const clip = window._currentClips[idx];
+      if (!clip) return;
+      const text = `${clip.title}
+
+${clip.caption}
+
+${(clip.hashtags || []).join(' ')}`;
+      navigator.clipboard.writeText(text);
+      const old = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = old, 1500);
+    };
+
+    $('btn-clip-new').onclick = () => {
+      $('results-view').style.display = 'none';
+      $('wizard-box').style.display = 'block';
+      state.queue = [];
+      renderQueue();
+      goToStep(1);
+    };
+
+    // Library Storage
+    function saveHistory(video, clips) {
+      let hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
+      hist.unshift({ video, clips, date: new Date().toLocaleDateString() });
+      hist = hist.slice(0, 30);
+      localStorage.setItem('clipforge_history', JSON.stringify(hist));
+      updateLibBadge();
+    }
+
+    function updateLibBadge() {
+      const hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
+      $('lib-badge').textContent = hist.length;
+    }
+    updateLibBadge();
+
+    // Modal
+    $('open-library').onclick = async () => {
+      $('lib-modal').style.display = 'flex';
+      const container = $('lib-content');
+      container.innerHTML = '<p style="color:var(--mute)">Loading clips...</p>';
+
+      let serverJobs = [];
+      try {
+        const res = await fetch('/api/history');
+        const data = await res.json();
+        serverJobs = data.jobs || [];
+      } catch (e) {}
+
+      if (!serverJobs.length) {
+        container.innerHTML = '<p style="color:var(--mute);padding:10px 0;">No saved clips found.</p>';
+        return;
+      }
+
+      container.innerHTML = '';
+      serverJobs.forEach(job => {
+        const card = document.createElement('div');
+        card.className = 'video-card';
+        card.style.marginBottom = '8px';
+        const thumb = job.preview?.thumbnail || '';
+        const title = job.preview?.title || `Video (${job.clips?.length || 0} clips)`;
+        card.innerHTML = `
+          ${thumb ? `<img src="${thumb}" class="video-thumb">` : ''}
+          <div class="video-meta">
+            <div class="video-name">${title}</div>
+            <div class="video-author">${job.clips?.length || 0} clips generated</div>
+          </div>
+          <button class="btn-new" onclick="loadJob('${job.id}')">View</button>
+        `;
+        container.appendChild(card);
+      });
+    };
+
+    window.loadJob = async function(jid) {
+      $('lib-modal').style.display = 'none';
+      $('wizard-box').style.display = 'none';
+      $('run-view').style.display = 'none';
+      $('results-view').style.display = 'block';
+
       try {
         const res = await fetch('/api/jobs/' + jid);
         const data = await res.json();
-        if (data.error) {
-          clearInterval(interval);
-          reject(new Error(data.error));
-          return;
-        }
-        $('status-text').textContent = data.status || 'Processing...';
-        updateStep(data.status || '');
-        if (data.done) {
-          clearInterval(interval);
-          resolve(data.clips || []);
-        }
-      } catch(e) {
-        clearInterval(interval);
-        reject(e);
+        showResults(data.clips || [], data.preview || { title: 'Saved Video' }, data.options?.aspect_ratio || '9:16');
+      } catch (e) {
+        alert('Could not load clips: ' + e.message);
       }
-    }, 2500);
-  });
-}
+    };
 
-// Display results
-function showResults(clips, videoMeta, ratio = '9:16') {
-  $('results-count-title').textContent = `${clips.length} Viral Clips Ready`;
-  $('results-subtitle').textContent = `Generated from "${videoMeta.title}" with OpusClip-grade intelligence and burned-in subtitles.`;
+    $('close-modal').onclick = () => $('lib-modal').style.display = 'none';
+    $('lib-modal').onclick = e => { if (e.target === $('lib-modal')) $('lib-modal').style.display = 'none'; };
 
-  const grid = $('clips-grid');
-  grid.innerHTML = '';
-
-  if (!clips.length) {
-    grid.innerHTML = '<p style="color:var(--mute); padding:20px;">No clips extracted. Try choosing different moment settings or a longer video.</p>';
-    return;
-  }
-
-  const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
-
-  clips.forEach((c, idx) => {
-    const card = document.createElement('div');
-    card.className = 'clip-card';
-    const tagsText = (c.hashtags || []).join(' ');
-    const score = c.score || 94;
-    const cat = c.category || 'Viral Hook';
-    const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
-
-    card.innerHTML = `
-      <div class="clip-video-wrap ${ratioClass}">
-        <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
-      </div>
-      <div class="clip-body">
-        <div class="clip-top-row">
-          <span class="score-badge">⚡ ${score} Virality</span>
-          <span class="cat-pill">${cat}</span>
-        </div>
-        <div class="clip-title">${c.title || 'Highlight #' + (idx + 1)}</div>
-        <div class="hook-box"><b>💡 Why it works:</b> ${hookReason}</div>
-        <div class="clip-caption">${c.caption || ''}</div>
-        <div class="clip-tags">${tagsText}</div>
-        <div class="clip-footer">
-          <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
-          <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
-        </div>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-
-  window._currentClips = clips;
-}
-
-window.copyCaption = function(idx, btn) {
-  const clip = window._currentClips[idx];
-  if (!clip) return;
-  const text = `${clip.title}\n\n${clip.caption}\n\n${(clip.hashtags || []).join(' ')}`;
-  navigator.clipboard.writeText(text);
-  const oldText = btn.textContent;
-  btn.textContent = 'Copied!';
-  setTimeout(() => btn.textContent = oldText, 1500);
-};
-
-$('btn-clip-another').onclick = () => {
-  $('results-section').style.display = 'none';
-  $('builder-box').style.display = 'block';
-  state.queue = [];
-  renderQueue();
-};
-
-// History storage
-function saveToHistory(video, clips) {
-  let hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
-  hist.unshift({
-    video,
-    clips,
-    date: new Date().toLocaleDateString()
-  });
-  hist = hist.slice(0, 30);
-  localStorage.setItem('clipforge_history', JSON.stringify(hist));
-  updateHistoryBadge();
-}
-
-function updateHistoryBadge() {
-  const hist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
-  $('history-badge').textContent = hist.length;
-}
-updateHistoryBadge();
-
-// History Modal
-$('open-history').onclick = async () => {
-  $('history-modal').style.display = 'flex';
-  const container = $('history-content');
-  container.innerHTML = '<p style="color:var(--mute);">Loading clips...</p>';
-
-  let serverJobs = [];
-  try {
-    const res = await fetch('/api/history');
-    const data = await res.json();
-    serverJobs = data.jobs || [];
-  } catch(e) {}
-
-  const localHist = JSON.parse(localStorage.getItem('clipforge_history') || '[]');
-
-  if (!serverJobs.length && !localHist.length) {
-    container.innerHTML = '<p style="color:var(--mute); padding:16px 0;">No clips saved yet. Clip a video to see it here!</p>';
-    return;
-  }
-
-  container.innerHTML = '';
-  serverJobs.forEach(job => {
-    const card = document.createElement('div');
-    card.className = 'queue-card';
-    const thumb = job.preview?.thumbnail || (job.clips?.[0] ? `https://img.youtube.com/vi/${job.clips[0].vid}/hqdefault.jpg` : '');
-    const title = job.preview?.title || `Processed Video (${job.clips?.length || 0} clips)`;
-    card.innerHTML = `
-      ${thumb ? `<img src="${thumb}" class="queue-thumb">` : ''}
-      <div class="queue-meta">
-        <div class="queue-title">${title}</div>
-        <div class="queue-author">${job.clips?.length || 0} clips generated</div>
-      </div>
-      <button class="btn-secondary" style="padding:6px 12px; font-size:12px;" onclick="loadJobClips('${job.id}')">View Clips</button>
-    `;
-    container.appendChild(card);
-  });
-};
-
-window.loadJobClips = async function(jid) {
-  $('history-modal').style.display = 'none';
-  $('builder-box').style.display = 'none';
-  $('run-section').style.display = 'none';
-  $('results-section').style.display = 'block';
-
-  try {
-    const res = await fetch('/api/jobs/' + jid);
-    const data = await res.json();
-    showResults(data.clips || [], data.preview || { title: 'Saved Video' }, data.options?.aspect_ratio || '9:16');
-  } catch(e) {
-    alert('Could not load clips: ' + e.message);
-  }
-};
-
-$('close-history').onclick = () => $('history-modal').style.display = 'none';
-$('history-modal').onclick = e => { if (e.target === $('history-modal')) $('history-modal').style.display = 'none'; };
-</script>
+    // Initialize step 1
+    goToStep(1);
+  </script>
 </body>
 </html>
