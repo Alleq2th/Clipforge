@@ -783,7 +783,27 @@
       overflow-y: auto;
       padding: 20px;
     }
-  </style>
+  
+    /* Animated Progress Bar */
+    .progress-track {
+      width: 100%;
+      height: 8px;
+      background: var(--card-inner);
+      border-radius: 999px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      border: 1px solid var(--line);
+    }
+    .progress-fill {
+      height: 100%;
+      width: 5%;
+      background: linear-gradient(90deg, var(--acc), var(--acc-light));
+      border-radius: 999px;
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px var(--acc-glow);
+    }
+
+</style>
 </head>
 <body>
 
@@ -962,6 +982,9 @@
         <div class="timer-badge" id="run-timer">00:00</div>
       </div>
 
+      <div class="progress-track">
+        <div class="progress-fill" id="run-progress-bar"></div>
+      </div>
       <div class="pipe-stepper">
         <div class="pipe-step" id="pipe-1">
           <div class="pipe-num">1</div>
@@ -1036,14 +1059,38 @@
       },
       running: false,
       timer: null,
-      startTime: null
+      startTime: null,
+      activeJobId: null
     };
+
+    // Request push notification permission
+    function requestPushPermission() {
+      if ('Notification' in window && Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    // Synthesized Web Audio chime on completion (works without external mp3)
+    function playChime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+        osc.frequency.setValueAtTime(880, ctx.currentTime + 0.15); // A5
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.6);
+      } catch (e) {}
+    }
 
     // Step Navigation
     function goToStep(step) {
       currentStep = step;
-
-      // Update tabs
       for (let i = 1; i <= 3; i++) {
         const tab = $('tab-' + i);
         const pane = $('pane-' + i);
@@ -1051,10 +1098,8 @@
         pane.className = 'step-pane' + (i === step ? ' active' : '');
       }
 
-      // Back button visibility
       $('btn-back').style.visibility = step === 1 ? 'hidden' : 'visible';
 
-      // Next / Generate button text
       const nextBtn = $('btn-next');
       if (step === 1) {
         nextBtn.innerHTML = '<span>Next: Format</span> <span>→</span>';
@@ -1072,16 +1117,11 @@
       }
     }
 
-    $('btn-back').onclick = () => {
-      if (currentStep > 1) goToStep(currentStep - 1);
-    };
-
+    $('btn-back').onclick = () => { if (currentStep > 1) goToStep(currentStep - 1); };
     $('btn-next').onclick = () => {
-      if (currentStep < 3) {
-        goToStep(currentStep + 1);
-      } else {
-        startProcessing();
-      }
+      requestPushPermission();
+      if (currentStep < 3) goToStep(currentStep + 1);
+      else startProcessing();
     };
 
     // Chip & Card Selectors
@@ -1126,14 +1166,14 @@
         state.queue.push({
           url,
           id: data.id,
-          title: data.title || 'YouTube Video',
-          author: data.author || 'YouTube',
+          title: data.title || 'Video',
+          author: data.author || 'Platform',
           thumbnail: data.thumbnail
         });
 
         input.value = '';
         renderQueue();
-        if (currentStep === 1) goToStep(1); // refresh next button state
+        if (currentStep === 1) goToStep(1);
       } catch (err) {
         alert('Could not preview video: ' + err.message);
       } finally {
@@ -1154,7 +1194,7 @@
         const card = document.createElement('div');
         card.className = 'video-card';
         card.innerHTML = `
-          <img src="${item.thumbnail}" class="video-thumb" alt="Thumbnail">
+          ${item.thumbnail ? `<img src="${item.thumbnail}" class="video-thumb" alt="Thumbnail">` : ''}
           <div class="video-meta">
             <div class="video-name">${item.title}</div>
             <div class="video-author">${item.author}</div>
@@ -1175,7 +1215,36 @@
       renderQueue();
     };
 
-    // Live Processing Pipeline
+    function renderClipCard(c, idx, ratio) {
+      const card = document.createElement('div');
+      card.className = 'clip-card';
+      const score = c.score || 94;
+      const cat = c.category || 'Viral Hook';
+      const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
+      const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
+
+      card.innerHTML = `
+        <div class="video-wrap ${ratioClass}">
+          <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
+        </div>
+        <div class="clip-details">
+          <div class="clip-badges">
+            <span class="score-badge">⚡ ${score} Virality</span>
+            <span class="cat-badge">${cat}</span>
+          </div>
+          <div class="clip-heading">${c.title || ('Highlight #' + (idx + 1))}</div>
+          <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
+          <div class="clip-snippet">${c.caption || ''}</div>
+          <div class="clip-acts">
+            <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
+            <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
+          </div>
+        </div>
+      `;
+      return card;
+    }
+
+    // Start Processing Pipeline
     function startProcessing() {
       if (!state.queue.length || state.running) return;
 
@@ -1184,8 +1253,10 @@
       $('results-view').style.display = 'none';
       $('run-view').style.display = 'block';
       $('error-text').style.display = 'none';
+      $('run-progress-bar').style.width = '10%';
 
       state.startTime = Date.now();
+      clearInterval(state.timer);
       state.timer = setInterval(() => {
         const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
         const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
@@ -1217,7 +1288,16 @@
           const data = await res.json();
           if (data.error) throw new Error(data.error);
 
-          const clips = await pollJob(data.id);
+          // Save active background job into localStorage
+          state.activeJobId = data.id;
+          localStorage.setItem('clipforge_active_job', JSON.stringify({
+            jid: data.id,
+            item,
+            options: state.options,
+            startTime: state.startTime
+          }));
+
+          const clips = await pollJob(data.id, item);
           showResults(clips, item, state.options.aspect_ratio);
           saveHistory(item, clips);
         } catch (err) {
@@ -1225,87 +1305,84 @@
           $('error-text').textContent = 'Error: ' + err.message;
           $('error-text').style.display = 'block';
           state.running = false;
+          localStorage.removeItem('clipforge_active_job');
           return;
         }
       }
 
       clearInterval(state.timer);
       state.running = false;
+      localStorage.removeItem('clipforge_active_job');
       $('run-view').style.display = 'none';
       $('results-view').style.display = 'block';
     }
 
-    function updateStepIndicator(status) {
+    function updateStepIndicator(status, currentCount, totalCount) {
       const s = status.toLowerCase();
       ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step');
 
+      const bar = $('run-progress-bar');
       if (s.includes('download')) {
         $('pipe-1').className = 'pipe-step active';
+        bar.style.width = '20%';
       } else if (s.includes('transcrib')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step active';
+        bar.style.width = '45%';
       } else if (s.includes('detect') || s.includes('discover') || s.includes('ai')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step completed';
         $('pipe-3').className = 'pipe-step active';
-      } else if (s.includes('cutting') || s.includes('render') || s.includes('clip')) {
+        bar.style.width = '65%';
+      } else if (s.includes('cutting') || s.includes('render') || s.includes('clip') || s.includes('finished')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step completed';
         $('pipe-3').className = 'pipe-step completed';
         $('pipe-4').className = 'pipe-step active';
+        if (totalCount && totalCount > 0) {
+          const cutPct = 65 + Math.round((currentCount / totalCount) * 32);
+          bar.style.width = `${Math.min(97, cutPct)}%`;
+        } else {
+          bar.style.width = '80%';
+        }
       } else if (s.includes('done')) {
         ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step completed');
+        bar.style.width = '100%';
       }
     }
 
     let _lastRenderedClipsCount = 0;
 
-    function renderClipCard(c, idx, ratio) {
-      const card = document.createElement('div');
-      card.className = 'clip-card';
-      const score = c.score || 94;
-      const cat = c.category || 'Viral Hook';
-      const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
-      const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
-
-      card.innerHTML = `
-        <div class="video-wrap ${ratioClass}">
-          <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
-        </div>
-        <div class="clip-details">
-          <div class="clip-badges">
-            <span class="score-badge">⚡ ${score} Virality</span>
-            <span class="cat-badge">${cat}</span>
-          </div>
-          <div class="clip-heading">${c.title || ('Highlight #' + (idx + 1))}</div>
-          <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
-          <div class="clip-snippet">${c.caption || ''}</div>
-          <div class="clip-acts">
-            <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
-            <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
-          </div>
-        </div>
-      `;
-      return card;
-    }
-
-    function pollJob(jid) {
+    function pollJob(jid, videoMeta) {
       _lastRenderedClipsCount = 0;
       $('live-clips-wrap').style.display = 'none';
       $('live-clips-grid').innerHTML = '';
+      let consecutiveErrors = 0;
 
       return new Promise((resolve, reject) => {
         const interval = setInterval(async () => {
           try {
             const res = await fetch('/api/jobs/' + jid);
+            if (!res.ok && res.status !== 404) {
+              consecutiveErrors++;
+              if (consecutiveErrors > 25) {
+                clearInterval(interval);
+                reject(new Error(`Server returned HTTP ${res.status}`));
+              }
+              return;
+            }
             const data = await res.json();
+            consecutiveErrors = 0; // reset on successful reach
+
             if (data.error) {
               clearInterval(interval);
               reject(new Error(data.error));
               return;
             }
+
             $('status-text').textContent = data.status || 'Processing...';
-            updateStepIndicator(data.status || '');
+            const totalOpt = parseInt(state.options.count, 10) || 5;
+            updateStepIndicator(data.status || '', data.clips ? data.clips.length : 0, totalOpt);
 
             // Progressive Real-Time Streaming: display finished clips immediately!
             if (data.clips && data.clips.length > _lastRenderedClipsCount) {
@@ -1322,11 +1399,26 @@
 
             if (data.done) {
               clearInterval(interval);
+              playChime();
+
+              // Send browser push notification if supported & permitted
+              if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('🎉 ClipForge: Clips Ready!', {
+                  body: `${data.clips.length} viral clips generated from "${videoMeta?.title || 'your video'}". Tap to download!`,
+                  icon: '/favicon.ico'
+                });
+              }
+
               resolve(data.clips || []);
             }
           } catch (e) {
-            clearInterval(interval);
-            reject(e);
+            consecutiveErrors++;
+            console.warn('Network blip polling job, retrying...', consecutiveErrors);
+            // Tolerant to mobile network pauses / screen lock: allow up to 25 consecutive attempts (~60s)
+            if (consecutiveErrors > 25) {
+              clearInterval(interval);
+              reject(new Error('Connection paused. Please check your internet connection.'));
+            }
           }
         }, 2200);
       });
@@ -1344,34 +1436,8 @@
         return;
       }
 
-      const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
-
       clips.forEach((c, idx) => {
-        const card = document.createElement('div');
-        card.className = 'clip-card';
-        const score = c.score || 94;
-        const cat = c.category || 'Viral Hook';
-        const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
-
-        card.innerHTML = `
-          <div class="video-wrap ${ratioClass}">
-            <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
-          </div>
-          <div class="clip-details">
-            <div class="clip-badges">
-              <span class="score-badge">⚡ ${score} Virality</span>
-              <span class="cat-badge">${cat}</span>
-            </div>
-            <div class="clip-heading">${c.title || ('Highlight #' + (idx + 1))}</div>
-            <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
-            <div class="clip-snippet">${c.caption || ''}</div>
-            <div class="clip-acts">
-              <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
-              <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
-            </div>
-          </div>
-        `;
-        grid.appendChild(card);
+        grid.appendChild(renderClipCard(c, idx, ratio));
       });
 
       window._currentClips = clips;
@@ -1392,6 +1458,7 @@ ${(clip.hashtags || []).join(' ')}`;
     };
 
     $('btn-clip-new').onclick = () => {
+      localStorage.removeItem('clipforge_active_job');
       $('results-view').style.display = 'none';
       $('wizard-box').style.display = 'block';
       state.queue = [];
@@ -1469,8 +1536,58 @@ ${(clip.hashtags || []).join(' ')}`;
     $('close-modal').onclick = () => $('lib-modal').style.display = 'none';
     $('lib-modal').onclick = e => { if (e.target === $('lib-modal')) $('lib-modal').style.display = 'none'; };
 
-    // Initialize step 1
-    goToStep(1);
+    // Auto-Resume Active Background Job on Page Load
+    async function checkBackgroundJob() {
+      const activeStr = localStorage.getItem('clipforge_active_job');
+      if (!activeStr) {
+        goToStep(1);
+        return;
+      }
+
+      try {
+        const active = JSON.parse(activeStr);
+        if (!active || !active.jid) return;
+
+        const res = await fetch('/api/jobs/' + active.jid);
+        if (!res.ok) {
+          localStorage.removeItem('clipforge_active_job');
+          goToStep(1);
+          return;
+        }
+
+        const data = await res.json();
+        if (data.done) {
+          localStorage.removeItem('clipforge_active_job');
+          $('wizard-box').style.display = 'none';
+          showResults(data.clips || [], active.item || { title: 'Finished Video' }, active.options?.aspect_ratio || '9:16');
+          $('results-view').style.display = 'block';
+        } else {
+          // Job still running in background on Render! Resume live progress screen!
+          $('wizard-box').style.display = 'none';
+          $('run-view').style.display = 'block';
+          state.running = true;
+          state.startTime = active.startTime || Date.now();
+          clearInterval(state.timer);
+          state.timer = setInterval(() => {
+            const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+            const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+            const s = String(elapsed % 60).padStart(2, '0');
+            $('run-timer').textContent = `${m}:${s}`;
+          }, 1000);
+
+          const clips = await pollJob(active.jid, active.item);
+          showResults(clips, active.item, active.options?.aspect_ratio || '9:16');
+          saveHistory(active.item, clips);
+          localStorage.removeItem('clipforge_active_job');
+          $('run-view').style.display = 'none';
+          $('results-view').style.display = 'block';
+        }
+      } catch (e) {
+        goToStep(1);
+      }
+    }
+
+    checkBackgroundJob();
   </script>
 </body>
 </html>
