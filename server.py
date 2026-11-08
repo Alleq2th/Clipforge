@@ -4,9 +4,11 @@ from config import OUT_DIR, WORK_DIR
 from llm import providers
 from pipeline import run
 from storage import get_dir_size_mb, cleanup_storage
+from faceless import create_faceless_video, VOICES, STYLES
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 jobs = {}
+faceless_jobs = {}
 
 def get_video_meta(url):
     domain = urllib.parse.urlparse(url).netloc.lower()
@@ -190,15 +192,96 @@ def history():
                 try:
                     with open(os.path.join(p, f), "r", encoding="utf-8") as fp:
                         data = json.load(fp)
-                        if data.get("done") and data.get("clips"):
+                        # Save if job has any clips generated, even if still running!
+                        if data.get("clips") and len(data.get("clips", [])) > 0:
                             saved.append(data)
                 except Exception:
                     pass
-    return jsonify({"jobs": saved[:20]})
+    return jsonify({"jobs": saved[:30]})
 
 @app.get("/clips/<vid>/<filename>")
 def get_clip(vid, filename):
     d = os.path.join(OUT_DIR, vid)
+    dl = request.args.get("dl") == "1"
+    return send_from_directory(d, filename, as_attachment=dl)
+
+# ================= GTA 6 FACELESS STUDIO ENDPOINTS =================
+def faceless_job_path(fid):
+    return os.path.join(WORK_DIR, "faceless_jobs", f"{fid}.json")
+
+def save_faceless_job(fid):
+    try:
+        os.makedirs(os.path.join(WORK_DIR, "faceless_jobs"), exist_ok=True)
+        with open(faceless_job_path(fid), "w", encoding="utf-8") as f:
+            json.dump(faceless_jobs.get(fid, {}), f)
+    except Exception:
+        pass
+
+def load_faceless_job(fid):
+    if fid in faceless_jobs:
+        return faceless_jobs[fid]
+    p = faceless_job_path(fid)
+    if os.path.exists(p):
+        try:
+            with open(p, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                faceless_jobs[fid] = data
+                return data
+        except Exception:
+            pass
+    return None
+
+def faceless_work(fid, url, script, voice, style):
+    try:
+        def on_status(m):
+            if fid in faceless_jobs:
+                faceless_jobs[fid]["status"] = m
+                save_faceless_job(fid)
+
+        res = create_faceless_video(url, script, voice_key=voice, caption_style=style, fid=fid, cb=on_status)
+        if fid in faceless_jobs:
+            faceless_jobs[fid]["result"] = res
+            faceless_jobs[fid]["done"] = True
+            faceless_jobs[fid]["status"] = "Done"
+            save_faceless_job(fid)
+    except Exception as e:
+        if fid in faceless_jobs:
+            faceless_jobs[fid].update(error=str(e), status="Failed")
+            save_faceless_job(fid)
+
+@app.post("/api/faceless")
+def create_faceless():
+    data = request.json or {}
+    script = data.get("script", "").strip()
+    if not script:
+        return jsonify({"error": "Script text is required"}), 400
+    url = data.get("url", "").strip()
+    voice = data.get("voice", "deep_narrator")
+    style = data.get("style", "beasty")
+    fid = str(uuid.uuid4())[:8]
+    faceless_jobs[fid] = {
+        "id": fid,
+        "status": "Starting faceless video engine...",
+        "done": False,
+        "script": script,
+        "voice": voice,
+        "style": style,
+        "created_at": time.time()
+    }
+    save_faceless_job(fid)
+    threading.Thread(target=faceless_work, args=(fid, url, script, voice, style), daemon=True).start()
+    return jsonify({"id": fid})
+
+@app.get("/api/faceless/<fid>")
+def faceless_status(fid):
+    j = load_faceless_job(fid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify(j)
+
+@app.get("/faceless/<fid>/<filename>")
+def get_faceless_file(fid, filename):
+    d = os.path.join(OUT_DIR, "faceless", fid)
     dl = request.args.get("dl") == "1"
     return send_from_directory(d, filename, as_attachment=dl)
 
