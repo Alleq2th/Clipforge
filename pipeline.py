@@ -5,7 +5,7 @@ from pick import pick
 from cut import cut
 from storage import cleanup_source_video, cleanup_storage
 
-def run(url, cb=print, options=None):
+def run(url, cb=print, on_clip=None, options=None):
     opts = options or {}
     count = int(opts.get("count", 5))
     min_len = int(opts.get("min_len", 20))
@@ -32,11 +32,14 @@ def run(url, cb=print, options=None):
         for i, c in enumerate(clips, 1):
             cb(f"Cutting clip {i} of {total} ({aspect_ratio} • {caption_style.capitalize()} style)...")
             f = cut(video, segs, c, i, vid, aspect_ratio=aspect_ratio, caption_style=caption_style)
-            out.append({**c, "file": os.path.basename(f), "vid": vid})
+            item = {**c, "file": os.path.basename(f), "vid": vid}
+            out.append(item)
+            if on_clip:
+                try:
+                    on_clip(item, i, total)
+                except Exception:
+                    pass
         cb("Done")
         return out
     finally:
-        # Crucial for Render Free Tier: delete source video immediately after clips are cut.
-        # This recovers 300MB - 1GB instantly and avoids storage exhaustion.
         cleanup_source_video(video)
-        cleanup_storage()
