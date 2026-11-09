@@ -1,5 +1,19 @@
-import os, shutil, time
+import os
+import shutil
+import time
 from config import WORK_DIR, OUT_DIR
+
+def get_job_work_dir(jid):
+    """Returns isolated temporary processing directory for a specific job."""
+    p = os.path.join(WORK_DIR, "jobs", str(jid))
+    os.makedirs(p, exist_ok=True)
+    return p
+
+def get_job_out_dir(jid):
+    """Returns persistent output directory for a specific job's clips."""
+    p = os.path.join(OUT_DIR, str(jid))
+    os.makedirs(p, exist_ok=True)
+    return p
 
 def get_dir_size_mb(path):
     if not os.path.exists(path):
@@ -15,57 +29,158 @@ def get_dir_size_mb(path):
                     pass
     return total / (1024 * 1024)
 
+def cleanup_job_work_dir(jid):
+    """
+    Deletes the temporary processing directory for a specific job.
+    Frees up raw download files and temp audio instantly.
+    """
+    if not jid:
+        return
+    p = os.path.join(WORK_DIR, "jobs", str(jid))
+    if os.path.exists(p):
+        try:
+            shutil.rmtree(p, ignore_errors=True)
+            print(f"[STORAGE] Cleaned temporary work directory for job {jid}.")
+        except Exception as e:
+            print(f"[STORAGE] Notice cleaning work dir for job {jid}: {e}")
+
 def cleanup_source_video(video_path):
     """
-    Deletes raw full-length downloaded video immediately after clips are cut.
-    This frees up 300MB - 1GB instantly to protect Render's ephemeral disk.
+    Deletes raw downloaded video file immediately after clips are cut.
     """
     if video_path and os.path.exists(video_path):
         try:
-            os.remove(video_path)
-            print(f"Cleaned source video {video_path} to conserve storage.")
+            if os.path.isfile(video_path):
+                os.remove(video_path)
+            elif os.path.isdir(video_path):
+                shutil.rmtree(video_path, ignore_errors=True)
+            print(f"[STORAGE] Cleaned source video {video_path} to conserve storage.")
         except Exception as e:
-            print(f"Notice cleaning source video: {e}")
+            print(f"[STORAGE] Notice cleaning source video: {e}")
 
 def cleanup_storage(max_mb=400, max_saved_jobs=6):
     """
-    Prevents storage crashes on Render free tier:
-    1. Removes any stray .mp4, .mp3, or .part files in WORK_DIR older than 5 minutes.
-    2. Prunes oldest output video folders if total storage exceeds max_mb or max_saved_jobs.
+    Protects Render storage:
+    1. Removes stray temporary files in WORK_DIR not tied to active jobs.
+    2. Prunes oldest completed/failed output video folders if storage exceeds max_mb or max_saved_jobs.
+    3. NEVER removes files belonging to active/in-progress jobs.
     """
     os.makedirs(WORK_DIR, exist_ok=True)
     os.makedirs(OUT_DIR, exist_ok=True)
 
-    now = time.time()
-    # 1. Clean stale work files
+    # Get active job IDs to never prune them
+    active_ids = set()
     try:
-        for f in os.listdir(WORK_DIR):
-            fp = os.path.join(WORK_DIR, f)
-            if os.path.isfile(fp):
-                ext = f.lower()
-                if ext.endswith((".mp4", ".mp3", ".part", ".ytdl")):
-                    if now - os.path.getmtime(fp) > 300:
-                        try: os.remove(fp)
-                        except Exception: pass
-    except Exception as e:
-        print(f"Notice during work cleanup: {e}")
+        from jobs_db import get_active_job_ids
+        active_ids = get_active_job_ids()
+    except Exception:
+        pass
 
-    # 2. Prune old outputs if exceeding budget
+    now = time.time()
+
+    # 1. Clean stale work folders older than 20 minutes and not active
+    jobs_work_dir = os.path.join(WORK_DIR, "jobs")
+    if os.path.exists(jobs_work_dir):
+        try:
+            for d in os.listdir(jobs_work_dir):
+                if d in active_ids:
+                    continue
+                dp = os.path.join(jobs_work_dir, d)
+                if os.path.isdir(dp) and (now - os.path.getmtime(dp) > 1200):
+                    shutil.rmtree(dp, ignore_errors=True)
+        except Exception as e:
+            print(f"[STORAGE] Notice during work jobs cleanup: {e}")
+
+    # 2. Prune old outputs if exceeding budget (preserving active jobs)
     try:
-        vids = [
-            os.path.join(OUT_DIR, d) for d in os.listdir(OUT_DIR)
-            if os.path.isdir(os.path.join(OUT_DIR, d))
-        ]
+        vids = []
+        for d in os.listdir(OUT_DIR):
+            dp = os.path.join(OUT_DIR, d)
+            if os.path.isdir(dp) and d != "faceless" and d not in active_ids:
+                vids.append(dp)
+
         vids.sort(key=lambda p: os.path.getmtime(p))
 
         total_mb = get_dir_size_mb(OUT_DIR) + get_dir_size_mb(WORK_DIR)
         while (len(vids) > max_saved_jobs or total_mb > max_mb) and vids:
             oldest = vids.pop(0)
             try:
-                shutil.rmtree(oldest)
-                print(f"Pruned oldest video directory {oldest} to preserve storage.")
+                shutil.rmtree(oldest, ignore_errors=True)
+                print(f"[STORAGE] Pruned oldest output directory {oldest} to preserve storage.")
             except Exception:
                 pass
             total_mb = get_dir_size_mb(OUT_DIR) + get_dir_size_mb(WORK_DIR)
     except Exception as e:
-        print(f"Notice during output pruning: {e}")
+        print(f"[STORAGE] Notice during output pruning: {e}")
+
+# ================= CLOUD STORAGE INTERFACE (SUPABASE / S3 PREPARED) =================
+class StorageProvider:
+    """Abstract interface for permanent video asset storage."""
+    def save_clip(self, local_path, destination_path):
+        raise NotImplementedError
+    def get_public_url(self, destination_path):
+        raise NotImplementedError
+    def delete_clip(self, destination_path):
+        raise NotImplementedError
+
+class LocalStorageProvider(StorageProvider):
+    def save_clip(self, local_path, destination_path):
+        # Already on local filesystem
+        return destination_path
+
+    def get_public_url(self, destination_path):
+        return f"/clips/{destination_path}"
+
+    def delete_clip(self, destination_path):
+        full_p = os.path.join(OUT_DIR, destination_path)
+        if os.path.exists(full_p):
+            try: os.remove(full_p)
+            except Exception: pass
+        return True
+
+class SupabaseStorageProvider(StorageProvider):
+    """
+    Prepared Supabase Storage provider for persistent cloud storage.
+    Configured via SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_STORAGE_BUCKET.
+    """
+    def __init__(self):
+        self.supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+        self.supabase_key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
+        self.bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "clips")
+
+    def is_configured(self):
+        return bool(self.supabase_url and self.supabase_key)
+
+    def save_clip(self, local_path, destination_path):
+        if not self.is_configured():
+            return None
+        import requests
+        upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{destination_path}"
+        headers = {
+            "Authorization": f"Bearer {self.supabase_key}",
+            "Content-Type": "video/mp4",
+            "x-upsert": "true"
+        }
+        with open(local_path, "rb") as f:
+            resp = requests.post(upload_url, headers=headers, data=f, timeout=60)
+            resp.raise_for_status()
+        return self.get_public_url(destination_path)
+
+    def get_public_url(self, destination_path):
+        return f"{self.supabase_url}/storage/v1/object/public/{self.bucket}/{destination_path}"
+
+    def delete_clip(self, destination_path):
+        if not self.is_configured():
+            return False
+        import requests
+        del_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{destination_path}"
+        headers = {"Authorization": f"Bearer {self.supabase_key}"}
+        resp = requests.delete(del_url, headers=headers, timeout=15)
+        return resp.ok
+
+# Active storage provider
+def get_storage_provider():
+    sb = SupabaseStorageProvider()
+    if sb.is_configured():
+        return sb
+    return LocalStorageProvider()

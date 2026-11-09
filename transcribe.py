@@ -1,5 +1,20 @@
-import os, json, re, subprocess, glob, requests
+import os
+import json
+import re
+import subprocess
+import glob
+import requests
 from config import WORK_DIR, WHISPER_MODEL, GROQ_KEY
+
+_local_whisper_model = None
+
+def _get_local_whisper():
+    global _local_whisper_model
+    if _local_whisper_model is None:
+        from faster_whisper import WhisperModel
+        print(f"[TRANSCRIBE] Initializing local faster-whisper model ({WHISPER_MODEL})...")
+        _local_whisper_model = WhisperModel(WHISPER_MODEL, compute_type="int8")
+    return _local_whisper_model
 
 def _parse_vtt(vtt_path):
     time_re = re.compile(r"(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})\s*-->\s*(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})")
@@ -24,7 +39,7 @@ def _parse_vtt(vtt_path):
                         segments.append({"start": round(st, 2), "end": round(en, 2), "text": clean_text})
                     break
     except Exception as e:
-        print(f"Error parsing VTT: {e}")
+        print(f"[TRANSCRIBE] Error parsing VTT: {e}")
     return segments
 
 def _parse_json3(json3_path):
@@ -42,31 +57,30 @@ def _parse_json3(json3_path):
             if text and text != "\n":
                 segments.append({"start": round(start, 2), "end": round(end, 2), "text": text})
     except Exception as e:
-        print(f"Error parsing JSON3: {e}")
+        print(f"[TRANSCRIBE] Error parsing JSON3: {e}")
     return segments
 
-def _find_instant_subtitles(vid):
-    # Search for downloaded YouTube subtitle files (.vtt or .json3)
+def _find_instant_subtitles(search_dir):
     patterns = [
-        f"{WORK_DIR}/{vid}*.vtt",
-        f"{WORK_DIR}/{vid}*.json3",
-        f"{WORK_DIR}/*{vid}*.vtt",
-        f"{WORK_DIR}/*{vid}*.json3"
+        os.path.join(search_dir, "*.vtt"),
+        os.path.join(search_dir, "*.json3"),
     ]
     for p in patterns:
         matches = glob.glob(p)
         for m in matches:
             if m.endswith(".vtt"):
                 segs = _parse_vtt(m)
-                if segs: return segs
+                if segs and len(segs) >= 3:
+                    return segs
             elif m.endswith(".json3"):
                 segs = _parse_json3(m)
-                if segs: return segs
+                if segs and len(segs) >= 3:
+                    return segs
     return None
 
-def _extract_audio(video, vid):
-    os.makedirs(WORK_DIR, exist_ok=True)
-    audio_path = f"{WORK_DIR}/{vid}.mp3"
+def _extract_audio(video, target_dir):
+    os.makedirs(target_dir, exist_ok=True)
+    audio_path = os.path.join(target_dir, "extracted_audio.mp3")
     if not os.path.exists(audio_path):
         cmd = [
             "ffmpeg", "-y", "-i", os.path.abspath(video),
@@ -79,9 +93,8 @@ def _extract_audio(video, vid):
 def _transcribe_groq(audio_path):
     if not GROQ_KEY:
         return None
-    # If audio is > 24MB, Groq API rejects it. In that case, return None to handle gracefully
     if os.path.getsize(audio_path) > 24 * 1024 * 1024:
-        print("Audio exceeds Groq 25MB limit")
+        print("[TRANSCRIBE] Audio exceeds Groq 24MB limit, falling back to local model.")
         return None
     with open(audio_path, "rb") as f:
         r = requests.post(
@@ -102,38 +115,65 @@ def _transcribe_groq(audio_path):
     return [{"start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()} for s in segments]
 
 def _transcribe_local(audio_path):
-    from faster_whisper import WhisperModel
-    m = WhisperModel(WHISPER_MODEL, compute_type="int8")
+    m = _get_local_whisper()
     segs, _ = m.transcribe(audio_path, vad_filter=True)
-    return [{"start": s.start, "end": s.end, "text": s.text.strip()} for s in segs]
+    return [{"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text.strip()} for s in segs]
 
-def transcribe(video, vid):
-    cache = f"{WORK_DIR}/{vid}.json"
+def transcribe(video, vid, work_dir=None, out_dir=None, check_cancelled=None):
+    job_work = work_dir or WORK_DIR
+    cache = os.path.join(out_dir or job_work, "transcript.json")
+
+    # If cached transcript already exists, return it instantly (enables zero-cost retries!)
     if os.path.exists(cache):
-        return json.load(open(cache, encoding="utf-8"))
+        try:
+            with open(cache, "r", encoding="utf-8") as f:
+                cached = json.load(f)
+                if cached and len(cached) > 0:
+                    print(f"[TRANSCRIBE] Loaded cached transcript with {len(cached)} segments.")
+                    return cached
+        except Exception:
+            pass
 
-    # 1. Check for Instant Subtitles (0.01 seconds) - 95%+ of YouTube videos have these!
-    instant_segs = _find_instant_subtitles(vid)
+    if check_cancelled and check_cancelled():
+        raise RuntimeError("Cancelled by user before transcription")
+
+    # 1. Check for Instant Subtitles from yt-dlp
+    instant_segs = _find_instant_subtitles(job_work)
     if instant_segs and len(instant_segs) >= 5:
-        json.dump(instant_segs, open(cache, "w", encoding="utf-8"))
+        try:
+            with open(cache, "w", encoding="utf-8") as f:
+                json.dump(instant_segs, f, indent=2)
+        except Exception:
+            pass
         return instant_segs
 
-    # 2. Fast cloud transcription via Groq Whisper (5-10 seconds)
-    audio_path = _extract_audio(video, vid)
+    # 2. Extract audio
+    audio_path = _extract_audio(video, job_work)
+
+    if check_cancelled and check_cancelled():
+        raise RuntimeError("Cancelled by user during audio extraction")
+
+    # 3. Transcribe via Groq (Fast Cloud) or Local Whisper
     out = None
     if GROQ_KEY:
         try:
             out = _transcribe_groq(audio_path)
         except Exception as e:
-            print(f"Groq whisper notice: {e}, falling back")
+            print(f"[TRANSCRIBE] Groq Whisper notice: {e}, falling back to local model.")
 
-    # 3. Local Whisper model fallback
     if not out:
         out = _transcribe_local(audio_path)
 
+    # Clean temporary audio file to preserve disk space
     if os.path.exists(audio_path):
         try: os.remove(audio_path)
         except Exception: pass
 
-    json.dump(out, open(cache, "w", encoding="utf-8"))
+    # Persist transcript in out_dir so any retries never have to re-transcribe
+    try:
+        with open(cache, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=2)
+    except Exception as e:
+        print(f"[TRANSCRIBE] Notice saving transcript cache: {e}")
+
     return out

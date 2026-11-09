@@ -5,6 +5,10 @@ PROMPT = """You are an elite short-form video editor for TikTok, YouTube Shorts,
 Task: From this condensed transcript, discover and extract up to {candidate_count} standout candidate moments ({lo}-{hi} seconds each).
 Guideline: {focus_guide}
 
+Duration Rules:
+- Every clip MUST be between {lo} and {hi} seconds long.
+- Do NOT generate clips shorter than {lo} seconds or longer than {hi} seconds.
+
 Evaluation Criteria:
 - Opening Hook (25%): Grabs curiosity in first 3s.
 - High Engagement (20%): Entertaining, eye-opening, or dramatic.
@@ -33,7 +37,6 @@ FOCUS_GUIDES = {
 }
 
 def _condense_transcript(segs, target_blocks=60):
-    # Condense hundreds of micro-segments into readable ~15-20s conversational blocks
     if not segs:
         return ""
     blocks = []
@@ -57,20 +60,28 @@ def _condense_transcript(segs, target_blocks=60):
     if cur_texts:
         blocks.append(f"[{int(cur_start)}-{int(cur_end)}] {' '.join(cur_texts)}")
 
-    # If transcript is still huge, sample evenly to stay fast
     if len(blocks) > target_blocks:
         step = len(blocks) / float(target_blocks)
         sampled = [blocks[int(i * step)] for i in range(target_blocks)]
         return "\n".join(sampled)
     return "\n".join(blocks)
 
-def _deduplicate_and_rank(candidates, count):
+def _deduplicate_and_rank(candidates, count, lo, hi):
     candidates.sort(key=lambda c: int(c.get("score", 85)), reverse=True)
     selected = []
 
     for c in candidates:
         s, e = float(c.get("start", 0)), float(c.get("end", 0))
-        if e <= s or (e - s) < 10:
+        dur = e - s
+        # Enforce bounds
+        if dur > hi:
+            e = s + hi
+            dur = hi
+            c["end"] = round(e, 2)
+        elif dur < lo:
+            continue
+
+        if e <= s or dur < 5.0:
             continue
 
         has_overlap = False
@@ -106,8 +117,8 @@ def _heuristic_clips(segs, count=5, min_len=20, max_len=60, focus="viral"):
             "hashtags": ["#shorts", "#viral", "#foryou"]
         }]
 
-    target_count = min(count, max(1, int(total_duration // max(min_len, 15))))
-    clip_len = min(max_len, max(min_len, 35.0))
+    target_count = min(count, max(1, int(total_duration // max(min_len, 10))))
+    clip_len = min(max_len, max(min_len, 30.0))
     step = max(clip_len, (total_duration - clip_len) / max(1, target_count))
 
     categories = ["Viral Hook", "Story", "Funny", "Insight", "Controversial", "Action"]
@@ -123,7 +134,7 @@ def _heuristic_clips(segs, count=5, min_len=20, max_len=60, focus="viral"):
     for i in range(target_count):
         st = max(0.0, i * step + (5.0 if i > 0 else 1.0))
         en = min(total_duration, st + clip_len)
-        if en <= st or en - st < min_len - 5:
+        if en <= st or (en - st) < (min_len - 3):
             continue
         sub = [s for s in segs if st <= s.get("start", 0) <= en]
         title_text = sub[0]["text"][:40] if sub else f"Viral Moment #{i+1}"
@@ -144,24 +155,24 @@ def _heuristic_clips(segs, count=5, min_len=20, max_len=60, focus="viral"):
 
 def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
     n = count or CLIP_COUNT
-    lo = min_len or MIN_LEN
-    hi = max_len or MAX_LEN
+    lo = float(min_len) if min_len else float(MIN_LEN)
+    hi = float(max_len) if max_len else float(MAX_LEN)
+    if hi < lo:
+        hi = lo + 30.0
     focus_guide = FOCUS_GUIDES.get(focus, FOCUS_GUIDES["viral"])
 
-    # Keep candidate count tight for high-speed AI response
-    candidate_count = min(22, max(n + 3, 6))
-
-    # Condense transcript so LLM finishes in 5-10s instead of hanging for 2 minutes
+    candidate_count = min(25, max(n + 4, 6))
     t = _condense_transcript(segs, target_blocks=50)
+
     try:
-        data = ask_json(PROMPT.format(candidate_count=candidate_count, lo=lo, hi=hi, focus_guide=focus_guide, t=t))
+        data = ask_json(PROMPT.format(candidate_count=candidate_count, lo=int(lo), hi=int(hi), focus_guide=focus_guide, t=t))
         raw_clips = data["clips"] if isinstance(data, dict) and "clips" in data else data
-        valid = [c for c in raw_clips if lo - 8 <= (c.get("end", 0) - c.get("start", 0)) <= hi + 25]
+        valid = [c for c in raw_clips if (c.get("end", 0) - c.get("start", 0)) >= max(10.0, lo - 5.0)]
         if valid:
-            ranked = _deduplicate_and_rank(valid, n)
+            ranked = _deduplicate_and_rank(valid, n, lo, hi)
             if ranked:
                 return ranked
     except Exception as e:
-        print(f"AI moment selection notice: {e}. Using fast transcript windowing.")
+        print(f"[PICK] AI moment selection notice: {e}. Using heuristic transcript windowing.")
 
-    return _heuristic_clips(segs, count=n, min_len=lo, max_len=hi, focus=focus)
+    return _heuristic_clips(segs, count=n, min_len=int(lo), max_len=int(hi), focus=focus)

@@ -1,8 +1,9 @@
-import os, subprocess
+import os
+import subprocess
 from config import OUT_DIR
 from captions import make_srt
+from process_manager import run_tracked_subprocess
 
-# Subtitle styles matching OpusClip / Vizard presets (ASS format BGR hex: &H00BBGGRR)
 STYLES = {
     "beasty": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
     "karaoke": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H0000FF00,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
@@ -29,7 +30,6 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", fra
                 f"[bg][fg]overlay=0:0{sub_filter}"
             )
         else:
-            # Center crop (fill)
             vf = f"scale=540:540:force_original_aspect_ratio=increase,crop=540:540{sub_filter}"
 
     elif ratio == "16:9":
@@ -39,7 +39,6 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", fra
     else:
         # 9:16 Vertical (540x960)
         if framing == "blur":
-            # Smart blurred top & bottom filler: foreground is properly scaled and padded to 540x960
             vf = (
                 "[0:v]split[a][b];"
                 "[a]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:1,scale=540:960[bg];"
@@ -47,26 +46,25 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", fra
                 f"[bg][fg]overlay=0:0{sub_filter}"
             )
         elif framing == "fit":
-            # Clean black bars letterbox
             vf = f"scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2:color=black{sub_filter}"
         else:
-            # "crop" - Full Screen 9:16 Center Crop (Ultra-fast, razor sharp, native mobile look!)
             vf = f"scale=540:960:force_original_aspect_ratio=increase,crop=540:960{sub_filter}"
 
     return vf
 
-def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", framing="crop"):
-    d = os.path.join(OUT_DIR, vid)
+def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", framing="crop", out_dir=None, jid=None):
+    d = out_dir or os.path.join(OUT_DIR, str(vid))
     os.makedirs(d, exist_ok=True)
-    srt_path = os.path.join(d, "clip.srt")
+    srt_filename = f"clip{i}.srt"
+    srt_path = os.path.join(d, srt_filename)
 
     has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
     if has_captions:
         make_srt(segs, c["start"], c["end"], srt_path, words=3)
 
-    vf = get_filter_complex(aspect_ratio, caption_style, "clip.srt", framing=framing)
+    vf = get_filter_complex(aspect_ratio, caption_style, srt_filename, framing=framing)
     out = f"clip{i}.mp4"
-    # -threads 2 prevents thread thrashing on Render's 0.5 CPU container
+
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
@@ -83,7 +81,7 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
         out,
     ]
     try:
-        subprocess.run(cmd, cwd=d, check=True, capture_output=True)
+        run_tracked_subprocess(cmd, jid=jid, cwd=d, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr.decode("utf-8", errors="replace")[-300:] if e.stderr else str(e)
         raise RuntimeError(f"FFmpeg failed for clip {i}: {err_msg}")
@@ -97,5 +95,6 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
     with open(os.path.join(d, f"clip{i}.txt"), "w", encoding="utf-8") as f:
         score_line = f"Virality Score: {c.get('score', 92)}/100 • Category: {c.get('category', 'Viral Highlight')}\n"
         hook_line = f"Hook Intelligence: {c.get('hook_reason', 'Strong opening moment')}\n\n"
-        f.write(f"{c['title']}\n\n{score_line}{hook_line}{c['caption']}\n\n{' '.join(c.get('hashtags', []))}\n")
+        f.write(f"{c['title']}\n\n{score_line}{hook_line}{c.get('caption', '')}\n\n{' '.join(c.get('hashtags', []))}\n")
+
     return os.path.join(d, out)

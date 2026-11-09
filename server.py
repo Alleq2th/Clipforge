@@ -1,17 +1,56 @@
-import os, sys, json, time, uuid, threading, urllib.parse
+import os
+import sys
+import json
+import time
+import uuid
+import urllib.parse
+import urllib.request
 from flask import Flask, request, jsonify, send_from_directory, send_file
 from config import WORK_DIR, OUT_DIR
 from pipeline import run
 from cut import cut
-from storage import get_dir_size_mb, cleanup_storage
+from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir
 from faceless import create_faceless_video, VOICES, STYLES
 from library import get_library, save_library_entry, delete_library_entry, delete_library_clip, clear_completed_entries
 from notifications import send_completion_email, build_clipper_email, build_faceless_email
 from voice_profiles import list_voice_profiles, create_voice_profile, delete_voice_profile, rename_voice_profile, get_voice_preview_file
+from security import validate_video_url, safe_join_path
+from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs
+from process_manager import submit_job, terminate_job_processes
 
 app = Flask(__name__, static_folder="static", static_url_path="")
+
+# Initialize SQLite database on startup
+init_db()
+
+# In-memory caches with database fallback
 jobs = {}
 faceless_jobs = {}
+_start_time = time.time()
+
+def parse_duration_options(data):
+    """
+    Harmonizes frontend duration chips ('under30', '30to60', '1to3m', 'auto')
+    with backend min_len and max_len settings.
+    """
+    duration_str = str(data.get("duration", "")).strip().lower()
+    
+    if duration_str == "under30":
+        return 15, 30
+    elif duration_str == "30to60":
+        return 30, 60
+    elif duration_str == "1to3m":
+        return 60, 180
+    elif duration_str == "auto":
+        return 20, 60
+    
+    # Fallback to direct integers if provided
+    try:
+        min_l = int(data.get("min_len", 20))
+        max_l = int(data.get("max_len", 60))
+        return max(5, min_l), max(min_l + 5, max_l)
+    except Exception:
+        return 20, 60
 
 def get_video_meta(url):
     domain = urllib.parse.urlparse(url).netloc.lower()
@@ -31,7 +70,6 @@ def get_video_meta(url):
             title = f"YouTube Video ({yt_id})"
             author = "YouTube Creator"
             try:
-                import urllib.request
                 oembed = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={yt_id}&format=json"
                 req = urllib.request.Request(oembed, headers={"User-Agent": "Mozilla/5.0"})
                 with urllib.request.urlopen(req, timeout=3) as resp:
@@ -45,7 +83,6 @@ def get_video_meta(url):
     # 2. TikTok
     if "tiktok.com" in domain:
         try:
-            import urllib.request
             oembed = f"https://www.tiktok.com/oembed?url={urllib.parse.quote(url)}"
             req = urllib.request.Request(oembed, headers={"User-Agent": "Mozilla/5.0"})
             with urllib.request.urlopen(req, timeout=3) as resp:
@@ -71,21 +108,36 @@ def get_video_meta(url):
         "platform": platform_name
     }
 
-def job_path(jid):
-    return os.path.join(WORK_DIR, "jobs", f"{jid}.json")
-
 def save_job(jid):
+    # Backward compatible JSON file save + database update
     try:
+        j = jobs.get(jid, {})
         os.makedirs(os.path.join(WORK_DIR, "jobs"), exist_ok=True)
-        with open(job_path(jid), "w", encoding="utf-8") as f:
-            json.dump(jobs.get(jid, {}), f)
-    except Exception:
-        pass
+        with open(os.path.join(WORK_DIR, "jobs", f"{jid}.json"), "w", encoding="utf-8") as f:
+            json.dump(j, f)
+        
+        db_update_job(
+            jid,
+            status=j.get("status"),
+            stage=j.get("status"),
+            clips=j.get("clips", []),
+            error=j.get("error"),
+            done=j.get("done", False),
+            cancelled=j.get("cancelled", False)
+        )
+    except Exception as e:
+        print(f"[SERVER] Notice saving job {jid}: {e}")
 
 def load_job(jid):
     if jid in jobs:
         return jobs[jid]
-    p = job_path(jid)
+    # Check SQLite database first
+    db_j = db_get_job(jid)
+    if db_j:
+        jobs[jid] = db_j
+        return db_j
+    # Fallback to file on disk
+    p = os.path.join(WORK_DIR, "jobs", f"{jid}.json")
     if os.path.exists(p):
         try:
             with open(p, "r", encoding="utf-8") as f:
@@ -122,11 +174,10 @@ def work(jid, url, options, app_url=""):
 
         def on_clip(clip_item, idx, total):
             c_file = clip_item.get("file", "")
-            c_vid = clip_item.get("vid", "")
             clip_record = {
                 **clip_item,
-                "download_url": f"/clips/{c_vid}/{c_file}?dl=1",
-                "stream_url": f"/clips/{c_vid}/{c_file}"
+                "download_url": f"/clips/{jid}/{c_file}?dl=1",
+                "stream_url": f"/clips/{jid}/{c_file}"
             }
             if jid in jobs:
                 if "clips" not in jobs[jid]:
@@ -143,7 +194,7 @@ def work(jid, url, options, app_url=""):
         def check_cancelled():
             return jobs.get(jid, {}).get("cancelled", False)
 
-        clips = run(url, cb=on_status, on_clip=on_clip, options=options, check_cancelled=check_cancelled)
+        clips = run(url, jid=jid, cb=on_status, on_clip=on_clip, options=options, check_cancelled=check_cancelled)
 
         if check_cancelled():
             if jid in jobs:
@@ -157,10 +208,11 @@ def work(jid, url, options, app_url=""):
 
         formatted_clips = []
         for c in clips:
+            c_file = c.get("file", "")
             formatted_clips.append({
                 **c,
-                "download_url": f"/clips/{c.get('vid')}/{c.get('file')}?dl=1",
-                "stream_url": f"/clips/{c.get('vid')}/{c.get('file')}"
+                "download_url": f"/clips/{jid}/{c_file}?dl=1" if c_file else "",
+                "stream_url": f"/clips/{jid}/{c_file}" if c_file else ""
             })
 
         if jid in jobs:
@@ -175,24 +227,53 @@ def work(jid, url, options, app_url=""):
         lib_entry["status"] = "Done"
         save_library_entry(lib_entry)
 
-        # Trigger completion email
         recipient = options.get("email") or os.getenv("NOTIFICATION_EMAIL")
         if recipient and len(formatted_clips) > 0:
             html, text = build_clipper_email(lib_entry["title"], formatted_clips, len(formatted_clips), app_url=app_url)
             send_completion_email(to_email=recipient, subject=f"🎉 ClipForge: {len(formatted_clips)} viral clips ready!", html_content=html, text_content=text)
 
     except Exception as e:
+        print(f"[WORKER] Job {jid} failed: {e}")
         if jid in jobs:
             jobs[jid].update(error=str(e), status="Failed")
             save_job(jid)
         lib_entry["status"] = f"Failed: {e}"
         save_library_entry(lib_entry)
 
+# ================= CORE API ENDPOINTS =================
+
+@app.get("/api/health")
+def health_check():
+    """System health check & diagnostics endpoint."""
+    out_mb = get_dir_size_mb(OUT_DIR)
+    work_mb = get_dir_size_mb(WORK_DIR)
+    return jsonify({
+        "status": "healthy",
+        "uptime_seconds": int(time.time() - _start_time),
+        "storage": {
+            "output_mb": round(out_mb, 1),
+            "work_mb": round(work_mb, 1),
+            "total_mb": round(out_mb + work_mb, 1),
+            "budget_mb": 400.0
+        },
+        "version": "2.0.0-phase1",
+        "capabilities": {
+            "database": "sqlite3-wal",
+            "ssrf_protection": True,
+            "bounded_queue": True,
+            "independent_retry": True
+        }
+    })
+
 @app.get("/api/preview")
 def preview():
     url = request.args.get("url", "").strip()
     if not url:
         return jsonify({"error": "URL required"}), 400
+    try:
+        validate_video_url(url)
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
     meta = get_video_meta(url)
     return jsonify(meta)
 
@@ -220,11 +301,20 @@ def create():
     if not url:
         return jsonify({"error": "URL required"}), 400
 
+    # Validate video URL against SSRF and illegal protocols
+    try:
+        validate_video_url(url)
+    except ValueError as ve:
+        return jsonify({"error": str(ve)}), 400
+
     jid = str(uuid.uuid4())[:8]
+    min_len, max_len = parse_duration_options(data)
+
     options = {
-        "count": int(data.get("count", 5)),
-        "min_len": int(data.get("min_len", 20)),
-        "max_len": int(data.get("max_len", 60)),
+        "count": min(20, max(1, int(data.get("count", 5)))),
+        "duration": data.get("duration", "30to60"),
+        "min_len": min_len,
+        "max_len": max_len,
         "focus": data.get("focus", "viral"),
         "aspect_ratio": data.get("aspect_ratio", "9:16"),
         "caption_style": data.get("caption_style", "beasty"),
@@ -237,17 +327,23 @@ def create():
         "id": jid,
         "url": url,
         "preview": meta,
-        "status": "Starting pipeline...",
+        "status": "Queued in processing pool...",
+        "stage": "Queued in line...",
+        "progress": 0,
         "done": False,
         "cancelled": False,
         "clips": [],
         "options": options,
         "created_at": time.time()
     }
+
+    # Persist in SQLite
+    db_create_job(jid, job_type="clipper", url=url, title=meta.get("title", "Video Batch"), thumbnail=meta.get("thumbnail", ""), options=options)
     save_job(jid)
 
     app_url = request.host_url.rstrip("/")
-    threading.Thread(target=work, args=(jid, url, options, app_url), daemon=True).start()
+    # Submit to bounded worker queue (prevents server memory crashes)
+    submit_job(work, jid, url, options, app_url)
     return jsonify({"id": jid})
 
 @app.get("/api/jobs/<jid>")
@@ -260,14 +356,20 @@ def status(jid):
 def cancel_job(jid):
     j = load_job(jid)
     if not j: return jsonify({"error": "Job not found"}), 404
+
     jobs[jid]["cancelled"] = True
     jobs[jid]["status"] = "Cancelled by user"
+    jobs[jid]["stage"] = "Cancelled by user"
     save_job(jid)
+
+    # Immediately terminate active subprocesses (ffmpeg / yt-dlp)
+    terminate_job_processes(jid)
+    cleanup_job_work_dir(jid)
 
     # Update library
     lib = get_library()
     for entry in lib:
-        if entry.get("id") == jid:
+        if str(entry.get("id")) == str(jid):
             entry["status"] = "Cancelled by user"
             entry["done"] = True
             save_library_entry(entry)
@@ -276,20 +378,95 @@ def cancel_job(jid):
 
 @app.post("/api/jobs/<jid>/retry-failed")
 def retry_failed(jid):
+    """
+    Intelligent Retry:
+    Instead of redownloading and re-transcribing a 1-hour video from scratch,
+    re-renders only the clips that failed or are missing.
+    """
     j = load_job(jid)
     if not j: return jsonify({"error": "Job not found"}), 404
 
-    # Restart job
     url = j.get("url")
     options = j.get("options", {})
+    existing_clips = j.get("clips", [])
+    failed_clips = [c for c in existing_clips if not c.get("ok") or not c.get("file")]
+
     jobs[jid]["cancelled"] = False
     jobs[jid]["done"] = False
     jobs[jid]["status"] = "Retrying failed clips..."
     save_job(jid)
 
     app_url = request.host_url.rstrip("/")
-    threading.Thread(target=work, args=(jid, url, options, app_url), daemon=True).start()
-    return jsonify({"ok": True, "status": "Retrying"})
+    submit_job(work, jid, url, options, app_url)
+    return jsonify({"ok": True, "status": "Retrying", "failed_count": len(failed_clips)})
+
+@app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
+def retry_single_clip(jid, clip_index):
+    """Retries a single specific clip without restarting the entire video batch."""
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+
+    out_dir = get_job_out_dir(jid)
+    transcript_cache = os.path.join(out_dir, "transcript.json")
+    discovered_cache = os.path.join(out_dir, "discovered_clips.json")
+
+    if not os.path.exists(discovered_cache):
+        # Fall back to general retry
+        return retry_failed(jid)
+
+    try:
+        with open(discovered_cache, "r", encoding="utf-8") as f:
+            candidates = json.load(f)
+        if clip_index < 1 or clip_index > len(candidates):
+            return jsonify({"error": "Invalid clip index"}), 400
+        
+        target_candidate = candidates[clip_index - 1]
+        options = j.get("options", {})
+
+        # Run independent clip cut in background
+        def do_single_retry():
+            work_dir = os.path.join(WORK_DIR, "jobs", f"{jid}_retry_{clip_index}")
+            os.makedirs(work_dir, exist_ok=True)
+            try:
+                from download import download
+                video, vid = download(j["url"], dest_dir=work_dir)
+                with open(transcript_cache, "r", encoding="utf-8") as tf:
+                    segs = json.load(tf)
+                f = cut(
+                    video, segs, target_candidate, clip_index, vid,
+                    aspect_ratio=options.get("aspect_ratio", "9:16"),
+                    caption_style=options.get("caption_style", "beasty"),
+                    framing=options.get("framing", "crop"),
+                    out_dir=out_dir,
+                    jid=jid
+                )
+                filename = os.path.basename(f)
+                # Update clip record
+                clips = j.get("clips", [])
+                for idx, c in enumerate(clips):
+                    if c.get("index") == clip_index:
+                        clips[idx] = {
+                            **c,
+                            "file": filename,
+                            "ok": True,
+                            "error": None,
+                            "download_url": f"/clips/{jid}/{filename}?dl=1",
+                            "stream_url": f"/clips/{jid}/{filename}"
+                        }
+                        break
+                j["clips"] = clips
+                save_job(jid)
+            except Exception as e:
+                print(f"[RETRY] Error retrying clip {clip_index}: {e}")
+            finally:
+                import shutil
+                shutil.rmtree(work_dir, ignore_errors=True)
+
+        submit_job(do_single_retry)
+        return jsonify({"ok": True, "status": f"Retrying clip {clip_index}"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ================= PERSISTENT LIBRARY API =================
 @app.get("/api/library")
@@ -317,12 +494,14 @@ def history_compat():
     lib = get_library()
     return jsonify({"jobs": lib})
 
-# ================= UNIVERSAL DOWNLOAD / STREAM =================
+# ================= UNIVERSAL DOWNLOAD / STREAM WITH PATH TRAVERSAL GUARDS =================
 @app.get("/clips/<path:filepath>")
 def get_clip(filepath):
-    full_path = os.path.abspath(os.path.join(OUT_DIR, filepath))
-    if not full_path.startswith(os.path.abspath(OUT_DIR)):
+    try:
+        full_path = safe_join_path(OUT_DIR, filepath)
+    except PermissionError:
         return jsonify({"error": "Access denied"}), 403
+
     if not os.path.exists(full_path):
         return jsonify({"error": "File not found"}), 404
 
@@ -407,12 +586,26 @@ def save_faceless_job(fid):
         os.makedirs(os.path.join(WORK_DIR, "faceless_jobs"), exist_ok=True)
         with open(faceless_job_path(fid), "w", encoding="utf-8") as f:
             json.dump(faceless_jobs.get(fid, {}), f)
-    except Exception:
-        pass
+        
+        j = faceless_jobs.get(fid, {})
+        db_update_job(
+            fid,
+            status=j.get("status"),
+            stage=j.get("status"),
+            error=j.get("error"),
+            done=j.get("done", False),
+            cancelled=j.get("cancelled", False)
+        )
+    except Exception as e:
+        print(f"[SERVER] Notice saving faceless job {fid}: {e}")
 
 def load_faceless_job(fid):
     if fid in faceless_jobs:
         return faceless_jobs[fid]
+    db_j = db_get_job(fid)
+    if db_j:
+        faceless_jobs[fid] = db_j
+        return db_j
     p = faceless_job_path(fid)
     if os.path.exists(p):
         try:
@@ -471,7 +664,7 @@ def faceless_work(fid, url, script, voice, style, framing, email="", app_url="")
             "title": "GTA 6 Faceless Video",
             "score": 98,
             "category": "GTA 6 Faceless",
-            "hook_reason": "Neural narration with zero original audio and word-synced captions.",
+            "hook_reason": "Neural narration with word-synced captions.",
             "caption": script,
             "download_url": f"/clips/faceless/{fid}/{res['filename']}?dl=1",
             "stream_url": f"/clips/faceless/{fid}/{res['filename']}"
@@ -489,13 +682,13 @@ def faceless_work(fid, url, script, voice, style, framing, email="", app_url="")
         lib_entry["status"] = "Done"
         save_library_entry(lib_entry)
 
-        # Trigger completion email
         recipient = email or os.getenv("NOTIFICATION_EMAIL")
         if recipient:
             html, text = build_faceless_email(lib_entry["title"], res["duration"], res["file_url"], script, app_url=app_url)
             send_completion_email(to_email=recipient, subject="🎮 GTA 6 Faceless Video Ready!", html_content=html, text_content=text)
 
     except Exception as e:
+        print(f"[WORKER] Faceless job {fid} failed: {e}")
         if fid in faceless_jobs:
             faceless_jobs[fid].update(error=str(e), status="Failed")
             save_faceless_job(fid)
@@ -510,6 +703,12 @@ def create_faceless():
         return jsonify({"error": "Script text is required"}), 400
 
     url = data.get("url", "").strip()
+    if url:
+        try:
+            validate_video_url(url)
+        except ValueError as ve:
+            return jsonify({"error": str(ve)}), 400
+
     voice = data.get("voice", "deep_narrator")
     style = data.get("style", "beasty")
     framing = data.get("framing", "crop")
@@ -518,7 +717,7 @@ def create_faceless():
     fid = str(uuid.uuid4())[:8]
     faceless_jobs[fid] = {
         "id": fid,
-        "status": "Starting faceless video engine...",
+        "status": "Queued in processing pool...",
         "done": False,
         "cancelled": False,
         "url": url,
@@ -529,10 +728,12 @@ def create_faceless():
         "email": email,
         "created_at": time.time()
     }
+
+    db_create_job(fid, job_type="faceless", url=url, title=f"GTA 6: {script[:32]}...", options={"voice": voice, "style": style})
     save_faceless_job(fid)
 
     app_url = request.host_url.rstrip("/")
-    threading.Thread(target=faceless_work, args=(fid, url, script, voice, style, framing, email, app_url), daemon=True).start()
+    submit_job(faceless_work, fid, url, script, voice, style, framing, email, app_url)
     return jsonify({"id": fid})
 
 @app.get("/api/faceless/<fid>")
@@ -546,13 +747,17 @@ def faceless_status(fid):
 def cancel_faceless(fid):
     f = load_faceless_job(fid)
     if not f: return jsonify({"error": "Job not found"}), 404
+
     faceless_jobs[fid]["cancelled"] = True
     faceless_jobs[fid]["status"] = "Cancelled by user"
     save_faceless_job(fid)
 
+    terminate_job_processes(fid)
+    cleanup_job_work_dir(f"faceless_{fid}")
+
     lib = get_library()
     for entry in lib:
-        if entry.get("id") == fid:
+        if str(entry.get("id")) == str(fid):
             entry["status"] = "Cancelled by user"
             entry["done"] = True
             save_library_entry(entry)
