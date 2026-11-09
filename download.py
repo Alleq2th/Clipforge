@@ -1,6 +1,7 @@
 import os
 import shutil
 import yt_dlp
+import yt_dlp.utils
 from config import WORK_DIR
 from security import validate_video_url
 
@@ -64,7 +65,6 @@ def download(url, dest_dir=None, max_duration=None, check_cancelled=None):
 
     if max_duration:
         try:
-            import yt_dlp.utils
             opts["download_ranges"] = yt_dlp.utils.download_range_func(None, [(0, float(max_duration))])
             opts["force_keyframes_at_cuts"] = True
         except Exception as e:

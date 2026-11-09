@@ -36,7 +36,12 @@ def _parse_vtt(vtt_path):
                     text_lines = lines[idx+1:]
                     clean_text = " ".join(re.sub(r"<[^>]+>", "", l) for l in text_lines).strip()
                     if clean_text:
-                        segments.append({"start": round(st, 2), "end": round(en, 2), "text": clean_text})
+                        segments.append({
+                            "start": round(st, 2),
+                            "end": round(en, 2),
+                            "text": clean_text,
+                            "words": []
+                        })
                     break
     except Exception as e:
         print(f"[TRANSCRIBE] Error parsing VTT: {e}")
@@ -54,8 +59,24 @@ def _parse_json3(json3_path):
             dur = float(ev.get("dDurationMs", 0)) / 1000.0
             end = start + dur
             text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
+            words = []
+            cur_w_start = start
+            for seg in ev["segs"]:
+                w_txt = seg.get("utf8", "").strip()
+                t_offset = float(seg.get("tOffsetMs", 0)) / 1000.0
+                if w_txt:
+                    words.append({
+                        "word": w_txt,
+                        "start": round(start + t_offset, 2),
+                        "end": round(start + t_offset + 0.35, 2)
+                    })
             if text and text != "\n":
-                segments.append({"start": round(start, 2), "end": round(end, 2), "text": text})
+                segments.append({
+                    "start": round(start, 2),
+                    "end": round(end, 2),
+                    "text": text,
+                    "words": words
+                })
     except Exception as e:
         print(f"[TRANSCRIBE] Error parsing JSON3: {e}")
     return segments
@@ -104,26 +125,61 @@ def _transcribe_groq(audio_path):
             data={
                 "model": "whisper-large-v3-turbo",
                 "response_format": "verbose_json",
+                "timestamp_granularities[]": ["segment", "word"],
             },
             timeout=120,
         )
     r.raise_for_status()
     data = r.json()
     segments = data.get("segments", [])
+    raw_words = data.get("words", [])
+
     if not segments and data.get("text"):
-        return [{"start": 0.0, "end": 30.0, "text": data["text"].strip()}]
-    return [{"start": float(s["start"]), "end": float(s["end"]), "text": s["text"].strip()} for s in segments]
+        return [{"start": 0.0, "end": 30.0, "text": data["text"].strip(), "words": []}]
+
+    out = []
+    for s in segments:
+        st = float(s["start"])
+        en = float(s["end"])
+        seg_words = [
+            {"word": w.get("word", "").strip(), "start": round(float(w.get("start", st)), 2), "end": round(float(w.get("end", en)), 2)}
+            for w in raw_words
+            if st <= float(w.get("start", st)) <= en
+        ]
+        out.append({
+            "start": round(st, 2),
+            "end": round(en, 2),
+            "text": s["text"].strip(),
+            "words": seg_words
+        })
+    return out
 
 def _transcribe_local(audio_path):
     m = _get_local_whisper()
-    segs, _ = m.transcribe(audio_path, vad_filter=True)
-    return [{"start": round(s.start, 2), "end": round(s.end, 2), "text": s.text.strip()} for s in segs]
+    segs, _ = m.transcribe(audio_path, vad_filter=True, word_timestamps=True)
+    out = []
+    for s in segs:
+        words = []
+        if hasattr(s, "words") and s.words:
+            for w in s.words:
+                words.append({
+                    "word": w.word.strip(),
+                    "start": round(w.start, 2),
+                    "end": round(w.end, 2)
+                })
+        out.append({
+            "start": round(s.start, 2),
+            "end": round(s.end, 2),
+            "text": s.text.strip(),
+            "words": words
+        })
+    return out
 
 def transcribe(video, vid, work_dir=None, out_dir=None, check_cancelled=None):
     job_work = work_dir or WORK_DIR
     cache = os.path.join(out_dir or job_work, "transcript.json")
 
-    # If cached transcript already exists, return it instantly (enables zero-cost retries!)
+    # If cached transcript already exists, return it instantly
     if os.path.exists(cache):
         try:
             with open(cache, "r", encoding="utf-8") as f:
