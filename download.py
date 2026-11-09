@@ -23,7 +23,7 @@ def _cookies():
     n = sum("youtube.com" in l for l in open(dst, errors="ignore"))
     return dst, f"COOKIES: loaded {n} youtube cookies"
 
-def download(url):
+def download(url, max_duration=None):
     os.makedirs(WORK_DIR, exist_ok=True)
     # Download 720p maximum to accelerate processing + extract subtitles instantly
     opts = {
@@ -37,6 +37,14 @@ def download(url):
         "subtitleslangs": ["en", "en-US", "en-GB", "a.en", "en-orig"],
         "subtitlesformat": "vtt/json3/srt",
     }
+    if max_duration:
+        try:
+            import yt_dlp.utils
+            opts["download_ranges"] = yt_dlp.utils.download_range_func(None, [(0, float(max_duration))])
+            opts["force_keyframes_at_cuts"] = True
+        except Exception as e:
+            print(f"Failed to set download_ranges: {e}")
+
     c, status = _cookies()
     if c:
         opts["cookiefile"] = c

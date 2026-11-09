@@ -1,13 +1,13 @@
-import os, threading, uuid, json, time, re, urllib.request, urllib.parse
-from flask import Flask, jsonify, request, send_from_directory
-from config import OUT_DIR, WORK_DIR
-from llm import providers
+import os, sys, json, time, uuid, threading, urllib.parse
+from flask import Flask, request, jsonify, send_from_directory, send_file
+from config import WORK_DIR, OUT_DIR
 from pipeline import run
+from cut import cut
 from storage import get_dir_size_mb, cleanup_storage
 from faceless import create_faceless_video, VOICES, STYLES
-from library import get_library, save_library_entry, delete_library_entry
+from library import get_library, save_library_entry, delete_library_entry, delete_library_clip, clear_completed_entries
 from notifications import send_completion_email, build_clipper_email, build_faceless_email
-from voice_profiles import list_voice_profiles, create_voice_profile, delete_voice_profile
+from voice_profiles import list_voice_profiles, create_voice_profile, delete_voice_profile, rename_voice_profile, get_voice_preview_file
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 jobs = {}
@@ -17,38 +17,40 @@ def get_video_meta(url):
     domain = urllib.parse.urlparse(url).netloc.lower()
 
     # 1. YouTube
-    m = re.search(r"(?:v=|\/|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})", url)
-    if m:
-        vid = m.group(1)
-        thumb = f"https://img.youtube.com/vi/{vid}/hqdefault.jpg"
-        title = f"YouTube Video ({vid})"
-        author = "YouTube"
-        try:
-            oembed_url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid}&format=json"
-            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=3) as res:
-                data = json.loads(res.read().decode())
-                title = data.get("title", title)
-                author = data.get("author_name", author)
-        except Exception:
-            pass
-        return {"ok": True, "id": vid, "title": title, "author": author, "thumbnail": thumb, "platform": "YouTube"}
+    if "youtube.com" in domain or "youtu.be" in domain:
+        yt_id = None
+        if "youtu.be" in domain:
+            yt_id = url.split("youtu.be/")[1].split("?")[0].split("/")[0]
+        elif "watch" in url:
+            qs = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
+            yt_id = qs.get("v", [None])[0]
+        elif "shorts" in url:
+            yt_id = url.split("/shorts/")[1].split("?")[0].split("/")[0]
+
+        if yt_id:
+            title = f"YouTube Video ({yt_id})"
+            author = "YouTube Creator"
+            try:
+                import urllib.request
+                oembed = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={yt_id}&format=json"
+                req = urllib.request.Request(oembed, headers={"User-Agent": "Mozilla/5.0"})
+                with urllib.request.urlopen(req, timeout=3) as resp:
+                    d = json.loads(resp.read().decode())
+                    title = d.get("title", title)
+                    author = d.get("author_name", author)
+            except Exception:
+                pass
+            return {"ok": True, "id": yt_id, "title": title, "author": author, "thumbnail": f"https://i.ytimg.com/vi/{yt_id}/hqdefault.jpg", "platform": "YouTube"}
 
     # 2. TikTok
     if "tiktok.com" in domain:
         try:
-            oembed_url = f"https://www.tiktok.com/oembed?url={urllib.parse.quote(url)}"
-            req = urllib.request.Request(oembed_url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=3) as res:
-                data = json.loads(res.read().decode())
-                return {
-                    "ok": True,
-                    "id": str(uuid.uuid4())[:8],
-                    "title": data.get("title") or "TikTok Video",
-                    "author": data.get("author_name") or "TikTok",
-                    "thumbnail": data.get("thumbnail_url") or "",
-                    "platform": "TikTok"
-                }
+            import urllib.request
+            oembed = f"https://www.tiktok.com/oembed?url={urllib.parse.quote(url)}"
+            req = urllib.request.Request(oembed, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                d = json.loads(resp.read().decode())
+                return {"ok": True, "id": str(uuid.uuid4())[:8], "title": d.get("title") or "TikTok Viral Clip", "author": d.get("author_name") or "TikTok Creator", "thumbnail": d.get("thumbnail_url") or "", "platform": "TikTok"}
         except Exception:
             return {"ok": True, "id": str(uuid.uuid4())[:8], "title": "TikTok Video", "author": "TikTok", "thumbnail": "", "platform": "TikTok"}
 
@@ -63,8 +65,8 @@ def get_video_meta(url):
     return {
         "ok": True,
         "id": str(uuid.uuid4())[:8],
-        "title": f"{platform_name} Stream / Clip",
-        "author": domain,
+        "title": f"{platform_name} Stream / Video",
+        "author": platform_name,
         "thumbnail": "",
         "platform": platform_name
     }
@@ -138,7 +140,21 @@ def work(jid, url, options, app_url=""):
             lib_entry["status"] = f"Generated clip {idx} of {total} • Ready to download!"
             save_library_entry(lib_entry)
 
-        clips = run(url, cb=on_status, on_clip=on_clip, options=options)
+        def check_cancelled():
+            return jobs.get(jid, {}).get("cancelled", False)
+
+        clips = run(url, cb=on_status, on_clip=on_clip, options=options, check_cancelled=check_cancelled)
+
+        if check_cancelled():
+            if jid in jobs:
+                jobs[jid]["status"] = "Cancelled by user"
+                jobs[jid]["done"] = True
+                save_job(jid)
+            lib_entry["status"] = "Cancelled by user"
+            lib_entry["done"] = True
+            save_library_entry(lib_entry)
+            return
+
         formatted_clips = []
         for c in clips:
             formatted_clips.append({
@@ -161,7 +177,7 @@ def work(jid, url, options, app_url=""):
 
         # Trigger completion email
         recipient = options.get("email") or os.getenv("NOTIFICATION_EMAIL")
-        if recipient:
+        if recipient and len(formatted_clips) > 0:
             html, text = build_clipper_email(lib_entry["title"], formatted_clips, len(formatted_clips), app_url=app_url)
             send_completion_email(to_email=recipient, subject=f"🎉 ClipForge: {len(formatted_clips)} viral clips ready!", html_content=html, text_content=text)
 
@@ -188,26 +204,27 @@ def storage_info():
         "output_mb": round(out_mb, 1),
         "work_mb": round(work_mb, 1),
         "total_mb": round(out_mb + work_mb, 1),
-        "limit_mb": 400
+        "limit_mb": 400.0,
+        "cleanup_count": 6
     })
+
+@app.post("/api/cleanup")
+def force_cleanup():
+    cleanup_storage()
+    return jsonify({"ok": True})
 
 @app.post("/api/jobs")
 def create():
     data = request.json or {}
     url = data.get("url", "").strip()
-    if not url: return jsonify({"error": "URL required"}), 400
+    if not url:
+        return jsonify({"error": "URL required"}), 400
 
-    count = int(data.get("count", 5))
-    dur = data.get("duration", "30to60")
-    if dur == "under30": min_len, max_len = 10, 29
-    elif dur == "1to3m": min_len, max_len = 60, 180
-    elif dur == "auto": min_len, max_len = 15, 90
-    else: min_len, max_len = 30, 60
-
+    jid = str(uuid.uuid4())[:8]
     options = {
-        "count": count,
-        "min_len": min_len,
-        "max_len": max_len,
+        "count": int(data.get("count", 5)),
+        "min_len": int(data.get("min_len", 20)),
+        "max_len": int(data.get("max_len", 60)),
         "focus": data.get("focus", "viral"),
         "aspect_ratio": data.get("aspect_ratio", "9:16"),
         "caption_style": data.get("caption_style", "beasty"),
@@ -216,13 +233,14 @@ def create():
     }
 
     meta = get_video_meta(url)
-    jid = str(uuid.uuid4())
     jobs[jid] = {
         "id": jid,
-        "status": "Queued...",
-        "done": False,
-        "clips": [],
+        "url": url,
         "preview": meta,
+        "status": "Starting pipeline...",
+        "done": False,
+        "cancelled": False,
+        "clips": [],
         "options": options,
         "created_at": time.time()
     }
@@ -238,6 +256,41 @@ def status(jid):
     if not j: return jsonify({"error": "Job not found"}), 404
     return jsonify(j)
 
+@app.post("/api/jobs/<jid>/cancel")
+def cancel_job(jid):
+    j = load_job(jid)
+    if not j: return jsonify({"error": "Job not found"}), 404
+    jobs[jid]["cancelled"] = True
+    jobs[jid]["status"] = "Cancelled by user"
+    save_job(jid)
+
+    # Update library
+    lib = get_library()
+    for entry in lib:
+        if entry.get("id") == jid:
+            entry["status"] = "Cancelled by user"
+            entry["done"] = True
+            save_library_entry(entry)
+            break
+    return jsonify({"ok": True, "status": "Cancelled"})
+
+@app.post("/api/jobs/<jid>/retry-failed")
+def retry_failed(jid):
+    j = load_job(jid)
+    if not j: return jsonify({"error": "Job not found"}), 404
+
+    # Restart job
+    url = j.get("url")
+    options = j.get("options", {})
+    jobs[jid]["cancelled"] = False
+    jobs[jid]["done"] = False
+    jobs[jid]["status"] = "Retrying failed clips..."
+    save_job(jid)
+
+    app_url = request.host_url.rstrip("/")
+    threading.Thread(target=work, args=(jid, url, options, app_url), daemon=True).start()
+    return jsonify({"ok": True, "status": "Retrying"})
+
 # ================= PERSISTENT LIBRARY API =================
 @app.get("/api/library")
 def library_api():
@@ -249,12 +302,22 @@ def delete_library_item(entry_id):
     ok = delete_library_entry(entry_id)
     return jsonify({"ok": ok})
 
+@app.delete("/api/library/<entry_id>/clips/<path:filename>")
+def delete_clip_item(entry_id, filename):
+    ok = delete_library_clip(entry_id, filename)
+    return jsonify({"ok": ok})
+
+@app.post("/api/library/clear-completed")
+def clear_completed_library():
+    count = clear_completed_entries()
+    return jsonify({"ok": True, "cleared_count": count})
+
 @app.get("/api/history")
 def history_compat():
     lib = get_library()
     return jsonify({"jobs": lib})
 
-# ================= BULLETPROOF UNIVERSAL DOWNLOAD / STREAM =================
+# ================= UNIVERSAL DOWNLOAD / STREAM =================
 @app.get("/clips/<path:filepath>")
 def get_clip(filepath):
     full_path = os.path.abspath(os.path.join(OUT_DIR, filepath))
@@ -279,7 +342,6 @@ def get_voice_profiles():
 
 @app.post("/api/voice-profiles")
 def create_profile():
-    # Handle both multipart and json
     if request.content_type and "multipart/form-data" in request.content_type:
         name = request.form.get("name", "Custom Voice")
         consent = request.form.get("consent") in ("true", "1", "True")
@@ -314,6 +376,22 @@ def create_profile():
         return jsonify({"error": str(ve)}), 400
     except Exception as e:
         return jsonify({"error": f"Failed to create profile: {e}"}), 500
+
+@app.get("/api/voice-profiles/<vpid>/preview")
+def preview_voice(vpid):
+    p = get_voice_preview_file(vpid)
+    if not p or not os.path.exists(p):
+        return jsonify({"error": "Preview not available"}), 404
+    return send_file(p, mimetype="audio/mpeg")
+
+@app.put("/api/voice-profiles/<vpid>")
+def rename_profile(vpid):
+    data = request.json or {}
+    new_name = (data.get("name") or "").strip()
+    if not new_name:
+        return jsonify({"error": "Name required"}), 400
+    ok = rename_voice_profile(vpid, new_name)
+    return jsonify({"ok": ok})
 
 @app.delete("/api/voice-profiles/<vpid>")
 def delete_profile(vpid):
@@ -369,7 +447,24 @@ def faceless_work(fid, url, script, voice, style, framing, email="", app_url="")
             lib_entry["status"] = m
             save_library_entry(lib_entry)
 
-        res = create_faceless_video(url, script, voice_key=voice, caption_style=style, framing=framing, fid=fid, cb=on_status)
+        def check_cancelled():
+            return faceless_jobs.get(fid, {}).get("cancelled", False)
+
+        res = create_faceless_video(url, script, voice_key=voice, caption_style=style, framing=framing, fid=fid, cb=on_status, check_cancelled=check_cancelled)
+
+        if check_cancelled():
+            if fid in faceless_jobs:
+                faceless_jobs[fid]["status"] = "Cancelled by user"
+                faceless_jobs[fid]["done"] = True
+                save_faceless_job(fid)
+            lib_entry["status"] = "Cancelled by user"
+            lib_entry["done"] = True
+            save_library_entry(lib_entry)
+            return
+
+        if not res:
+            raise RuntimeError("Faceless video creation produced no output")
+
         clip_record = {
             "file": res["filename"],
             "vid": f"faceless/{fid}",
@@ -413,6 +508,7 @@ def create_faceless():
     script = data.get("script", "").strip()
     if not script:
         return jsonify({"error": "Script text is required"}), 400
+
     url = data.get("url", "").strip()
     voice = data.get("voice", "deep_narrator")
     style = data.get("style", "beasty")
@@ -424,6 +520,8 @@ def create_faceless():
         "id": fid,
         "status": "Starting faceless video engine...",
         "done": False,
+        "cancelled": False,
+        "url": url,
         "script": script,
         "voice": voice,
         "style": style,
@@ -444,9 +542,26 @@ def faceless_status(fid):
         return jsonify({"error": "Job not found"}), 404
     return jsonify(j)
 
+@app.post("/api/faceless/<fid>/cancel")
+def cancel_faceless(fid):
+    f = load_faceless_job(fid)
+    if not f: return jsonify({"error": "Job not found"}), 404
+    faceless_jobs[fid]["cancelled"] = True
+    faceless_jobs[fid]["status"] = "Cancelled by user"
+    save_faceless_job(fid)
+
+    lib = get_library()
+    for entry in lib:
+        if entry.get("id") == fid:
+            entry["status"] = "Cancelled by user"
+            entry["done"] = True
+            save_library_entry(entry)
+            break
+    return jsonify({"ok": True, "status": "Cancelled"})
+
 @app.get("/")
 def index():
     return send_from_directory("static", "index.html")
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)), debug=True)
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

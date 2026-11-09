@@ -74,7 +74,7 @@ def get_audio_duration(audio_file):
     except Exception:
         return 10.0
 
-def create_faceless_video(video_source, script_text, voice_key="deep_narrator", caption_style="beasty", framing="crop", fid=None, cb=print):
+def create_faceless_video(video_source, script_text, voice_key="deep_narrator", caption_style="beasty", framing="crop", fid=None, cb=print, check_cancelled=None):
     fid = fid or str(uuid.uuid4())[:8]
     out_dir = os.path.join(OUT_DIR, "faceless", fid)
     os.makedirs(out_dir, exist_ok=True)
@@ -85,14 +85,18 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
     synthesize_speech(script_text, voice_key, voice_mp3, voice_srt)
 
     duration = get_audio_duration(voice_mp3)
-    cb(f"Generated voiceover ({round(duration, 1)}s) • Preparing background gameplay...")
+    cb(f"Voiceover ready ({round(duration, 1)}s) • Trimming gameplay footage...")
+
+    if check_cancelled and check_cancelled():
+        cb("Cancelled by user")
+        return None
 
     # Determine background video path
     bg_video = None
     if video_source and (video_source.startswith("http://") or video_source.startswith("https://")):
         from download import download
-        cb("Downloading background gameplay video...")
-        bg_video, _ = download(video_source)
+        cb(f"Downloading gameplay section (only first {int(duration + 5)}s)...")
+        bg_video, _ = download(video_source, max_duration=duration + 5.0)
     elif video_source and os.path.exists(video_source):
         bg_video = video_source
     else:
@@ -102,6 +106,24 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
             "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=24",
             "-t", "5", "-c:v", "libx264", "-preset", "ultrafast", bg_video
         ], check=True, capture_output=True)
+
+    if check_cancelled and check_cancelled():
+        cb("Cancelled by user")
+        return None
+
+    # Immediate fast stream copy trim: cutoff gameplay to exact narration duration
+    # This prevents decoding/looping huge multi-gigabyte files and cuts render time down to seconds!
+    trimmed_bg = os.path.join(out_dir, "trimmed_bg.mp4")
+    try:
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "0", "-t", str(duration + 1.0),
+            "-i", os.path.abspath(bg_video),
+            "-c", "copy", "-avoid_negative_ts", "make_zero", trimmed_bg
+        ], check=True, capture_output=True)
+        if os.path.exists(trimmed_bg) and os.path.getsize(trimmed_bg) > 1000:
+            bg_video = trimmed_bg
+    except Exception as e:
+        print(f"Fast trim warning (continuing with source): {e}")
 
     cb("Looping gameplay, stripping original audio & burning captions...")
     has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
@@ -125,11 +147,11 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
     # Output file
     final_mp4 = "faceless_clip.mp4"
 
+    if check_cancelled and check_cancelled():
+        cb("Cancelled by user")
+        return None
+
     # Fast 540x960 9:16 vertical render
-    # -stream_loop -1 loops background video continuously
-    # -map "[v]" takes only filtered video
-    # -map 1:a:0 takes ONLY the narration voice (ALL ORIGINAL SOUND IS CANCELLED)
-    # -t duration cuts video exactly when narration finishes
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",

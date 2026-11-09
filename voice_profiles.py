@@ -81,6 +81,53 @@ def create_voice_profile(name, consent=False, base_voice="en-US-ChristopherNeura
 
     return profile
 
+def rename_voice_profile(vpid, new_name):
+    path = _get_profiles_path()
+    with _lock:
+        if not os.path.exists(path):
+            return False
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                profiles = json.load(f)
+            found = False
+            for p in profiles:
+                if p.get("id") == vpid:
+                    p["name"] = (new_name or "").strip() or p["name"]
+                    found = True
+                    break
+            if found:
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(profiles, f, indent=2)
+            return found
+        except Exception:
+            return False
+
+def get_voice_preview_file(vpid):
+    vp = get_voice_profile(vpid)
+    if not vp:
+        return None
+
+    # If uploaded sample exists, return it
+    if vp.get("sample_filename"):
+        sample_path = os.path.join(_get_profiles_dir(), vp["sample_filename"])
+        if os.path.exists(sample_path):
+            return sample_path
+
+    # Synthesize quick preview sample if not yet created
+    preview_file = os.path.join(_get_profiles_dir(), f"{vpid}_preview.mp3")
+    if os.path.exists(preview_file):
+        return preview_file
+
+    try:
+        from faceless import synthesize_speech
+        dummy_srt = os.path.join(_get_profiles_dir(), f"{vpid}_preview.srt")
+        synthesize_speech("Hello, this is a preview of your custom voice profile.", vpid, preview_file, dummy_srt)
+        if os.path.exists(preview_file):
+            return preview_file
+    except Exception as e:
+        print(f"Preview synthesis error: {e}")
+    return None
+
 def delete_voice_profile(vpid):
     path = _get_profiles_path()
     with _lock:

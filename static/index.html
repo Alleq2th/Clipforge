@@ -1105,7 +1105,11 @@
             <div class="pulse-dot"></div>
             <div style="font-weight:700;font-size:14px;">Processing Clips...</div>
           </div>
-          <div class="timer-badge" id="run-timer">00:00</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="timer-badge" id="run-timer" title="Elapsed Time">00:00</div>
+            <div class="timer-badge" id="run-eta" style="background:rgba(16,185,129,0.15);color:var(--acc-light);" title="Estimated Time Remaining">ETA: ~45s</div>
+            <span id="run-pct-label" style="font-size:12px;color:var(--mute);font-weight:700;margin-left:4px;">10%</span>
+          </div>
         </div>
 
         <div class="progress-track">
@@ -1147,6 +1151,10 @@
 
         <div class="status-alert" id="status-text">Starting pipeline...</div>
         <div class="error-alert" id="error-text"></div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn-back" id="btn-cancel-batch" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;flex:1;">🛑 Cancel Batch</button>
+          <button class="btn-next" id="btn-retry-failed" style="background:#3b82f6;border-color:#3b82f6;color:#fff;font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;display:none;flex:1;">🔄 Retry Failed Clips</button>
+        </div>
 
         <!-- Real-Time Streaming Grid for Completed Clips -->
         <div id="live-clips-wrap" style="display:none;margin-top:20px;border-top:1px solid var(--line);padding-top:16px;">
@@ -1287,9 +1295,15 @@
             <div class="pulse-dot" style="background:#a855f7;box-shadow:0 0 10px #a855f7;"></div>
             <div style="font-weight:700;font-size:14px;">Generating GTA 6 Faceless Video...</div>
           </div>
-          <div class="timer-badge" id="faceless-timer">00:00</div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <div class="timer-badge" id="faceless-timer" title="Elapsed Time">00:00</div>
+            <div class="timer-badge" id="faceless-eta" style="background:rgba(168,85,247,0.15);color:#c084fc;" title="Estimated Time Remaining">ETA: ~25s</div>
+          </div>
         </div>
 
+        <div class="progress-track" style="margin-bottom:16px;">
+          <div class="progress-fill" id="faceless-progress-bar" style="width:20%;background:linear-gradient(90deg,#a855f7,#ec4899);"></div>
+        </div>
         <div class="pipe-stepper">
           <div class="pipe-step active" id="fpipe-1">
             <div class="pipe-left">
@@ -1316,6 +1330,7 @@
 
         <div class="status-alert" id="faceless-status-text" style="border-left-color:#a855f7;">Synthesizing voice...</div>
         <div class="error-alert" id="faceless-error-text"></div>
+        <button class="btn-back" id="btn-cancel-faceless" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;font-size:12px;font-weight:700;padding:8px 14px;border-radius:8px;cursor:pointer;width:100%;margin-top:14px;">🛑 Cancel Video</button>
       </div>
 
       <!-- Faceless Result Screen -->
@@ -1351,9 +1366,15 @@
   <!-- Library Modal (Server-Backed & Persistent) -->
   <div class="modal-backdrop" id="lib-modal">
     <div class="modal-box">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
-        <h3 style="font-size:17px;font-weight:800;">Saved Videos & Clips Library</h3>
-        <button class="btn-remove" id="close-modal">&times;</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+        <div>
+          <h3 style="font-size:17px;font-weight:800;margin:0;">Saved Videos & Clips Library</h3>
+          <div style="font-size:11px;color:var(--mute);">Persisted directly on server • Available on any device</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn-back" id="btn-clear-completed" style="font-size:11px;padding:5px 10px;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;">🧹 Clear Completed</button>
+          <button class="btn-remove" id="close-modal">&times;</button>
+        </div>
       </div>
       <div id="lib-content"></div>
     </div>
@@ -1712,6 +1733,7 @@
             startTime: state.startTime
           }));
 
+          window._activeJid = data.id;
           const clips = await pollJob(data.id, item);
           showResults(clips, item, state.options.aspect_ratio);
         } catch (err) {
@@ -1737,36 +1759,81 @@
       ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step');
 
       const bar = $('run-progress-bar');
+      let pct = 15;
+      let eta = 'ETA: ~45s';
+
       if (s.includes('download')) {
         $('pipe-1').className = 'pipe-step active';
-        bar.style.width = '20%';
+        pct = 20;
+        eta = 'ETA: ~35s';
       } else if (s.includes('transcrib')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step active';
-        bar.style.width = '45%';
-      } else if (s.includes('detect') || s.includes('discover') || s.includes('ai')) {
+        pct = 40;
+        eta = 'ETA: ~20s';
+      } else if (s.includes('detect') || s.includes('discover') || s.includes('ai') || s.includes('rank')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step completed';
         $('pipe-3').className = 'pipe-step active';
-        bar.style.width = '65%';
+        pct = 55;
+        eta = 'ETA: ~12s';
       } else if (s.includes('cut') || s.includes('render') || s.includes('clip')) {
         $('pipe-1').className = 'pipe-step completed';
         $('pipe-2').className = 'pipe-step completed';
         $('pipe-3').className = 'pipe-step completed';
         $('pipe-4').className = 'pipe-step active';
         if (totalCount && totalCount > 0) {
-          const cutPct = 65 + Math.round((currentCount / totalCount) * 32);
-          bar.style.width = `${Math.min(97, cutPct)}%`;
+          pct = 55 + Math.round((currentCount / totalCount) * 42);
+          const remaining = Math.max(0, totalCount - currentCount);
+          eta = `ETA: ~${Math.max(4, remaining * 7)}s`;
         } else {
-          bar.style.width = '80%';
+          pct = 75;
+          eta = 'ETA: ~15s';
         }
       } else if (s.includes('done')) {
         ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step completed');
-        bar.style.width = '100%';
+        pct = 100;
+        eta = 'Complete!';
       }
+      bar.style.width = `${Math.min(100, pct)}%`;
+      if ($('run-pct-label')) $('run-pct-label').textContent = `${Math.min(100, pct)}%`;
+      if ($('run-eta')) $('run-eta').textContent = eta;
     }
 
     let _lastRenderedClipsCount = 0;
+
+    
+    if ($('btn-cancel-batch')) {
+      $('btn-cancel-batch').onclick = async () => {
+        if (!confirm('Cancel this clipping batch? Any clips already generated will remain saved in your Library.')) return;
+        const jid = window._activeJid;
+        if (jid) {
+          try { await fetch('/api/jobs/' + jid + '/cancel', { method: 'POST' }); } catch (e) {}
+        }
+        localStorage.removeItem('clipforge_active_job');
+        $('status-text').textContent = 'Batch cancelled by user.';
+        $('run-view').style.display = 'none';
+        $('wizard-box').style.display = 'block';
+        state.running = false;
+        updateLibBadge();
+        goToStep(1);
+      };
+    }
+
+    if ($('btn-retry-failed')) {
+      $('btn-retry-failed').onclick = async () => {
+        const jid = window._activeJid;
+        if (!jid) return;
+        $('btn-retry-failed').style.display = 'none';
+        $('status-text').textContent = 'Retrying failed clips...';
+        try {
+          await fetch('/api/jobs/' + jid + '/retry-failed', { method: 'POST' });
+          await pollJob(jid, state.queue[0]);
+        } catch (e) {
+          alert('Retry failed: ' + e.message);
+        }
+      };
+    }
 
     function pollJob(jid, videoMeta) {
       _lastRenderedClipsCount = 0;
@@ -1915,8 +1982,9 @@
                   <div class="clip-details">
                     <div class="clip-heading">${c.title || ('Clip #' + (idx + 1))}</div>
                     <div style="font-size:11px;color:var(--mute);margin-bottom:8px;">${c.hook_reason || c.caption || ''}</div>
-                    <div class="clip-acts">
-                      <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')">⬇️ Download MP4</button>
+                    <div class="clip-acts" style="display:flex;gap:8px;align-items:center;">
+                      <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')" style="flex:2;">⬇️ Download MP4</button>
+                      <button class="btn-back" onclick="deleteLibraryClip('${item.id}', '${c.file}', this)" style="flex:1;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;padding:6px 10px;font-size:11px;font-weight:700;">🗑️ Delete</button>
                     </div>
                   </div>
                 </div>
@@ -1927,6 +1995,36 @@
         `;
         container.appendChild(wrap);
       });
+    }
+
+    
+    window.deleteLibraryClip = async function(entryId, filename, btn) {
+      if (!confirm('Delete this clip from the server library?')) return;
+      try {
+        await fetch(`/api/library/${entryId}/clips/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+        const card = btn.closest('.clip-card');
+        if (card) card.remove();
+        updateLibBadge();
+      } catch (e) {
+        alert('Error deleting clip: ' + e.message);
+      }
+    };
+
+    if ($('btn-clear-completed')) {
+      $('btn-clear-completed').onclick = async () => {
+        if (!confirm('Clear all completed batches from the server library?')) return;
+        try {
+          const res = await fetch('/api/library/clear-completed', { method: 'POST' });
+          const data = await res.json();
+          alert(`Cleared ${data.cleared_count || 0} completed batches.`);
+          const libRes = await fetch('/api/library');
+          const libData = await libRes.json();
+          renderLibraryContent(libData.library || []);
+          updateLibBadge();
+        } catch (e) {
+          alert('Error clearing library: ' + e.message);
+        }
+      };
     }
 
     window.toggleLibraryClips = function(id) {
@@ -2038,29 +2136,86 @@
       }
     };
 
+    window.previewVoiceProfile = function(vpid, e) {
+      if (e) e.stopPropagation();
+      const audio = new Audio('/api/voice-profiles/' + vpid + '/preview?t=' + Date.now());
+      audio.play().catch(err => alert('Preview audio could not play: ' + err.message));
+    };
+
+    window.renameVoiceProfile = async function(vpid, oldName, e) {
+      if (e) e.stopPropagation();
+      const newName = prompt('Enter new name for this voice profile:', oldName);
+      if (!newName || newName.trim() === oldName) return;
+      try {
+        const res = await fetch('/api/voice-profiles/' + vpid, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: newName.trim() })
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        await loadVoiceProfiles(vpid);
+      } catch (err) {
+        alert('Failed to rename: ' + err.message);
+      }
+    };
+
+    window.deleteVoiceProfile = async function(vpid, e) {
+      if (e) e.stopPropagation();
+      if (!confirm('Delete this custom voice profile?')) return;
+      try {
+        await fetch('/api/voice-profiles/' + vpid, { method: 'DELETE' });
+        await loadVoiceProfiles('deep_narrator');
+      } catch (err) {
+        alert('Failed to delete: ' + err.message);
+      }
+    };
+
+    function updateConsentBanner(voiceId, profileName) {
+      const banner = $('vp-consent-banner');
+      if (!banner) return;
+      if (voiceId && voiceId.startsWith('vp_')) {
+        banner.style.display = 'flex';
+        $('vp-consent-text').innerHTML = `<b>Consent Verified:</b> Narration will use authorized custom voice profile "${profileName || 'Custom'}".`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+
     async function loadVoiceProfiles(selectId) {
       try {
         const res = await fetch('/api/voice-profiles');
         const data = await res.json();
         const container = $('gta-voice-chips');
 
-        // Keep standard built-ins
         const standardHTML = `
-          <div class="chip ${(!selectId || selectId === 'deep_narrator') ? 'active' : ''}" data-val="deep_narrator">🎙️ Christopher (Deep Movie Narrator)</div>
-          <div class="chip ${selectId === 'energetic_guy' ? 'active' : ''}" data-val="energetic_guy">🎮 Guy (Hype Gamer / Streamer)</div>
-          <div class="chip ${selectId === 'viral_female' ? 'active' : ''}" data-val="viral_female">✨ Jenny (Viral Female Explainer)</div>
-          <div class="chip ${selectId === 'british_story' ? 'active' : ''}" data-val="british_story">👑 Ryan (Dramatic British Accent)</div>
-          <div class="chip ${selectId === 'fast_shorts' ? 'active' : ''}" data-val="fast_shorts">⚡ Eric (Fast Shorts Narrator)</div>
+          <div class="chip ${(!selectId || selectId === 'deep_narrator') ? 'active' : ''}" data-val="deep_narrator" onclick="updateConsentBanner('deep_narrator')">🎙️ Christopher (Deep Movie Narrator)</div>
+          <div class="chip ${selectId === 'energetic_guy' ? 'active' : ''}" data-val="energetic_guy" onclick="updateConsentBanner('energetic_guy')">🎮 Guy (Hype Gamer / Streamer)</div>
+          <div class="chip ${selectId === 'viral_female' ? 'active' : ''}" data-val="viral_female" onclick="updateConsentBanner('viral_female')">✨ Jenny (Viral Female Explainer)</div>
+          <div class="chip ${selectId === 'british_story' ? 'active' : ''}" data-val="british_story" onclick="updateConsentBanner('british_story')">👑 Ryan (Dramatic British Accent)</div>
+          <div class="chip ${selectId === 'fast_shorts' ? 'active' : ''}" data-val="fast_shorts" onclick="updateConsentBanner('fast_shorts')">⚡ Eric (Fast Shorts Narrator)</div>
         `;
 
         let customHTML = '';
+        let activeCustomName = '';
         (data.profiles || []).forEach(p => {
           const isSelected = p.id === selectId;
-          customHTML += `<div class="chip active-purple ${isSelected ? 'active' : ''}" data-val="${p.id}">👤 ${p.name} (Custom Profile)</div>`;
+          if (isSelected) activeCustomName = p.name;
+          customHTML += `
+            <div class="chip active-purple ${isSelected ? 'active' : ''}" data-val="${p.id}" onclick="updateConsentBanner('${p.id}', '${p.name}')" style="display:inline-flex;align-items:center;gap:6px;">
+              <span>👤 ${p.name}</span>
+              <button title="Preview Voice" onclick="previewVoiceProfile('${p.id}', event)" style="background:none;border:none;color:#c084fc;cursor:pointer;padding:0 2px;font-size:12px;">▶️</button>
+              <button title="Rename Profile" onclick="renameVoiceProfile('${p.id}', '${p.name}', event)" style="background:none;border:none;color:var(--mute);cursor:pointer;padding:0 2px;font-size:11px;">✏️</button>
+              <button title="Delete Profile" onclick="deleteVoiceProfile('${p.id}', event)" style="background:none;border:none;color:#ef4444;cursor:pointer;padding:0 2px;font-size:11px;">✕</button>
+            </div>
+          `;
         });
 
         container.innerHTML = standardHTML + customHTML;
-        if (selectId) gtaVoice = selectId;
+        if (selectId) {
+          gtaVoice = selectId;
+          updateConsentBanner(selectId, activeCustomName);
+        }
       } catch (e) {}
     }
     loadVoiceProfiles();
@@ -2110,11 +2265,35 @@
       }
     };
 
+    if ($('btn-cancel-faceless')) {
+      $('btn-cancel-faceless').onclick = async () => {
+        if (!confirm('Cancel GTA 6 video generation?')) return;
+        const fid = window._activeFid;
+        if (fid) {
+          try { await fetch('/api/faceless/' + fid + '/cancel', { method: 'POST' }); } catch (e) {}
+        }
+        $('faceless-run-view').style.display = 'none';
+        $('faceless-card').style.display = 'block';
+        updateLibBadge();
+      };
+    }
+
     function pollFaceless(fid, script) {
+      window._activeFid = fid;
+      let fails = 0;
       return new Promise((resolve, reject) => {
         const interval = setInterval(async () => {
           try {
             const res = await fetch('/api/faceless/' + fid);
+            if (!res.ok) {
+              fails++;
+              if (fails > 30) {
+                clearInterval(interval);
+                reject(new Error(`Server error (${res.status})`));
+              }
+              return;
+            }
+            fails = 0;
             const data = await res.json();
             if (data.error) {
               clearInterval(interval);
@@ -2126,25 +2305,37 @@
             const s = (data.status || '').toLowerCase();
             if (s.includes('voice')) {
               $('fpipe-1').className = 'pipe-step active';
-            } else if (s.includes('loop') || s.includes('gameplay') || s.includes('download')) {
+              if ($('faceless-progress-bar')) $('faceless-progress-bar').style.width = '30%';
+              if ($('faceless-eta')) $('faceless-eta').textContent = 'ETA: ~18s';
+            } else if (s.includes('loop') || s.includes('gameplay') || s.includes('download') || s.includes('trim')) {
               $('fpipe-1').className = 'pipe-step completed';
               $('fpipe-2').className = 'pipe-step active';
+              if ($('faceless-progress-bar')) $('faceless-progress-bar').style.width = '65%';
+              if ($('faceless-eta')) $('faceless-eta').textContent = 'ETA: ~10s';
             } else if (s.includes('burn') || s.includes('caption') || s.includes('render') || s.includes('fram')) {
               $('fpipe-1').className = 'pipe-step completed';
               $('fpipe-2').className = 'pipe-step completed';
               $('fpipe-3').className = 'pipe-step active';
+              if ($('faceless-progress-bar')) $('faceless-progress-bar').style.width = '85%';
+              if ($('faceless-eta')) $('faceless-eta').textContent = 'ETA: ~5s';
             }
 
             if (data.done && data.result) {
               clearInterval(interval);
+              if ($('faceless-progress-bar')) $('faceless-progress-bar').style.width = '100%';
+              if ($('faceless-eta')) $('faceless-eta').textContent = 'Complete!';
               playChime();
               showFacelessResult(data.result);
               updateLibBadge();
               resolve(data.result);
             }
           } catch (e) {
-            clearInterval(interval);
-            reject(e);
+            fails++;
+            // Don't kill polling on temporary mobile network hiccups
+            if (fails > 30) {
+              clearInterval(interval);
+              reject(e);
+            }
           }
         }, 1500);
       });
