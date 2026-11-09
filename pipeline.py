@@ -13,6 +13,7 @@ def run(url, cb=print, on_clip=None, options=None):
     focus = opts.get("focus", "viral")
     aspect_ratio = opts.get("aspect_ratio", "9:16")
     caption_style = opts.get("caption_style", "beasty")
+    framing = opts.get("framing", "crop")
 
     # Proactively free space before starting new download
     cleanup_storage()
@@ -30,8 +31,8 @@ def run(url, cb=print, on_clip=None, options=None):
         out = []
         total = len(clips)
         for i, c in enumerate(clips, 1):
-            cb(f"Cutting clip {i} of {total} ({aspect_ratio} • {caption_style.capitalize()} style)...")
-            f = cut(video, segs, c, i, vid, aspect_ratio=aspect_ratio, caption_style=caption_style)
+            cb(f"Cutting clip {i} of {total} ({aspect_ratio} • {framing} framing)...")
+            f = cut(video, segs, c, i, vid, aspect_ratio=aspect_ratio, caption_style=caption_style, framing=framing)
             item = {**c, "file": os.path.basename(f), "vid": vid}
             out.append(item)
             if on_clip:

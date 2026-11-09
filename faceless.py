@@ -1,5 +1,6 @@
 import os, sys, time, uuid, asyncio, subprocess, re
 from config import WORK_DIR, OUT_DIR
+from voice_profiles import get_voice_profile
 
 VOICES = {
     "deep_narrator": "en-US-ChristopherNeural",   # Deep viral movie/storyteller voice
@@ -16,9 +17,9 @@ STYLES = {
     "cyber": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H00FF00FF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV=140",
 }
 
-async def _synthesize_edge_tts(text, voice, out_mp3, out_srt):
+async def _synthesize_edge_tts(text, voice, out_mp3, out_srt, rate="+0%", pitch="+0Hz"):
     import edge_tts
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, rate=rate, pitch=pitch)
     submaker = edge_tts.SubMaker()
     with open(out_mp3, "wb") as file:
         async for chunk in communicate.stream():
@@ -31,15 +32,28 @@ async def _synthesize_edge_tts(text, voice, out_mp3, out_srt):
         f.write(srt_text)
 
 def synthesize_speech(text, voice_key, out_mp3, out_srt):
-    voice = VOICES.get(voice_key, VOICES["deep_narrator"])
+    rate = "+0%"
+    pitch = "+0Hz"
+    voice = VOICES.get("deep_narrator")
+
+    # Check for custom opt-in voice profile
+    if str(voice_key).startswith("vp_"):
+        vp = get_voice_profile(voice_key)
+        if vp:
+            voice = vp.get("base_voice") or voice
+            rate = vp.get("rate") or "+0%"
+            pitch = vp.get("pitch") or "+0Hz"
+    elif voice_key in VOICES:
+        voice = VOICES[voice_key]
+
     try:
-        asyncio.run(_synthesize_edge_tts(text, voice, out_mp3, out_srt))
+        asyncio.run(_synthesize_edge_tts(text, voice, out_mp3, out_srt, rate=rate, pitch=pitch))
         if os.path.exists(out_mp3) and os.path.getsize(out_mp3) > 1000:
             return True
     except Exception as e:
-        print(f"edge-tts failed: {e}")
+        print(f"edge-tts synthesis failed: {e}")
 
-    # Fallback to espeak / ffmpeg synthetic speech if network edge-tts fails
+    # Fallback to synthetic speech if edge-tts network is unreachable
     words = text.split()
     est_dur = max(4.0, len(words) * 0.35)
     subprocess.run([
@@ -60,7 +74,7 @@ def get_audio_duration(audio_file):
     except Exception:
         return 10.0
 
-def create_faceless_video(video_source, script_text, voice_key="deep_narrator", caption_style="beasty", fid=None, cb=print):
+def create_faceless_video(video_source, script_text, voice_key="deep_narrator", caption_style="beasty", framing="crop", fid=None, cb=print):
     fid = fid or str(uuid.uuid4())[:8]
     out_dir = os.path.join(OUT_DIR, "faceless", fid)
     os.makedirs(out_dir, exist_ok=True)
@@ -71,7 +85,7 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
     synthesize_speech(script_text, voice_key, voice_mp3, voice_srt)
 
     duration = get_audio_duration(voice_mp3)
-    cb(f"Generated voiceover ({round(duration, 1)}s) • Preparing background video...")
+    cb(f"Generated voiceover ({round(duration, 1)}s) • Preparing background gameplay...")
 
     # Determine background video path
     bg_video = None
@@ -82,29 +96,46 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
     elif video_source and os.path.exists(video_source):
         bg_video = video_source
     else:
-        # Generate clean synthetic GTA-style animated motion background if no URL provided
+        # Default clean synthetic GTA-style motion loop if no URL is provided
         bg_video = os.path.join(out_dir, "gta_bg.mp4")
         subprocess.run([
             "ffmpeg", "-y", "-f", "lavfi", "-i", "testsrc=size=1280x720:rate=24",
             "-t", "5", "-c:v", "libx264", "-preset", "ultrafast", bg_video
         ], check=True, capture_output=True)
 
-    cb("Looping video, cancelling original audio & burning captions...")
+    cb("Looping gameplay, stripping original audio & burning captions...")
+    has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
     style_str = STYLES.get(caption_style, STYLES["beasty"])
-    final_mp4 = os.path.join(out_dir, "faceless_clip.mp4")
+    sub_filter = f",subtitles=sub.srt:force_style='{style_str}'" if has_captions else ""
+
+    # Build framing filter
+    if framing == "blur":
+        vf = (
+            f"[0:v]split[a][b];"
+            f"[a]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:1,scale=540:960[bg];"
+            f"[b]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2:color=black@0[fg];"
+            f"[bg][fg]overlay=0:0{sub_filter}[v]"
+        )
+    elif framing == "fit":
+        vf = f"[0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2:color=black{sub_filter}[v]"
+    else:
+        # "crop" - Center Crop / Fill (Razor sharp 9:16 vertical, ultra-fast render!)
+        vf = f"[0:v]scale=540:960:force_original_aspect_ratio=increase,crop=540:960{sub_filter}[v]"
+
+    # Output file
+    final_mp4 = "faceless_clip.mp4"
 
     # Fast 540x960 9:16 vertical render
-    # -stream_loop -1 loops the background video continuously
+    # -stream_loop -1 loops background video continuously
     # -map "[v]" takes only filtered video
-    # -map 1:a:0 takes ONLY the narration voice (ORIGINAL VIDEO AUDIO IS COMPLETELY CANCELLED)
+    # -map 1:a:0 takes ONLY the narration voice (ALL ORIGINAL SOUND IS CANCELLED)
     # -t duration cuts video exactly when narration finishes
     cmd = [
         "ffmpeg", "-y",
         "-threads", "2",
         "-stream_loop", "-1", "-i", os.path.abspath(bg_video),
         "-i", os.path.abspath(voice_mp3),
-        "-filter_complex",
-        f"[0:v]scale=540:960:force_original_aspect_ratio=increase,crop=540:960,subtitles=sub.srt:force_style='{style_str}'[v]",
+        "-filter_complex", vf,
         "-map", "[v]",
         "-map", "1:a:0",
         "-t", str(duration),
@@ -114,7 +145,7 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
         "-crf", "26",
         "-c:a", "aac",
         "-b:a", "128k",
-        "faceless_clip.mp4"
+        final_mp4
     ]
 
     try:
@@ -126,8 +157,8 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
     cb("Faceless video ready!")
     return {
         "id": fid,
-        "filename": "faceless_clip.mp4",
-        "file_url": f"/faceless/{fid}/faceless_clip.mp4",
+        "filename": final_mp4,
+        "file_url": f"/clips/faceless/{fid}/{final_mp4}",
         "duration": round(duration, 1),
         "script": script_text,
         "voice": voice_key

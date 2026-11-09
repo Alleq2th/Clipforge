@@ -10,46 +10,61 @@ STYLES = {
     "cyber": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H00FF00FF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
 }
 
-def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt"):
+def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", framing="crop"):
     ratio = aspect_ratio if aspect_ratio in ("9:16", "1:1", "16:9") else "9:16"
-    style_key = caption_style if caption_style in STYLES else "beasty"
+    has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
 
-    # MarginV: safe positioning above TikTok / Shorts navigation UI
     margin_v = 140 if ratio == "9:16" else (60 if ratio == "1:1" else 40)
-    style_str = STYLES[style_key].format(margin_v=margin_v)
+    style_key = caption_style if caption_style in STYLES else "beasty"
+    style_str = STYLES[style_key].format(margin_v=margin_v) if has_captions else ""
+    sub_filter = f",subtitles={srt_filename}:force_style='{style_str}'" if has_captions else ""
 
     if ratio == "1:1":
-        # Ultra-fast downscaled background blur for 540x540 Square
-        vf = (
-            "[0:v]split[a][b];"
-            "[a]scale=135:135:force_original_aspect_ratio=increase,crop=135:135,boxblur=4:1,scale=540:540[bg];"
-            "[b]scale=540:-2[fg];"
-            f"[bg][fg]overlay=(W-w)/2:(H-h)/2,subtitles={srt_filename}:force_style='{style_str}'"
-        )
+        # 540x540 Square
+        if framing == "blur":
+            vf = (
+                "[0:v]split[a][b];"
+                "[a]scale=135:135:force_original_aspect_ratio=increase,crop=135:135,boxblur=4:1,scale=540:540[bg];"
+                "[b]scale=540:540:force_original_aspect_ratio=decrease,pad=540:540:(ow-iw)/2:(oh-ih)/2:color=black@0[fg];"
+                f"[bg][fg]overlay=0:0{sub_filter}"
+            )
+        else:
+            # Center crop (fill)
+            vf = f"scale=540:540:force_original_aspect_ratio=increase,crop=540:540{sub_filter}"
+
     elif ratio == "16:9":
-        # 960x540 Widescreen landscape with burned-in subtitles (fast render)
-        vf = (
-            f"scale=960:540:force_original_aspect_ratio=decrease,pad=960:540:(ow-iw)/2:(oh-ih)/2,"
-            f"subtitles={srt_filename}:force_style='{style_str}'"
-        )
+        # 960x540 Landscape
+        vf = f"scale=960:540:force_original_aspect_ratio=decrease,pad=960:540:(ow-iw)/2:(oh-ih)/2:color=black{sub_filter}"
+
     else:
-        # Ultra-fast 4x downscaled background blur for 9:16 Vertical mobile HD (540x960)
-        # Renders 4x faster on Render Free while looking razor sharp on mobile
-        vf = (
-            "[0:v]split[a][b];"
-            "[a]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:1,scale=540:960[bg];"
-            "[b]scale=540:-2[fg];"
-            f"[bg][fg]overlay=(W-w)/2:(H-h)/2,subtitles={srt_filename}:force_style='{style_str}'"
-        )
+        # 9:16 Vertical (540x960)
+        if framing == "blur":
+            # Smart blurred top & bottom filler: foreground is properly scaled and padded to 540x960
+            vf = (
+                "[0:v]split[a][b];"
+                "[a]scale=135:240:force_original_aspect_ratio=increase,crop=135:240,boxblur=4:1,scale=540:960[bg];"
+                "[b]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2:color=black@0[fg];"
+                f"[bg][fg]overlay=0:0{sub_filter}"
+            )
+        elif framing == "fit":
+            # Clean black bars letterbox
+            vf = f"scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2:color=black{sub_filter}"
+        else:
+            # "crop" - Full Screen 9:16 Center Crop (Ultra-fast, razor sharp, native mobile look!)
+            vf = f"scale=540:960:force_original_aspect_ratio=increase,crop=540:960{sub_filter}"
+
     return vf
 
-def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty"):
+def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", framing="crop"):
     d = os.path.join(OUT_DIR, vid)
     os.makedirs(d, exist_ok=True)
     srt_path = os.path.join(d, "clip.srt")
-    make_srt(segs, c["start"], c["end"], srt_path, words=3)
 
-    vf = get_filter_complex(aspect_ratio, caption_style, "clip.srt")
+    has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
+    if has_captions:
+        make_srt(segs, c["start"], c["end"], srt_path, words=3)
+
+    vf = get_filter_complex(aspect_ratio, caption_style, "clip.srt", framing=framing)
     out = f"clip{i}.mp4"
     # -threads 2 prevents thread thrashing on Render's 0.5 CPU container
     cmd = [
@@ -73,7 +88,7 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty"):
         err_msg = e.stderr.decode("utf-8", errors="replace")[-300:] if e.stderr else str(e)
         raise RuntimeError(f"FFmpeg failed for clip {i}: {err_msg}")
     finally:
-        if os.path.exists(srt_path):
+        if has_captions and os.path.exists(srt_path):
             try:
                 os.remove(srt_path)
             except Exception:

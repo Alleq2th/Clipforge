@@ -453,6 +453,11 @@
       border-color: var(--acc);
       color: var(--acc-light);
     }
+    .chip.active-purple {
+      background: rgba(168, 85, 247, 0.15);
+      border-color: #a855f7;
+      color: #c084fc;
+    }
     .color-dot {
       width: 10px;
       height: 10px;
@@ -637,7 +642,6 @@
     }
     .pipe-step.active .anim-icon { display: flex; }
 
-    /* 1. Download wave */
     .anim-dl {
       font-size: 14px;
       animation: dlBounce 0.8s ease-in-out infinite;
@@ -647,7 +651,6 @@
       50% { transform: translateY(2px); }
     }
 
-    /* 2. Waveform Equalizer */
     .eq-bar {
       width: 3px;
       background: var(--acc);
@@ -663,7 +666,6 @@
       50% { height: 16px; }
     }
 
-    /* 3. Neural Ring Scanner */
     .scanner-ring {
       width: 14px;
       height: 14px;
@@ -677,7 +679,6 @@
       100% { transform: rotate(360deg); }
     }
 
-    /* 4. Film Reel Cutter */
     .cutter-icon {
       font-size: 13px;
       animation: cutPulse 0.9s ease-in-out infinite;
@@ -809,6 +810,11 @@
       padding: 8px;
       border-radius: var(--radius-sm);
       text-decoration: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
     }
     .btn-dl:hover { background: var(--acc-light); }
     .btn-copy {
@@ -822,7 +828,7 @@
       cursor: pointer;
     }
 
-    /* Modal */
+    /* Modal Backdrop & Box */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -838,14 +844,14 @@
       background: var(--card);
       border: 1px solid var(--line);
       border-radius: var(--radius);
-      max-width: 580px;
+      max-width: 620px;
       width: 100%;
       max-height: 85vh;
       overflow-y: auto;
       padding: 18px;
     }
 
-    /* GTA Faceless Studio Styles */
+    /* Script area */
     .script-area {
       width: 100%;
       background: var(--card-inner);
@@ -893,6 +899,25 @@
       border-color: #a855f7;
       color: #c084fc;
     }
+
+    /* Voice profile consent box */
+    .consent-box {
+      background: rgba(168, 85, 247, 0.08);
+      border: 1px solid rgba(168, 85, 247, 0.3);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin: 14px 0;
+      font-size: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      line-height: 1.4;
+    }
+    .consent-box input[type="checkbox"] {
+      margin-top: 3px;
+      cursor: pointer;
+      accent-color: #a855f7;
+    }
   </style>
 </head>
 <body>
@@ -920,7 +945,7 @@
       <div class="hero">
         <div class="hero-badge">AI Video Clipper</div>
         <h1>Turn long videos into <span>viral clips</span></h1>
-        <p>Highlight discovery, virality ranking & animated subtitles for Shorts, Reels & TikTok.</p>
+        <p>Highlight discovery, framing control & optional subtitles for Shorts, Reels & TikTok.</p>
       </div>
 
       <!-- Clipper Wizard Card -->
@@ -932,11 +957,11 @@
           </div>
           <div class="step-tab" id="tab-2">
             <div class="step-circle">2</div>
-            <span>Format</span>
+            <span>Framing</span>
           </div>
           <div class="step-tab" id="tab-3">
             <div class="step-circle">3</div>
-            <span>Style & AI</span>
+            <span>Captions & AI</span>
           </div>
         </div>
 
@@ -954,15 +979,15 @@
             <div class="queue-container" id="queue-list"></div>
           </div>
 
-          <!-- Step 2: Format & Duration -->
+          <!-- Step 2: Framing & Length -->
           <div class="step-pane" id="pane-2">
-            <div class="pane-title">📐 Platform & Length</div>
-            <div class="pane-subtitle">Choose where to publish and your target clip duration.</div>
+            <div class="pane-title">📐 Framing & Aspect Ratio</div>
+            <div class="pane-subtitle">Choose framing mode and target duration.</div>
 
             <div class="option-group">
               <div class="option-label">
-                <span>Platform Aspect Ratio</span>
-                <span class="option-hint">Auto-reframed</span>
+                <span>Aspect Ratio</span>
+                <span class="option-hint">Platform format</span>
               </div>
               <div class="ratio-grid" id="aspect-cards">
                 <div class="ratio-card active" data-val="9:16">
@@ -985,6 +1010,18 @@
             </div>
 
             <div class="option-group">
+              <div class="option-label">
+                <span>Video Framing Mode</span>
+                <span class="option-hint">Controls how wide video fits vertical</span>
+              </div>
+              <div class="chips-grid" id="framing-chips">
+                <div class="chip active" data-val="crop">📱 Center Crop (Full Screen 9:16 • Fastest)</div>
+                <div class="chip" data-val="blur">🌫️ Blurred Background (Classic Fit)</div>
+                <div class="chip" data-val="fit">⬛ Black Bars (Letterbox)</div>
+              </div>
+            </div>
+
+            <div class="option-group">
               <div class="option-label"><span>Target Clip Length</span></div>
               <div class="chips-grid" id="duration-chips">
                 <div class="chip" data-val="under30">⚡ Under 30s</div>
@@ -995,24 +1032,13 @@
             </div>
           </div>
 
-          <!-- Step 3: Style & AI Focus -->
+          <!-- Step 3: Captions & AI Focus -->
           <div class="step-pane" id="pane-3">
-            <div class="pane-title">🎨 Subtitles & Virality</div>
-            <div class="pane-subtitle">Select animated subtitles and discovery focus.</div>
+            <div class="pane-title">🎨 Subtitles & AI Virality</div>
+            <div class="pane-subtitle">Choose animated subtitles (or disable for 3x faster render) and set AI focus.</div>
 
             <div class="option-group">
-              <div class="option-label"><span>Number of Clips to Extract</span></div>
-              <div class="chips-grid" id="count-chips">
-                <div class="chip" data-val="3">3 clips</div>
-                <div class="chip" data-val="5">5 clips</div>
-                <div class="chip" data-val="10">10 clips</div>
-                <div class="chip" data-val="15">15 clips</div>
-                <div class="chip active" data-val="20">🔥 20 clips (Max Batch)</div>
-              </div>
-            </div>
-
-            <div class="option-group">
-              <div class="option-label"><span>Animated Subtitle Preset</span></div>
+              <div class="option-label"><span>Subtitles / Captions Option</span></div>
               <div class="chips-grid" id="style-chips">
                 <div class="chip active" data-val="beasty">
                   <span class="color-dot" style="background:#eab308;"></span> Beasty Yellow
@@ -1026,6 +1052,20 @@
                 <div class="chip" data-val="cyber">
                   <span class="color-dot" style="background:#ec4899;"></span> Cyber Pink
                 </div>
+                <div class="chip" data-val="none">
+                  🚫 No Captions (Ultra-Fast Render)
+                </div>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <div class="option-label"><span>Number of Clips to Extract</span></div>
+              <div class="chips-grid" id="count-chips">
+                <div class="chip" data-val="3">3 clips</div>
+                <div class="chip" data-val="5">5 clips</div>
+                <div class="chip" data-val="10">10 clips</div>
+                <div class="chip" data-val="15">15 clips</div>
+                <div class="chip active" data-val="20">🔥 20 clips (Max Batch)</div>
               </div>
             </div>
 
@@ -1039,13 +1079,21 @@
                 <div class="chip" data-val="controversial">🔥 Debate & Conflict</div>
               </div>
             </div>
+
+            <div class="option-group">
+              <div class="option-label">
+                <span>Email Completion Notification (Optional)</span>
+                <span class="option-hint">Get alerted when done</span>
+              </div>
+              <input type="email" class="url-input" id="clipper-email" placeholder="your@email.com (optional)">
+            </div>
           </div>
         </div>
 
         <div class="wizard-footer">
           <button class="btn-back" id="btn-back" style="visibility:hidden;">← Back</button>
           <button class="btn-next" id="btn-next" disabled>
-            <span>Next: Format</span> <span>→</span>
+            <span>Next: Framing</span> <span>→</span>
           </button>
         </div>
       </div>
@@ -1106,7 +1154,7 @@
             <div style="font-weight:700;font-size:14px;color:var(--acc-light);display:flex;align-items:center;gap:6px;">
               <span>⚡</span> <span id="live-stream-title">Finished Clips</span>
             </div>
-            <span style="font-size:11px;color:var(--mute);">Auto-saved to Library</span>
+            <span style="font-size:11px;color:var(--mute);">Saved on Server</span>
           </div>
           <div class="clips-stream" id="live-clips-grid"></div>
         </div>
@@ -1116,8 +1164,8 @@
       <div id="results-view" style="display:none;margin-top:20px;">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
           <div>
-            <div style="font-size:20px;font-weight:800;" id="results-heading">Viral Clips Ready</div>
-            <div style="font-size:12px;color:var(--mute);" id="results-sub">Auto-saved to your library. Download MP4 anytime.</div>
+            <div style="font-size:20px;font-weight:800;" id=\"results-heading\">Viral Clips Ready</div>
+            <div style="font-size:12px;color:var(--mute);" id="results-sub">Saved on server. Download MP4 anytime from any device.</div>
           </div>
           <button class="btn-back" id="btn-clip-new" style="border-color:var(--line-active);color:var(--ink);">Clip Another Video</button>
         </div>
@@ -1147,11 +1195,24 @@
             </div>
           </div>
 
+          <!-- Video Framing Mode for Faceless -->
+          <div class="option-group">
+            <div class="option-label">
+              <span>Video Framing Mode</span>
+              <span class="option-hint">Controls how gameplay fits 9:16</span>
+            </div>
+            <div class="chips-grid" id="gta-framing-chips">
+              <div class="chip active" data-val="crop">📱 Center Crop (Full Screen 9:16 • Fastest)</div>
+              <div class="chip" data-val="blur">🌫️ Blurred Background (Classic Fit)</div>
+              <div class="chip" data-val="fit">⬛ Black Bars (Letterbox)</div>
+            </div>
+          </div>
+
           <!-- Script & Voice Story -->
           <div class="option-group">
             <div class="option-label">
               <span>Voiceover Story / Script</span>
-              <span class="option-hint">What the cloned voice will narrate</span>
+              <span class="option-hint">What the voice will narrate</span>
             </div>
 
             <div class="script-pills">
@@ -1168,9 +1229,12 @@
             </div>
           </div>
 
-          <!-- Neural Voice Selector -->
+          <!-- Neural Voice Selector & Custom Profile -->
           <div class="option-group">
-            <div class="option-label"><span>Neural Voiceover Engine</span></div>
+            <div class="option-label">
+              <span>Voiceover Profile</span>
+              <button class="btn-back" id="btn-open-voice-modal" style="padding:3px 8px;font-size:10px;border-color:#a855f7;color:#c084fc;">➕ Create Voice Profile</button>
+            </div>
             <div class="chips-grid" id="gta-voice-chips">
               <div class="chip active" data-val="deep_narrator">🎙️ Christopher (Deep Movie Narrator)</div>
               <div class="chip" data-val="energetic_guy">🎮 Guy (Hype Gamer / Streamer)</div>
@@ -1180,7 +1244,7 @@
             </div>
           </div>
 
-          <!-- Subtitle Style -->
+          <!-- Subtitle Style & Option -->
           <div class="option-group">
             <div class="option-label"><span>Burned-in Subtitle Style</span></div>
             <div class="chips-grid" id="gta-style-chips">
@@ -1196,7 +1260,15 @@
               <div class="chip" data-val="cyber">
                 <span class="color-dot" style="background:#ec4899;"></span> Cyber Pink
               </div>
+              <div class="chip" data-val="none">
+                🚫 No Captions (Ultra-Fast)
+              </div>
             </div>
+          </div>
+
+          <div class="option-group">
+            <div class="option-label"><span>Email Notification (Optional)</span></div>
+            <input type="email" class="url-input" id="gta-email" placeholder="your@email.com (optional)">
           </div>
         </div>
 
@@ -1222,7 +1294,7 @@
           <div class="pipe-step active" id="fpipe-1">
             <div class="pipe-left">
               <div class="pipe-num" style="background:#a855f7;color:#fff;">1</div>
-              <div class="pipe-name">Neural Voice Synthesis & Word-Level Timing</div>
+              <div class="pipe-name">Voiceover Synthesis & Timing Sync</div>
             </div>
             <div class="anim-icon"><div class="scanner-ring" style="border-top-color:#a855f7;"></div></div>
           </div>
@@ -1236,7 +1308,7 @@
           <div class="pipe-step" id="fpipe-3">
             <div class="pipe-left">
               <div class="pipe-num">3</div>
-              <div class="pipe-name">9:16 Vertical HD Reframe & Burn Dynamic Subtitles</div>
+              <div class="pipe-name">9:16 Vertical HD Framing & Subtitle Burn</div>
             </div>
             <div class="anim-icon"><span class="cutter-icon">🎬</span></div>
           </div>
@@ -1268,7 +1340,7 @@
             <div class="clip-heading" id="faceless-title-preview">Vice City Viral Short</div>
             <div class="clip-snippet" id="faceless-script-preview" style="margin-bottom:10px;"></div>
             <div class="clip-acts">
-              <a class="btn-dl" id="faceless-dl-btn" href="#" style="background:linear-gradient(135deg, #c084fc, #a855f7);color:#fff;">Download MP4</a>
+              <button class="btn-dl" id="faceless-dl-btn" style="background:linear-gradient(135deg, #c084fc, #a855f7);color:#fff;">Download MP4</button>
             </div>
           </div>
         </div>
@@ -1276,7 +1348,7 @@
     </div>
   </main>
 
-  <!-- Library Modal -->
+  <!-- Library Modal (Server-Backed & Persistent) -->
   <div class="modal-backdrop" id="lib-modal">
     <div class="modal-box">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
@@ -1287,8 +1359,73 @@
     </div>
   </div>
 
+  <!-- Voice Profile Creator Modal -->
+  <div class="modal-backdrop" id="voice-modal">
+    <div class="modal-box" style="max-width:480px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+        <h3 style="font-size:16px;font-weight:800;">Create Voice Profile</h3>
+        <button class="btn-remove" id="close-voice-modal">&times;</button>
+      </div>
+
+      <div class="option-group">
+        <label class="option-label">Profile Name</label>
+        <input type="text" class="url-input" id="vp-name" placeholder="e.g. My Podcast Voice, Streamer Host">
+      </div>
+
+      <div class="option-group">
+        <label class="option-label">Base Persona Tone</label>
+        <select class="url-input" id="vp-base-voice" style="padding:10px;">
+          <option value="en-US-ChristopherNeural">Deep / Movie Narrator (Male)</option>
+          <option value="en-US-GuyNeural">High Energy / Gamer (Male)</option>
+          <option value="en-US-JennyNeural">Smooth Explainer (Female)</option>
+          <option value="en-GB-RyanNeural">Dramatic British (Male)</option>
+          <option value="en-US-EricNeural">Fast Shorts Narrator (Male)</option>
+        </select>
+      </div>
+
+      <div class="option-group">
+        <label class="option-label">Sample Audio Recording (Optional)</label>
+        <input type="file" id="vp-audio-file" accept="audio/*" class="url-input" style="padding:8px;">
+        <div style="font-size:11px;color:var(--mute);margin-top:4px;">Upload a clean 10–30s speech recording to calibrate timbre.</div>
+      </div>
+
+      <div class="option-group">
+        <label class="option-label">Pitch Tuning</label>
+        <div class="chips-grid" id="vp-pitch-chips">
+          <div class="chip" data-val="-4Hz">Deeper (-4Hz)</div>
+          <div class="chip active" data-val="+0Hz">Natural (+0Hz)</div>
+          <div class="chip" data-val="+4Hz">Higher (+4Hz)</div>
+        </div>
+      </div>
+
+      <!-- Mandatory Consent Checkbox -->
+      <div class="consent-box">
+        <input type="checkbox" id="vp-consent-check">
+        <label for="vp-consent-check" style="cursor:pointer;">
+          <b>Opt-In Permission:</b> I confirm that I own this voice recording or have explicit, authorized consent from the speaker to use this voice profile for synthetic narration.
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px;">
+        <button class="btn-back" id="cancel-voice-btn">Cancel</button>
+        <button class="btn-next btn-gta-gen" id="save-voice-btn" disabled style="max-width:180px;">Save Profile</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const $ = id => document.getElementById(id);
+
+    // Global direct download helper
+    window.downloadDirect = function(url, filename) {
+      const a = document.createElement('a');
+      a.href = url.includes('?') ? (url + '&dl=1') : (url + '?dl=1');
+      a.download = filename || 'clip.mp4';
+      a.target = '_blank';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    };
 
     // Navigation Switcher
     $('mode-clipper-btn').onclick = () => {
@@ -1310,22 +1447,17 @@
       options: {
         count: 20,
         aspect_ratio: '9:16',
+        framing: 'crop',
         caption_style: 'beasty',
         duration: '30to60',
-        focus: 'viral'
+        focus: 'viral',
+        email: ''
       },
       running: false,
       timer: null,
       startTime: null,
       activeJobId: null
     };
-
-    // Request notification permission
-    function requestPushPermission() {
-      if ('Notification' in window && Notification.permission === 'default') {
-        Notification.requestPermission();
-      }
-    }
 
     // Audio chime
     function playChime() {
@@ -1359,11 +1491,11 @@
 
       const nextBtn = $('btn-next');
       if (step === 1) {
-        nextBtn.innerHTML = '<span>Next: Format</span> <span>→</span>';
+        nextBtn.innerHTML = '<span>Next: Framing</span> <span>→</span>';
         nextBtn.disabled = state.queue.length === 0;
         nextBtn.className = 'btn-next';
       } else if (step === 2) {
-        nextBtn.innerHTML = '<span>Next: Subtitles</span> <span>→</span>';
+        nextBtn.innerHTML = '<span>Next: Captions</span> <span>→</span>';
         nextBtn.disabled = false;
         nextBtn.className = 'btn-next';
       } else if (step === 3) {
@@ -1376,12 +1508,10 @@
 
     $('btn-back').onclick = () => { if (currentStep > 1) goToStep(currentStep - 1); };
     $('btn-next').onclick = () => {
-      requestPushPermission();
       if (currentStep < 3) goToStep(currentStep + 1);
       else startProcessing();
     };
 
-    // Generic chip binder
     function bindChips(containerId, callback) {
       const container = $(containerId);
       if (!container) return;
@@ -1395,6 +1525,7 @@
     }
 
     bindChips('aspect-cards', val => state.options.aspect_ratio = val);
+    bindChips('framing-chips', val => state.options.framing = val);
     bindChips('duration-chips', val => state.options.duration = val);
     bindChips('count-chips', val => state.options.count = val);
     bindChips('style-chips', val => state.options.caption_style = val);
@@ -1479,10 +1610,12 @@
       const cat = c.category || 'Viral Hook';
       const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
       const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
+      const dlUrl = c.download_url || `/clips/${c.vid}/${c.file}?dl=1`;
+      const streamUrl = c.stream_url || `/clips/${c.vid}/${c.file}`;
 
       card.innerHTML = `
         <div class="video-wrap ${ratioClass}">
-          <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
+          <video src="${streamUrl}" controls preload="metadata" playsinline></video>
         </div>
         <div class="clip-details">
           <div class="clip-badges">
@@ -1493,8 +1626,8 @@
           <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
           <div class="clip-snippet">${c.caption || ''}</div>
           <div class="clip-acts">
-            <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
-            <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy Caption</button>
+            <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')">⬇️ Download MP4</button>
+            <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
           </div>
         </div>
       `;
@@ -1508,38 +1641,19 @@
       const text = `${c.title}\n\n${c.caption}\n\n${(c.hashtags || []).join(' ')}`;
       navigator.clipboard.writeText(text).then(() => {
         btn.textContent = 'Copied!';
-        setTimeout(() => btn.textContent = 'Copy Caption', 2000);
+        setTimeout(() => btn.textContent = 'Copy', 2000);
       });
     };
 
-    // Library persistence: instantly save clips to localStorage as they arrive
-    function saveClipToLibrary(videoMeta, clipItem, totalCount) {
-      let lib = JSON.parse(localStorage.getItem('clipforge_library') || '[]');
-      let entry = lib.find(item => item.id === videoMeta.id);
-      if (!entry) {
-        entry = {
-          id: videoMeta.id,
-          title: videoMeta.title || 'Saved Video',
-          thumbnail: videoMeta.thumbnail || '',
-          totalTarget: totalCount || 5,
-          clips: [],
-          updatedAt: Date.now()
-        };
-        lib.unshift(entry);
-      }
-      if (!entry.clips.some(c => c.file === clipItem.file)) {
-        entry.clips.push(clipItem);
-        entry.updatedAt = Date.now();
-      }
-      localStorage.setItem('clipforge_library', JSON.stringify(lib.slice(0, 30)));
-      updateLibBadge();
-    }
-
-    function updateLibBadge() {
-      const lib = JSON.parse(localStorage.getItem('clipforge_library') || '[]');
-      let totalClips = 0;
-      lib.forEach(item => totalClips += (item.clips || []).length);
-      $('lib-badge').textContent = totalClips;
+    // Update library badge count from server
+    async function updateLibBadge() {
+      try {
+        const res = await fetch('/api/library');
+        const data = await res.json();
+        let total = 0;
+        (data.library || []).forEach(item => total += (item.clips || []).length);
+        $('lib-badge').textContent = total;
+      } catch (e) {}
     }
     updateLibBadge();
 
@@ -1548,6 +1662,7 @@
       if (!state.queue.length || state.running) return;
 
       state.running = true;
+      state.options.email = $('clipper-email').value.trim();
       $('wizard-box').style.display = 'none';
       $('results-view').style.display = 'none';
       $('run-view').style.display = 'block';
@@ -1581,7 +1696,9 @@
               duration: state.options.duration,
               focus: state.options.focus,
               aspect_ratio: state.options.aspect_ratio,
-              caption_style: state.options.caption_style
+              framing: state.options.framing,
+              caption_style: state.options.caption_style,
+              email: state.options.email
             })
           });
           const data = await res.json();
@@ -1612,6 +1729,7 @@
       localStorage.removeItem('clipforge_active_job');
       $('run-view').style.display = 'none';
       $('results-view').style.display = 'block';
+      updateLibBadge();
     }
 
     function updateStepIndicator(status, currentCount, totalCount) {
@@ -1681,7 +1799,7 @@
             const totalOpt = parseInt(state.options.count, 10) || 5;
             updateStepIndicator(data.status || '', data.clips ? data.clips.length : 0, totalOpt);
 
-            // Progressive Real-Time Streaming & Immediate Library Backup!
+            // Progressive Real-Time Streaming & Downloads
             if (data.clips && data.clips.length > _lastRenderedClipsCount) {
               $('live-clips-wrap').style.display = 'block';
               $('live-stream-title').textContent = `${data.clips.length} of ${totalOpt} Finished Clips (Ready to Download)`;
@@ -1691,20 +1809,14 @@
                 const clip = data.clips[i];
                 const card = renderClipCard(clip, i, state.options.aspect_ratio);
                 $('live-clips-grid').appendChild(card);
-                saveClipToLibrary(videoMeta, clip, totalOpt);
               }
               _lastRenderedClipsCount = data.clips.length;
+              updateLibBadge();
             }
 
             if (data.done) {
               clearInterval(interval);
               playChime();
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🎉 ClipForge: Clips Ready!', {
-                  body: `${data.clips.length} viral clips generated from "${videoMeta?.title || 'your video'}". Tap to download!`,
-                  icon: '/favicon.ico'
-                });
-              }
               resolve(data.clips || []);
             }
           } catch (e) {
@@ -1721,7 +1833,7 @@
     function showResults(clips, videoMeta, ratio) {
       window._currentClips = clips;
       $('results-heading').textContent = `${clips.length} Viral Clips Ready`;
-      $('results-sub').textContent = `Generated from "${videoMeta?.title || 'Video'}". Burned-in subtitles ready for export.`;
+      $('results-sub').textContent = `Generated from "${videoMeta?.title || 'Video'}". Saved permanently to your server library.`;
 
       const grid = $('clips-stream');
       grid.innerHTML = '';
@@ -1738,89 +1850,78 @@
       goToStep(1);
     };
 
-    // Instant Library Modal (Loads instantly from localStorage + background server sync)
+    // ================= SERVER-PERSISTED LIBRARY MODAL =================
     $('open-library').onclick = async () => {
       $('lib-modal').style.display = 'flex';
-      renderLibraryContent();
+      $('lib-content').innerHTML = '<p style="color:var(--mute);padding:20px;text-align:center;">Loading saved videos from server...</p>';
 
-      // Silent background sync with server
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
-        const res = await fetch('/api/history', { signal: controller.signal });
-        clearTimeout(timeoutId);
+        const res = await fetch('/api/library');
         const data = await res.json();
-        if (data.jobs && data.jobs.length) {
-          let lib = JSON.parse(localStorage.getItem('clipforge_library') || '[]');
-          data.jobs.forEach(j => {
-            let entry = lib.find(item => item.id === j.id);
-            if (!entry) {
-              lib.push({
-                id: j.id,
-                title: j.preview?.title || 'Saved Video',
-                thumbnail: j.preview?.thumbnail || '',
-                totalTarget: j.options?.count || j.clips?.length || 5,
-                clips: j.clips || [],
-                updatedAt: j.created_at ? (j.created_at * 1000) : Date.now()
-              });
-            }
-          });
-          localStorage.setItem('clipforge_library', JSON.stringify(lib.slice(0, 30)));
-          renderLibraryContent();
-        }
-      } catch (e) {}
+        renderLibraryContent(data.library || []);
+      } catch (e) {
+        $('lib-content').innerHTML = `<p style="color:var(--err);padding:20px;text-align:center;">Failed to load library: ${e.message}</p>`;
+      }
     };
 
-    function renderLibraryContent() {
+    function renderLibraryContent(items) {
       const container = $('lib-content');
-      const lib = JSON.parse(localStorage.getItem('clipforge_library') || '[]');
-
-      if (!lib.length) {
-        container.innerHTML = '<p style="color:var(--mute);padding:14px 0;text-align:center;">No saved clips found yet. Generate your first video!</p>';
+      if (!items || !items.length) {
+        container.innerHTML = '<p style="color:var(--mute);padding:20px;text-align:center;">No saved videos in library yet. Start clipping or generate a GTA 6 video!</p>';
         return;
       }
 
       container.innerHTML = '';
-      lib.forEach(item => {
+      items.forEach(item => {
         const wrap = document.createElement('div');
         wrap.className = 'video-card';
-        wrap.style.marginBottom = '10px';
+        wrap.style.marginBottom = '12px';
         wrap.style.flexDirection = 'column';
         wrap.style.alignItems = 'stretch';
 
-        const clipsCount = (item.clips || []).length;
-        const total = item.totalTarget || clipsCount;
-        const isCompleted = clipsCount >= total;
+        const clips = item.clips || [];
+        const clipsCount = clips.length;
+        const total = item.total_target || clipsCount;
+        const isDone = item.done === true;
 
         wrap.innerHTML = `
-          <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;">
-            ${item.thumbnail ? `<img src="${item.thumbnail}" class="video-thumb" style="width:70px;height:42px;">` : ''}
-            <div class="video-meta">
-              <div class="video-name">${item.title}</div>
-              <div style="font-size:11px;color:${isCompleted ? 'var(--acc-light)' : 'var(--gold)'};font-weight:700;">
-                ${isCompleted ? `✅ Completed (${clipsCount} clips)` : `⚡ ${clipsCount} / ${total} clips generated`}
+          <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;">
+            <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:200px;">
+              ${item.thumbnail ? `<img src="${item.thumbnail}" class="video-thumb" style="width:70px;height:42px;">` : `<div class="video-thumb" style="width:70px;height:42px;display:flex;align-items:center;justify-content:center;font-size:18px;">${item.type === 'faceless' ? '🎮' : '⚡'}</div>`}
+              <div class="video-meta">
+                <div class="video-name">${item.title}</div>
+                <div style="font-size:11px;color:${isDone ? 'var(--acc-light)' : 'var(--gold)'};font-weight:700;">
+                  ${isDone ? `✅ Ready (${clipsCount} clips)` : `⚡ ${clipsCount} of ${total} clips generated • in progress`}
+                </div>
               </div>
             </div>
-            <button class="btn-back" style="padding:6px 12px;font-size:11px;" onclick="toggleLibraryClips('${item.id}')">
-              View Clips (${clipsCount})
-            </button>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <button class="btn-back" style="padding:6px 12px;font-size:11px;" onclick="toggleLibraryClips('${item.id}')">
+                View & Download (${clipsCount})
+              </button>
+              <button class="btn-remove" title="Delete from Library" onclick="deleteLibraryItem('${item.id}', this)">&times;</button>
+            </div>
           </div>
-          <div id="lib-clips-${item.id}" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:10px;">
+          <div id="lib-clips-${item.id}" style="display:none;margin-top:12px;border-top:1px solid var(--line);padding-top:12px;">
             <div class="clips-stream">
-              ${(item.clips || []).map((c, idx) => `
+              ${clips.map((c, idx) => {
+                const dlUrl = c.download_url || `/clips/${c.vid}/${c.file}?dl=1`;
+                const streamUrl = c.stream_url || `/clips/${c.vid}/${c.file}`;
+                return `
                 <div class="clip-card" style="background:var(--card-inner);">
                   <div class="video-wrap">
-                    <video src="/clips/${c.vid}/${c.file}" controls preload="metadata" playsinline></video>
+                    <video src="${streamUrl}" controls preload="metadata" playsinline></video>
                   </div>
                   <div class="clip-details">
                     <div class="clip-heading">${c.title || ('Clip #' + (idx + 1))}</div>
-                    <div style="font-size:11px;color:var(--mute);margin-bottom:8px;">${c.hook_reason || ''}</div>
+                    <div style="font-size:11px;color:var(--mute);margin-bottom:8px;">${c.hook_reason || c.caption || ''}</div>
                     <div class="clip-acts">
-                      <a class="btn-dl" href="/clips/${c.vid}/${c.file}?dl=1">Download MP4</a>
+                      <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')">⬇️ Download MP4</button>
                     </div>
                   </div>
                 </div>
-              `).join('')}
+              `;
+              }).join('')}
             </div>
           </div>
         `;
@@ -1830,9 +1931,16 @@
 
     window.toggleLibraryClips = function(id) {
       const el = $('lib-clips-' + id);
-      if (el) {
-        el.style.display = el.style.display === 'none' ? 'block' : 'none';
-      }
+      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+    };
+
+    window.deleteLibraryItem = async function(id, btn) {
+      if (!confirm('Remove this video and its clips from your library?')) return;
+      try {
+        await fetch('/api/library/' + id, { method: 'DELETE' });
+        btn.closest('.video-card').remove();
+        updateLibBadge();
+      } catch (e) {}
     };
 
     $('close-modal').onclick = () => $('lib-modal').style.display = 'none';
@@ -1841,12 +1949,14 @@
     // ================= GTA 6 FACELESS STUDIO LOGIC =================
     let gtaVoice = 'deep_narrator';
     let gtaStyle = 'beasty';
+    let gtaFraming = 'crop';
 
     bindChips('gta-voice-chips', val => gtaVoice = val);
     bindChips('gta-style-chips', val => gtaStyle = val);
+    bindChips('gta-framing-chips', val => gtaFraming = val);
 
     $('btn-use-gta-loop').onclick = () => {
-      $('gta-url').value = 'https://www.youtube.com/watch?v=QdBZY2fkU-0'; // GTA 6 Trailer 1 official 4K loop
+      $('gta-url').value = 'https://www.youtube.com/watch?v=QdBZY2fkU-0';
     };
 
     const GTA_SCRIPTS = {
@@ -1869,6 +1979,93 @@
       $('script-time-est').textContent = `~${estSec}s voice duration`;
     }
 
+    // ================= OPT-IN VOICE PROFILE WORKFLOW =================
+    let customPitch = '+0Hz';
+    bindChips('vp-pitch-chips', val => customPitch = val);
+
+    $('btn-open-voice-modal').onclick = () => {
+      $('voice-modal').style.display = 'flex';
+      $('vp-name').value = '';
+      $('vp-consent-check').checked = false;
+      $('save-voice-btn').disabled = true;
+    };
+    $('close-voice-modal').onclick = () => $('voice-modal').style.display = 'none';
+    $('cancel-voice-btn').onclick = () => $('voice-modal').style.display = 'none';
+
+    $('vp-consent-check').addEventListener('change', e => {
+      $('save-voice-btn').disabled = !e.target.checked;
+    });
+
+    $('save-voice-btn').onclick = async () => {
+      const name = $('vp-name').value.trim() || 'Custom Voice';
+      const consent = $('vp-consent-check').checked;
+      const baseVoice = $('vp-base-voice').value;
+      const audioInput = $('vp-audio-file');
+
+      if (!consent) {
+        alert('You must confirm consent before creating a voice profile.');
+        return;
+      }
+
+      const saveBtn = $('save-voice-btn');
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+
+      try {
+        const formData = new FormData();
+        formData.append('name', name);
+        formData.append('consent', 'true');
+        formData.append('base_voice', baseVoice);
+        formData.append('pitch', customPitch);
+        if (audioInput.files && audioInput.files[0]) {
+          formData.append('audio', audioInput.files[0]);
+        }
+
+        const res = await fetch('/api/voice-profiles', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        $('voice-modal').style.display = 'none';
+        await loadVoiceProfiles(data.profile.id);
+      } catch (err) {
+        alert('Error creating voice profile: ' + err.message);
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = 'Save Profile';
+      }
+    };
+
+    async function loadVoiceProfiles(selectId) {
+      try {
+        const res = await fetch('/api/voice-profiles');
+        const data = await res.json();
+        const container = $('gta-voice-chips');
+
+        // Keep standard built-ins
+        const standardHTML = `
+          <div class="chip ${(!selectId || selectId === 'deep_narrator') ? 'active' : ''}" data-val="deep_narrator">🎙️ Christopher (Deep Movie Narrator)</div>
+          <div class="chip ${selectId === 'energetic_guy' ? 'active' : ''}" data-val="energetic_guy">🎮 Guy (Hype Gamer / Streamer)</div>
+          <div class="chip ${selectId === 'viral_female' ? 'active' : ''}" data-val="viral_female">✨ Jenny (Viral Female Explainer)</div>
+          <div class="chip ${selectId === 'british_story' ? 'active' : ''}" data-val="british_story">👑 Ryan (Dramatic British Accent)</div>
+          <div class="chip ${selectId === 'fast_shorts' ? 'active' : ''}" data-val="fast_shorts">⚡ Eric (Fast Shorts Narrator)</div>
+        `;
+
+        let customHTML = '';
+        (data.profiles || []).forEach(p => {
+          const isSelected = p.id === selectId;
+          customHTML += `<div class="chip active-purple ${isSelected ? 'active' : ''}" data-val="${p.id}">👤 ${p.name} (Custom Profile)</div>`;
+        });
+
+        container.innerHTML = standardHTML + customHTML;
+        if (selectId) gtaVoice = selectId;
+      } catch (e) {}
+    }
+    loadVoiceProfiles();
+
+    // Generate Faceless Video
     $('btn-generate-faceless').onclick = async () => {
       const script = $('gta-script').value.trim();
       if (!script) {
@@ -1897,13 +2094,14 @@
             url: $('gta-url').value.trim(),
             script,
             voice: gtaVoice,
-            style: gtaStyle
+            style: gtaStyle,
+            framing: gtaFraming,
+            email: $('gta-email').value.trim()
           })
         });
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        // Poll faceless job
         await pollFaceless(data.id, script);
       } catch (err) {
         clearInterval(fTimer);
@@ -1928,10 +2126,10 @@
             const s = (data.status || '').toLowerCase();
             if (s.includes('voice')) {
               $('fpipe-1').className = 'pipe-step active';
-            } else if (s.includes('loop') || s.includes('background') || s.includes('download')) {
+            } else if (s.includes('loop') || s.includes('gameplay') || s.includes('download')) {
               $('fpipe-1').className = 'pipe-step completed';
               $('fpipe-2').className = 'pipe-step active';
-            } else if (s.includes('burn') || s.includes('caption') || s.includes('render')) {
+            } else if (s.includes('burn') || s.includes('caption') || s.includes('render') || s.includes('fram')) {
               $('fpipe-1').className = 'pipe-step completed';
               $('fpipe-2').className = 'pipe-step completed';
               $('fpipe-3').className = 'pipe-step active';
@@ -1941,6 +2139,7 @@
               clearInterval(interval);
               playChime();
               showFacelessResult(data.result);
+              updateLibBadge();
               resolve(data.result);
             }
           } catch (e) {
@@ -1957,24 +2156,9 @@
 
       const player = $('faceless-video-player');
       player.src = result.file_url;
-      $('faceless-dl-btn').href = result.file_url + '?dl=1';
+      $('faceless-dl-btn').onclick = () => downloadDirect(result.file_url, result.filename);
       $('faceless-dur-badge').textContent = `${result.duration}s Vertical`;
       $('faceless-script-preview').textContent = result.script;
-
-      // Save to library as GTA 6 video
-      saveClipToLibrary({
-        id: result.id,
-        title: 'GTA 6 Faceless: ' + result.script.slice(0, 32) + '...',
-        thumbnail: ''
-      }, {
-        vid: 'faceless/' + result.id,
-        file: result.filename,
-        title: 'GTA 6 Faceless Short',
-        caption: result.script,
-        category: 'GTA 6 Faceless',
-        score: 98,
-        hook_reason: 'Viral neural narration with zero background noise and burned-in captions.'
-      }, 1);
     }
 
     $('btn-faceless-new').onclick = () => {
@@ -1982,7 +2166,7 @@
       $('faceless-card').style.display = 'block';
     };
 
-    // Auto-Resume Active Background Job on Page Load
+    // Auto-Resume Active Background Job
     async function checkBackgroundJob() {
       const activeStr = localStorage.getItem('clipforge_active_job');
       if (!activeStr) {
