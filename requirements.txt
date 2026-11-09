@@ -4,3 +4,4 @@ faster-whisper
 requests
 flask
 edge-tts
+opencv-python-headless>=4.8.0,<4.11.0
