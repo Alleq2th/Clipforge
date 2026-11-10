@@ -5,11 +5,11 @@ import time
 import uuid
 import urllib.parse
 import urllib.request
-from flask import Flask, request, jsonify, send_from_directory, send_file
+from flask import Flask, request, jsonify, send_from_directory, send_file, redirect
 from config import DEFAULT_EXPORT_PROFILE, WORK_DIR, OUT_DIR
 from pipeline import run
 from cut import cut
-from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir
+from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir, get_storage_provider
 from faceless import create_faceless_video, VOICES, STYLES
 from library import get_library, save_library_entry, delete_library_entry, delete_library_clip, clear_completed_entries
 from notifications import send_completion_email, build_clipper_email, build_faceless_email
@@ -281,12 +281,18 @@ def preview():
 def storage_info():
     out_mb = get_dir_size_mb(OUT_DIR)
     work_mb = get_dir_size_mb(WORK_DIR)
+    provider = get_storage_provider()
     return jsonify({
         "output_mb": round(out_mb, 1),
         "work_mb": round(work_mb, 1),
         "total_mb": round(out_mb + work_mb, 1),
         "limit_mb": 400.0,
-        "cleanup_count": 6
+        "cleanup_count": 6,
+        "cloud_storage": {
+            "provider": provider.name,
+            "configured": provider.is_configured(),
+            "bucket": getattr(provider, "bucket", "clips")
+        }
     })
 
 @app.post("/api/cleanup")
@@ -504,12 +510,18 @@ def get_clip(filepath):
     except PermissionError:
         return jsonify({"error": "Access denied"}), 403
 
+    dl = request.args.get("dl") == "1"
+
+    # If local file is missing (e.g. Render restart/sleep or pruned disk), redirect to cloud storage
     if not os.path.exists(full_path):
+        provider = get_storage_provider()
+        if provider and provider.is_configured():
+            cloud_url = provider.get_public_url(filepath)
+            return redirect(cloud_url, code=302)
         return jsonify({"error": "File not found"}), 404
 
     directory = os.path.dirname(full_path)
     filename = os.path.basename(full_path)
-    dl = request.args.get("dl") == "1"
     response = send_from_directory(directory, filename, as_attachment=dl)
     if dl:
         response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'

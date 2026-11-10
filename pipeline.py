@@ -5,7 +5,7 @@ from download import download
 from transcribe import transcribe
 from pick import pick
 from cut import cut
-from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage
+from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage, get_storage_provider
 from jobs_db import update_job, save_clip_record
 from config import MAX_CLIP_WORKERS, DEFAULT_EXPORT_PROFILE
 
@@ -21,14 +21,22 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
             jid=jid,
             export_profile=export_profile
         )
+        # Offload to durable cloud storage if configured (Supabase / S3)
+        provider = get_storage_provider()
+        rel_dest = f"{job_id}/{os.path.basename(f)}"
+        cloud_url = provider.save_clip(f, rel_dest)
+        download_url = cloud_url if cloud_url else f"/clips/{job_id}/{os.path.basename(f)}?dl=1"
+        stream_url = cloud_url if cloud_url else f"/clips/{job_id}/{os.path.basename(f)}"
+
         item = {
             **c,
             "file": os.path.basename(f),
             "vid": str(job_id),
             "index": i,
             "ok": True,
-            "download_url": f"/clips/{job_id}/{os.path.basename(f)}?dl=1",
-            "stream_url": f"/clips/{job_id}/{os.path.basename(f)}"
+            "download_url": download_url,
+            "stream_url": stream_url,
+            "cloud_url": cloud_url or ""
         }
         return i, item, None
     except Exception as e:

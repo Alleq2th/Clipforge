@@ -9,7 +9,7 @@ from config import WORK_DIR, OUT_DIR
 from voice_profiles import get_voice_profile
 from security import validate_video_url, safe_join_path
 from process_manager import run_tracked_subprocess
-from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir
+from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, get_storage_provider
 
 VOICES = {
     "deep_narrator": "en-US-ChristopherNeural",   # Deep viral movie/storyteller voice
@@ -211,10 +211,16 @@ def create_faceless_video(video_source, script_text, voice_key="deep_narrator", 
             except Exception: pass
         cleanup_job_work_dir(f"faceless_{fid}")
 
+    provider = get_storage_provider()
+    rel_dest = f"faceless/{fid}/{out_filename}"
+    cloud_url = provider.save_clip(final_out, rel_dest)
+    file_url = cloud_url if cloud_url else f"/clips/faceless/{fid}/{out_filename}"
+
     cb("Faceless video ready!")
     return {
         "filename": out_filename,
         "path": final_out,
         "duration": round(duration, 1),
-        "file_url": f"/clips/faceless/{fid}/{out_filename}"
+        "file_url": file_url,
+        "cloud_url": cloud_url or ""
     }

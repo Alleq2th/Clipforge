@@ -72,6 +72,22 @@ def delete_library_entry(entry_id):
             with open(path, "w", encoding="utf-8") as f:
                 json.dump(new_lib, f, indent=2)
 
+            # Clean up cloud storage objects for this entry if configured
+            try:
+                from storage import get_storage_provider
+                provider = get_storage_provider()
+                if provider and provider.is_configured():
+                    target_entry = next((x for x in lib if str(x.get("id")) == str(entry_id)), None)
+                    if target_entry:
+                        e_type = target_entry.get("type", "clipper")
+                        for c in target_entry.get("clips", []):
+                            cf = os.path.basename(c.get("file", ""))
+                            if cf:
+                                dest = f"faceless/{entry_id}/{cf}" if e_type == "faceless" else f"{entry_id}/{cf}"
+                                provider.delete_clip(dest)
+            except Exception:
+                pass
+
             # Safely clean up disk folders with path traversal guards
             for folder_rel in [str(entry_id), os.path.join("faceless", str(entry_id))]:
                 try:
@@ -118,6 +134,16 @@ def delete_library_clip(entry_id, filename):
             if os.path.exists(file_p):
                 try: os.remove(file_p)
                 except Exception: pass
+
+            # Delete from cloud storage if active
+            try:
+                from storage import get_storage_provider
+                provider = get_storage_provider()
+                if provider and provider.is_configured():
+                    cloud_dest = f"faceless/{entry_id}/{clean_filename}" if entry_type == "faceless" else f"{entry_id}/{clean_filename}"
+                    provider.delete_clip(cloud_dest)
+            except Exception:
+                pass
 
             entry["clips"] = [c for c in entry.get("clips", []) if os.path.basename(c.get("file", "")) != clean_filename]
             entry["clips_count"] = len(entry["clips"])

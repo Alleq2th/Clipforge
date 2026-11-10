@@ -56,6 +56,13 @@ class TestConcurrencyAndBatching(unittest.TestCase):
             MagicMock()
         )
 
+        import sys
+        if "faster_whisper" not in sys.modules:
+            try:
+                import faster_whisper
+            except ImportError:
+                sys.modules["faster_whisper"] = MagicMock()
+
         with patch("transcribe._get_local_whisper", return_value=mock_model):
             with patch("faster_whisper.BatchedInferencePipeline", side_effect=RuntimeError("Simulated batch failure")):
                 result = transcribe._transcribe_local(self.dummy_audio)

@@ -113,9 +113,12 @@ def cleanup_storage(max_mb=400, max_saved_jobs=6):
     except Exception as e:
         print(f"[STORAGE] Notice during output pruning: {e}")
 
-# ================= CLOUD STORAGE INTERFACE (SUPABASE / S3 PREPARED) =================
+# ================= CLOUD STORAGE INTERFACE (SUPABASE / S3 DURABLE STORAGE) =================
 class StorageProvider:
     """Abstract interface for permanent video asset storage."""
+    name = "abstract"
+    def is_configured(self):
+        return False
     def save_clip(self, local_path, destination_path):
         raise NotImplementedError
     def get_public_url(self, destination_path):
@@ -124,9 +127,14 @@ class StorageProvider:
         raise NotImplementedError
 
 class LocalStorageProvider(StorageProvider):
+    name = "local"
+    is_cloud = False
+    def is_configured(self):
+        return False
+
     def save_clip(self, local_path, destination_path):
-        # Already on local filesystem
-        return destination_path
+        # Stored on local filesystem; returns None for cloud URL
+        return None
 
     def get_public_url(self, destination_path):
         return f"/clips/{destination_path}"
@@ -139,44 +147,100 @@ class LocalStorageProvider(StorageProvider):
         return True
 
 class SupabaseStorageProvider(StorageProvider):
+    is_cloud = True
     """
-    Prepared Supabase Storage provider for persistent cloud storage.
-    Configured via SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_STORAGE_BUCKET.
+    Durable cloud storage provider using Supabase Storage.
+    Clips uploaded here survive Render server sleep, restarts, and redeployments permanently.
+    Configured via:
+      - SUPABASE_URL: e.g. https://xyzcompany.supabase.co
+      - SUPABASE_SERVICE_KEY (or SUPABASE_KEY / SUPABASE_ANON_KEY)
+      - SUPABASE_STORAGE_BUCKET: default 'clips'
     """
+    name = "supabase"
+
     def __init__(self):
         self.supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
-        self.supabase_key = os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_ANON_KEY", "")
-        self.bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "clips")
+        self.supabase_key = (
+            os.getenv("SUPABASE_SERVICE_KEY")
+            or os.getenv("SUPABASE_KEY")
+            or os.getenv("SUPABASE_ANON_KEY", "")
+        ).strip()
+        self.bucket = os.getenv("SUPABASE_STORAGE_BUCKET", "clips").strip()
+        self._bucket_checked = False
 
     def is_configured(self):
         return bool(self.supabase_url and self.supabase_key)
 
+    def _ensure_bucket(self):
+        """Automatically creates the public clips bucket if it does not already exist."""
+        if self._bucket_checked or not self.is_configured():
+            return
+        try:
+            import requests
+            url = f"{self.supabase_url}/storage/v1/bucket"
+            headers = {
+                "Authorization": f"Bearer {self.supabase_key}",
+                "apikey": self.supabase_key,
+                "Content-Type": "application/json"
+            }
+            resp = requests.post(
+                url,
+                headers=headers,
+                json={"id": self.bucket, "name": self.bucket, "public": True},
+                timeout=10
+            )
+            # 200/201 = created, 400/409 = already exists
+            self._bucket_checked = True
+        except Exception as e:
+            print(f"[STORAGE] Notice checking/creating Supabase bucket '{self.bucket}': {e}")
+
     def save_clip(self, local_path, destination_path):
-        if not self.is_configured():
+        if not self.is_configured() or not os.path.exists(local_path):
             return None
-        import requests
-        upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{destination_path}"
-        headers = {
-            "Authorization": f"Bearer {self.supabase_key}",
-            "Content-Type": "video/mp4",
-            "x-upsert": "true"
-        }
-        with open(local_path, "rb") as f:
-            resp = requests.post(upload_url, headers=headers, data=f, timeout=60)
-            resp.raise_for_status()
-        return self.get_public_url(destination_path)
+        try:
+            self._ensure_bucket()
+            import requests
+            clean_dest = destination_path.lstrip("/")
+            upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{clean_dest}"
+            headers = {
+                "Authorization": f"Bearer {self.supabase_key}",
+                "apikey": self.supabase_key,
+                "Content-Type": "video/mp4",
+                "x-upsert": "true"
+            }
+            with open(local_path, "rb") as f:
+                resp = requests.post(upload_url, headers=headers, data=f, timeout=120)
+                if resp.status_code in (200, 201):
+                    public_url = self.get_public_url(clean_dest)
+                    print(f"[STORAGE] Uploaded clip to Supabase Storage: {clean_dest}")
+                    return public_url
+                else:
+                    print(f"[STORAGE] Supabase upload error ({resp.status_code}): {resp.text[:200]}")
+                    return None
+        except Exception as e:
+            print(f"[STORAGE] Error uploading to Supabase: {e}")
+            return None
 
     def get_public_url(self, destination_path):
-        return f"{self.supabase_url}/storage/v1/object/public/{self.bucket}/{destination_path}"
+        clean_dest = destination_path.lstrip("/")
+        return f"{self.supabase_url}/storage/v1/object/public/{self.bucket}/{clean_dest}"
 
     def delete_clip(self, destination_path):
         if not self.is_configured():
             return False
-        import requests
-        del_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{destination_path}"
-        headers = {"Authorization": f"Bearer {self.supabase_key}"}
-        resp = requests.delete(del_url, headers=headers, timeout=15)
-        return resp.ok
+        try:
+            import requests
+            clean_dest = destination_path.lstrip("/")
+            del_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{clean_dest}"
+            headers = {
+                "Authorization": f"Bearer {self.supabase_key}",
+                "apikey": self.supabase_key
+            }
+            resp = requests.delete(del_url, headers=headers, timeout=15)
+            return resp.status_code in (200, 204)
+        except Exception as e:
+            print(f"[STORAGE] Error deleting from Supabase: {e}")
+            return False
 
 # Active storage provider
 def get_storage_provider():
