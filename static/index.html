@@ -1023,6 +1023,17 @@
             </div>
 
             <div class="option-group">
+              <div class="option-label">
+                <span>Export Quality Profile</span>
+                <span class="option-hint">Full HD, tuned CRF compression & loudness normalization</span>
+              </div>
+              <div class="chips-grid" id="quality-chips">
+                <div class="chip active" data-val="1080p">✨ 1080p Studio (Full HD • Tuned CRF 21 • Normalized Audio)</div>
+                <div class="chip" data-val="540p">⚡ 540p Draft (Fast Render • CRF 26)</div>
+              </div>
+            </div>
+
+            <div class="option-group">
               <div class="option-label"><span>Target Clip Length</span></div>
               <div class="chips-grid" id="duration-chips">
                 <div class="chip" data-val="under30">⚡ Under 30s</div>
@@ -1470,6 +1481,7 @@
         count: 20,
         aspect_ratio: '9:16',
         framing: 'crop',
+        export_profile: '1080p',
         caption_style: 'beasty',
         duration: '30to60',
         focus: 'viral',
@@ -1548,6 +1560,7 @@
 
     bindChips('aspect-cards', val => state.options.aspect_ratio = val);
     bindChips('framing-chips', val => state.options.framing = val);
+    bindChips('quality-chips', val => state.options.export_profile = val);
     bindChips('duration-chips', val => state.options.duration = val);
     bindChips('count-chips', val => state.options.count = val);
     bindChips('style-chips', val => state.options.caption_style = val);
@@ -1719,6 +1732,7 @@
               focus: state.options.focus,
               aspect_ratio: state.options.aspect_ratio,
               framing: state.options.framing,
+              export_profile: state.options.export_profile,
               caption_style: state.options.caption_style,
               email: state.options.email
             })

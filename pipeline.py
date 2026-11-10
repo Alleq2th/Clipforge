@@ -7,9 +7,9 @@ from pick import pick
 from cut import cut
 from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage
 from jobs_db import update_job, save_clip_record
-from config import MAX_CLIP_WORKERS
+from config import MAX_CLIP_WORKERS, DEFAULT_EXPORT_PROFILE
 
-def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id):
+def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None):
     """Renders an individual clip cleanly; returns (index, item_dict, error)."""
     try:
         f = cut(
@@ -18,7 +18,8 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
             caption_style=caption_style,
             framing=framing,
             out_dir=out_dir,
-            jid=jid
+            jid=jid,
+            export_profile=export_profile
         )
         item = {
             **c,
@@ -53,6 +54,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
     aspect_ratio = opts.get("aspect_ratio", "9:16")
     caption_style = opts.get("caption_style", "beasty")
     framing = opts.get("framing", "crop")
+    export_profile = opts.get("export_profile") or opts.get("resolution") or DEFAULT_EXPORT_PROFILE
 
     job_id = jid or "default"
     work_dir = get_job_work_dir(job_id)
@@ -110,7 +112,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
                             _render_clip_worker,
                             video, segs, c, i, vid,
                             aspect_ratio, caption_style, framing,
-                            out_dir, jid, job_id
+                            out_dir, jid, job_id, export_profile
                         )
                         future_to_i[fut] = i
 
@@ -165,7 +167,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
             _, item, _ = _render_clip_worker(
                 video, segs, c, i, vid,
                 aspect_ratio, caption_style, framing,
-                out_dir, jid, job_id
+                out_dir, jid, job_id, export_profile
             )
             out_map[i] = item
 

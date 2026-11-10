@@ -6,7 +6,7 @@ import uuid
 import urllib.parse
 import urllib.request
 from flask import Flask, request, jsonify, send_from_directory, send_file
-from config import WORK_DIR, OUT_DIR
+from config import DEFAULT_EXPORT_PROFILE, WORK_DIR, OUT_DIR
 from pipeline import run
 from cut import cut
 from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir
@@ -319,6 +319,7 @@ def create():
         "aspect_ratio": data.get("aspect_ratio", "9:16"),
         "caption_style": data.get("caption_style", "beasty"),
         "framing": data.get("framing", "crop"),
+        "export_profile": data.get("export_profile") or data.get("resolution", DEFAULT_EXPORT_PROFILE),
         "email": (data.get("email") or "").strip()
     }
 
@@ -438,6 +439,7 @@ def retry_single_clip(jid, clip_index):
                     aspect_ratio=options.get("aspect_ratio", "9:16"),
                     caption_style=options.get("caption_style", "beasty"),
                     framing=options.get("framing", "crop"),
+                    export_profile=options.get("export_profile") or options.get("resolution", DEFAULT_EXPORT_PROFILE),
                     out_dir=out_dir,
                     jid=jid
                 )
