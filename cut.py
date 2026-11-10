@@ -2,7 +2,7 @@ import os
 import re
 import subprocess
 from config import OUT_DIR, EXPORT_PROFILES, DEFAULT_EXPORT_PROFILE
-from captions import make_srt
+from captions import make_srt, make_ass, ASS_PRESETS
 from process_manager import run_tracked_subprocess
 
 STYLES = {
@@ -56,7 +56,7 @@ def scale_style_for_1080p(style_str, font_scale=1.85, outline_scale=1.8):
     s = re.sub(r"Outline=(\d+(?:\.\d+)?)", repl_outline, s)
     return s
 
-def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", framing="crop", x_norm=0.5, y_norm=0.5, export_profile=None):
+def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.ass", framing="crop", x_norm=0.5, y_norm=0.5, export_profile=None):
     ratio = aspect_ratio if aspect_ratio in ("9:16", "1:1", "16:9") else "9:16"
     has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
 
@@ -74,7 +74,13 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.srt", fra
         raw_style = scale_style_for_1080p(raw_style, font_scale=profile.get("font_scale", 1.85))
 
     style_str = raw_style.format(margin_v=margin_v) if has_captions else ""
-    sub_filter = f",subtitles={srt_filename}:force_style='{style_str}'" if has_captions else ""
+
+    if not has_captions:
+        sub_filter = ""
+    elif str(srt_filename).endswith(".ass"):
+        sub_filter = f",ass={srt_filename}"
+    else:
+        sub_filter = f",subtitles={srt_filename}:force_style='{style_str}'"
 
     cx = max(0.05, min(0.95, float(x_norm)))
     cy = max(0.05, min(0.95, float(y_norm)))
@@ -135,11 +141,21 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
 
     d = out_dir or os.path.join(OUT_DIR, str(vid))
     os.makedirs(d, exist_ok=True)
+    ass_filename = f"clip{i}.ass"
+    ass_path = os.path.join(d, ass_filename)
     srt_filename = f"clip{i}.srt"
     srt_path = os.path.join(d, srt_filename)
 
     has_captions = caption_style and caption_style.lower() not in ("none", "off", "false", "")
     if has_captions:
+        try:
+            make_ass(
+                segs, c["start"], c["end"], ass_path,
+                style_key=caption_style, aspect_ratio=aspect_ratio,
+                export_profile=profile["name"], words=3
+            )
+        except Exception as e:
+            print(f"[CAPTIONS] ASS generation warning ({e}); generating SRT fallback...")
         make_srt(segs, c["start"], c["end"], srt_path, words=3)
 
     x_norm, y_norm = 0.5, 0.5
@@ -155,8 +171,9 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
             print(f"[REFRAME] Clip {i}: Smart reframing error ({e}); safely falling back to center crop.")
             x_norm, y_norm = 0.5, 0.5
 
+    sub_target_filename = ass_filename if (has_captions and os.path.exists(ass_path)) else srt_filename
     vf = get_filter_complex(
-        aspect_ratio, caption_style, srt_filename,
+        aspect_ratio, caption_style, sub_target_filename,
         framing=framing, x_norm=x_norm, y_norm=y_norm,
         export_profile=profile["name"]
     )
@@ -195,13 +212,31 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
         run_tracked_subprocess(cmd, jid=jid, cwd=d, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr.decode("utf-8", errors="replace")[-300:] if e.stderr else str(e)
-        raise RuntimeError(f"FFmpeg failed for clip {i}: {err_msg}")
-    finally:
-        if has_captions and os.path.exists(srt_path):
+        if has_captions and "ass=" in vf and os.path.exists(srt_path):
+            print(f"[CAPTIONS] ASS filter notice ({err_msg[:80]}); attempting SRT fallback for clip {i}...")
+            fallback_vf = get_filter_complex(
+                aspect_ratio, caption_style, srt_filename,
+                framing=framing, x_norm=x_norm, y_norm=y_norm,
+                export_profile=profile["name"]
+            )
+            fallback_cmd = list(cmd)
+            filter_idx = fallback_cmd.index("-filter_complex") + 1
+            fallback_cmd[filter_idx] = fallback_vf
             try:
-                os.remove(srt_path)
-            except Exception:
-                pass
+                run_tracked_subprocess(fallback_cmd, jid=jid, cwd=d, check=True, capture_output=True)
+            except subprocess.CalledProcessError as e2:
+                err_msg2 = e2.stderr.decode("utf-8", errors="replace")[-300:] if e2.stderr else str(e2)
+                raise RuntimeError(f"FFmpeg failed for clip {i}: {err_msg2}")
+        else:
+            raise RuntimeError(f"FFmpeg failed for clip {i}: {err_msg}")
+    finally:
+        if has_captions:
+            for sub_p in (ass_path, srt_path):
+                if os.path.exists(sub_p):
+                    try:
+                        os.remove(sub_p)
+                    except Exception:
+                        pass
 
     with open(os.path.join(d, f"clip{i}.txt"), "w", encoding="utf-8") as f:
         score_line = f"Virality Score: {c.get('score', 92)}/100 • Category: {c.get('category', 'Viral Highlight')}\n"
