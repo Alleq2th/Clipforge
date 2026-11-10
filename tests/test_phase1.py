@@ -120,5 +120,39 @@ class TestPhase1Reliability(unittest.TestCase):
         db_job = jobs_db.get_job(jid)
         self.assertTrue(db_job["cancelled"])
 
+
+    def test_download_format_fallback(self):
+        from unittest.mock import patch
+        import download
+        import shutil
+
+        attempt_formats = []
+
+        class FakeYDL:
+            def __init__(self, opts):
+                self.opts = opts
+                attempt_formats.append(opts.get("format"))
+            def __enter__(self):
+                return self
+            def __exit__(self, *args):
+                pass
+            def extract_info(self, url, download=True):
+                if len(attempt_formats) == 1:
+                    raise RuntimeError("Requested format is not available")
+                return {"id": "test_fallback_id", "ext": "mp4"}
+            def prepare_filename(self, info):
+                return self.opts["outtmpl"] % info
+
+        target_dir = tempfile.mkdtemp()
+        dummy_file = os.path.join(target_dir, "source_test_fallback_id.mp4")
+        with open(dummy_file, "w") as f:
+            f.write("dummy")
+
+        with patch("yt_dlp.YoutubeDL", FakeYDL):
+            cand, vid = download.download("https://www.youtube.com/watch?v=dQw4w9WgXcQ", dest_dir=target_dir)
+            self.assertEqual(vid, "test_fallback_id")
+            self.assertEqual(len(attempt_formats), 2)
+
+        shutil.rmtree(target_dir, ignore_errors=True)
 if __name__ == "__main__":
     unittest.main()
