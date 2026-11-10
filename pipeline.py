@@ -1,11 +1,48 @@
 import os
 import json
+import concurrent.futures
 from download import download
 from transcribe import transcribe
 from pick import pick
 from cut import cut
 from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage
 from jobs_db import update_job, save_clip_record
+from config import MAX_CLIP_WORKERS
+
+def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id):
+    """Renders an individual clip cleanly; returns (index, item_dict, error)."""
+    try:
+        f = cut(
+            video, segs, c, i, vid,
+            aspect_ratio=aspect_ratio,
+            caption_style=caption_style,
+            framing=framing,
+            out_dir=out_dir,
+            jid=jid
+        )
+        item = {
+            **c,
+            "file": os.path.basename(f),
+            "vid": str(job_id),
+            "index": i,
+            "ok": True,
+            "download_url": f"/clips/{job_id}/{os.path.basename(f)}?dl=1",
+            "stream_url": f"/clips/{job_id}/{os.path.basename(f)}"
+        }
+        return i, item, None
+    except Exception as e:
+        print(f"[PIPELINE] Error cutting clip {i}: {e}")
+        err_item = {
+            **c,
+            "file": "",
+            "vid": str(job_id),
+            "index": i,
+            "ok": False,
+            "error": str(e),
+            "download_url": "",
+            "stream_url": ""
+        }
+        return i, err_item, e
 
 def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=None):
     opts = options or {}
@@ -52,58 +89,96 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
         with open(os.path.join(out_dir, "discovered_clips.json"), "w", encoding="utf-8") as f:
             json.dump(clips, f, indent=2)
 
-        out = []
         total = len(clips)
+        out_map = {}
+        completed_count = 0
+
+        # Concurrency control with safe container limits (default 2 workers, bounded [1, 4])
+        raw_workers = opts.get("max_workers", MAX_CLIP_WORKERS)
+        max_workers = max(1, min(4, int(raw_workers)))
+
+        # Attempt concurrent rendering when multiple clips are requested
+        if max_workers > 1 and total > 1:
+            try:
+                print(f"[PIPELINE] Concurrent rendering enabled: processing {total} clips using {max_workers} worker threads.")
+                with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="clip-render") as executor:
+                    future_to_i = {}
+                    for i, c in enumerate(clips, 1):
+                        if check_cancelled and check_cancelled():
+                            break
+                        fut = executor.submit(
+                            _render_clip_worker,
+                            video, segs, c, i, vid,
+                            aspect_ratio, caption_style, framing,
+                            out_dir, jid, job_id
+                        )
+                        future_to_i[fut] = i
+
+                    for fut in concurrent.futures.as_completed(future_to_i):
+                        i = future_to_i[fut]
+                        if check_cancelled and check_cancelled():
+                            continue
+                        try:
+                            clip_idx, item, err = fut.result()
+                        except Exception as exc:
+                            print(f"[PIPELINE] Worker thread raised for clip {i}: {exc}")
+                            c = clips[i - 1]
+                            item = {
+                                **c,
+                                "file": "",
+                                "vid": str(job_id),
+                                "index": i,
+                                "ok": False,
+                                "error": str(exc),
+                                "download_url": "",
+                                "stream_url": ""
+                            }
+
+                        out_map[item["index"]] = item
+                        completed_count += 1
+                        progress_val = int(60 + (completed_count / max(total, 1)) * 35)
+                        update_stage(f"Rendered clip {completed_count} of {total} ({aspect_ratio} • {framing})...", progress_val)
+
+                        if jid:
+                            save_clip_record(jid, item["index"], item)
+
+                        if on_clip:
+                            try:
+                                on_clip(item, completed_count, total)
+                            except Exception:
+                                pass
+            except Exception as e:
+                print(f"[PIPELINE] Concurrent render pool notice ({e}); safely falling back to serial pipeline.")
+
+        # Safe fallback: serially render any clip not already rendered
         for i, c in enumerate(clips, 1):
+            if i in out_map:
+                continue
             if check_cancelled and check_cancelled():
                 update_stage("Cancelled by user", 0)
                 break
 
-            progress_val = int(60 + (i / max(total, 1)) * 35)
+            completed_count += 1
+            progress_val = int(60 + (completed_count / max(total, 1)) * 35)
             update_stage(f"Rendering clip {i} of {total} ({aspect_ratio} • {framing})...", progress_val)
 
-            try:
-                f = cut(
-                    video, segs, c, i, vid,
-                    aspect_ratio=aspect_ratio,
-                    caption_style=caption_style,
-                    framing=framing,
-                    out_dir=out_dir,
-                    jid=jid
-                )
-                item = {
-                    **c,
-                    "file": os.path.basename(f),
-                    "vid": str(job_id),
-                    "index": i,
-                    "ok": True,
-                    "download_url": f"/clips/{job_id}/{os.path.basename(f)}?dl=1",
-                    "stream_url": f"/clips/{job_id}/{os.path.basename(f)}"
-                }
-                out.append(item)
-                if jid:
-                    save_clip_record(jid, i, item)
+            _, item, _ = _render_clip_worker(
+                video, segs, c, i, vid,
+                aspect_ratio, caption_style, framing,
+                out_dir, jid, job_id
+            )
+            out_map[i] = item
 
-                if on_clip:
-                    try:
-                        on_clip(item, i, total)
-                    except Exception:
-                        pass
-            except Exception as e:
-                print(f"[PIPELINE] Error cutting clip {i}: {e}")
-                err_item = {
-                    **c,
-                    "file": "",
-                    "vid": str(job_id),
-                    "index": i,
-                    "ok": False,
-                    "error": str(e),
-                    "download_url": "",
-                    "stream_url": ""
-                }
-                out.append(err_item)
-                if jid:
-                    save_clip_record(jid, i, err_item)
+            if jid:
+                save_clip_record(jid, i, item)
+
+            if on_clip:
+                try:
+                    on_clip(item, completed_count, total)
+                except Exception:
+                    pass
+
+        out = [out_map[i] for i in range(1, total + 1) if i in out_map]
 
         if check_cancelled and check_cancelled():
             update_stage("Cancelled by user", 0)

@@ -4,6 +4,7 @@ import re
 import subprocess
 import glob
 import requests
+import numpy as np
 from config import WORK_DIR, WHISPER_MODEL, GROQ_KEY
 
 _local_whisper_model = None
@@ -15,6 +16,22 @@ def _get_local_whisper():
         print(f"[TRANSCRIBE] Initializing local faster-whisper model ({WHISPER_MODEL})...")
         _local_whisper_model = WhisperModel(WHISPER_MODEL, compute_type="int8")
     return _local_whisper_model
+
+def _load_audio_buffer(audio_path):
+    """
+    Decodes audio to 16kHz mono float32 numpy array via ffmpeg.
+    Bypasses PyAV container errors and enables high-throughput memory buffers.
+    """
+    try:
+        cmd = [
+            "ffmpeg", "-nostdin", "-threads", "0", "-i", os.path.abspath(audio_path),
+            "-f", "s16le", "-ac", "1", "-acodec", "pcm_s16le", "-ar", "16000", "-"
+        ]
+        out_bytes = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
+        return np.frombuffer(out_bytes, np.int16).flatten().astype(np.float32) / 32768.0
+    except Exception as e:
+        print(f"[TRANSCRIBE] Notice loading audio memory buffer: {e}; using file path.")
+        return audio_path
 
 def _parse_vtt(vtt_path):
     time_re = re.compile(r"(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})\s*-->\s*(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})")
@@ -60,7 +77,6 @@ def _parse_json3(json3_path):
             end = start + dur
             text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
             words = []
-            cur_w_start = start
             for seg in ev["segs"]:
                 w_txt = seg.get("utf8", "").strip()
                 t_offset = float(seg.get("tOffsetMs", 0)) / 1000.0
@@ -156,7 +172,30 @@ def _transcribe_groq(audio_path):
 
 def _transcribe_local(audio_path):
     m = _get_local_whisper()
-    segs, _ = m.transcribe(audio_path, vad_filter=True, word_timestamps=True)
+    audio_data = _load_audio_buffer(audio_path)
+    segs = None
+
+    # 1. High-speed Batched Transcription (BatchedInferencePipeline)
+    try:
+        from faster_whisper import BatchedInferencePipeline
+        print("[TRANSCRIBE] Running batched faster-whisper inference (batch_size=8)...")
+        batched_pipeline = BatchedInferencePipeline(model=m)
+        batched_segs, _ = batched_pipeline.transcribe(audio_data, batch_size=8, word_timestamps=True)
+        segs = list(batched_segs)
+    except Exception as e:
+        print(f"[TRANSCRIBE] Batched inference notice ({e}); safely falling back to standard pipeline.")
+        segs = None
+
+    # 2. Safe Fallback to standard sequential model.transcribe
+    if segs is None:
+        try:
+            standard_segs, _ = m.transcribe(audio_data, vad_filter=True, word_timestamps=True)
+            segs = list(standard_segs)
+        except Exception as e:
+            print(f"[TRANSCRIBE] Memory buffer inference notice ({e}); falling back to file path.")
+            standard_segs, _ = m.transcribe(audio_path, vad_filter=True, word_timestamps=True)
+            segs = list(standard_segs)
+
     out = []
     for s in segs:
         words = []

@@ -11,3 +11,6 @@ WORK_DIR = "work"
 OUT_DIR = "output"
 CLIP_COUNT = 5
 MIN_LEN, MAX_LEN = 20, 60  # seconds
+
+# Safe concurrency limit for rendering independent clips (bounded to protect container memory)
+MAX_CLIP_WORKERS = max(1, min(4, int(os.getenv("MAX_CLIP_WORKERS", "2"))))
