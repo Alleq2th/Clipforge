@@ -1,7 +1,21 @@
+# --- core
+flask>=3.0
+gunicorn>=21.2
+requests>=2.31
+
+# --- ingest
 yt-dlp
-yt-dlp-ejs
-faster-whisper
-requests
-flask
-edge-tts
-opencv-python-headless>=4.8.0,<4.11.0
+
+# --- speech recognition
+faster-whisper>=1.0
+
+# --- scene detection
+scenedetect>=0.6.4
+
+# --- vision / reframe
+opencv-python-headless>=4.8.0
+numpy>=1.24
+mediapipe>=0.10.9
+
+# --- tests
+pytest>=7.4
