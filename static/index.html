@@ -465,6 +465,47 @@
       display: inline-block;
     }
 
+    /* ===== Visual previews for every option ===== */
+    .sil{position:absolute;bottom:0;background:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'%3E%3Ccircle cx='20' cy='15' r='11' fill='%2364748b'/%3E%3Cpath d='M1 60Q2 31 20 29Q38 31 39 60Z' fill='%2364748b'/%3E%3C/svg%3E") center bottom/contain no-repeat;}
+    .sil.s1{left:12%;width:36%;height:74%}
+    .sil.s2{right:12%;width:36%;height:74%;opacity:.8}
+    .sil.m{left:10%;width:80%;height:88%}
+    .vp{position:relative;width:100%;height:66px;border-radius:7px;overflow:hidden;background:linear-gradient(180deg,#1e293b 0%,#0b1120 100%);border:1px solid rgba(255,255,255,.06);box-sizing:border-box;}
+    .vp.vp-c{display:flex;align-items:center;justify-content:center;}
+    .vp.vp-frame{display:flex;align-items:center;justify-content:center;}
+    .chip.vis{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:7px;flex:1 1 128px;max-width:100%;box-sizing:border-box;text-align:center;}
+    .chip.vis .vl{font-size:11.5px;line-height:1.25;text-align:center;}
+    .vp-sub{position:absolute;left:6px;right:6px;bottom:6px;text-align:center;font-size:11px;line-height:1.15;z-index:1;}
+    .vp-none{position:absolute;top:10px;left:0;right:0;text-align:center;font-size:10px;font-weight:800;color:#f87171;letter-spacing:.5px;}
+    .vp-col{font-size:17px;font-weight:900;letter-spacing:1px;}
+    .mf{position:relative;width:36px;height:58px;border:1px solid rgba(255,255,255,.35);border-radius:4px;overflow:hidden;background:#000;}
+    .mf-src{position:absolute;inset:0;background:#1e293b;}
+    .mf-band{position:absolute;left:0;right:0;top:26%;height:48%;background:#1e293b;overflow:hidden;}
+    .mf-band .sil{left:4%;width:92%;height:96%;}
+    .mf-bg{position:absolute;inset:0;background:#334155;overflow:hidden;}
+    .mf-bg .sil{left:0;width:100%;height:100%;opacity:.45;filter:blur(2px);}
+    .track{position:absolute;left:26%;top:10%;width:48%;height:30%;border:1px dashed #10b981;border-radius:3px;box-shadow:0 0 6px rgba(16,185,129,.5);}
+    .ratio-card.vis .ratio-icon{display:none;}
+    .ratio-shape{height:58px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:6px;}
+    .ratio-shape i{position:relative;display:block;background:#0b1120;border:1.5px solid var(--mute);border-radius:4px;overflow:hidden;}
+    .ratio-shape i.s916{width:30px;height:52px;}
+    .ratio-shape i.s11{width:44px;height:44px;}
+    .ratio-shape i.s169{width:64px;height:36px;}
+    .ratio-card.active .ratio-shape i{border-color:var(--acc);}
+    .vq{display:flex;align-items:center;gap:8px;width:100%;height:100%;padding:0 10px;box-sizing:border-box;}
+    .vq-img{position:relative;flex:0 0 36px;height:50px;background:#1e293b;border-radius:4px;overflow:hidden;}
+    .vq-txt{flex:1;min-width:0;text-align:left;}
+    .vq-bar{height:7px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;}
+    .vq-bar i{display:block;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;}
+    .vq-txt small{display:block;font-size:9.5px;color:var(--mute);margin-top:6px;line-height:1.2;}
+    .vd{width:100%;padding:0 12px;box-sizing:border-box;text-align:center;}
+    .vd-track{position:relative;height:10px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:8px;}
+    .vd-track i{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#10b981,#34d399);border-radius:5px;}
+    .vd small{font-size:9.5px;color:var(--mute);}
+    .vdots{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;align-items:center;max-width:100%;padding:0 6px;box-sizing:border-box;}
+    .vdots i{width:8px;height:12px;border-radius:2px;background:#10b981;opacity:.9;}
+    .vbub{position:absolute;top:8px;left:8%;right:8%;background:#fff;color:#0b1120;font-size:10.5px;font-weight:700;line-height:1.2;padding:5px 7px;border-radius:9px;text-align:center;z-index:1;}
+
     /* Footer Buttons */
     .wizard-footer {
       border-top: 1px solid var(--line);
@@ -1928,6 +1969,113 @@
       if (currentStep < 3) goToStep(currentStep + 1);
       else startProcessing();
     };
+
+    // ===== Visual previews for every option (illustrative, approximate) =====
+    (function addVisualPreviews() {
+      const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const sil = cls => `<span class="sil ${cls || ''}"></span>`;
+      const hostGuest = () => sil('s1') + sil('s2');
+      const C = id => document.querySelectorAll(`#${id} .chip`);
+
+      function vis(chip, inner, cls) {
+        const label = chip.textContent.replace(/\s+/g, ' ').trim();
+        chip.classList.add('vis');
+        chip.innerHTML = `<div class="vp ${cls || ''}">${inner}</div><div class="vl">${esc(label)}</div>`;
+      }
+
+      // Caption styles: sample line "This is wild" in each style, over a podcast-style frame
+      const CAPS = {
+        beasty:        {c:'#ffffff', h:'#FACC15', w:900, up:1, fx:'stroke'},
+        karaoke:       {c:'#ffffff', h:'#22C55E', w:900, up:1, fx:'stroke'},
+        bold_creator:  {c:'#ffffff', h:'#FACC15', w:900, up:1, fx:'stroke'},
+        social_bold:   {c:'#ffffff', h:'#F59E0B', w:800, up:1, fx:'shadow'},
+        clean_minimal: {c:'#ffffff', h:'#38BDF8', w:600, up:0, fx:'shadow'},
+        podcast:       {c:'#FDE68A', h:'#FBBF24', w:700, up:0, fx:'box'},
+        cinematic:     {c:'#CBD5E1', h:'#FBBF24', w:600, up:0, fx:'glow'},
+        classic:       {c:'#ffffff', h:'#ffffff', w:700, up:0, fx:'shadow'},
+        cyber:         {c:'#ffffff', h:'#EC4899', w:800, up:1, fx:'glow'},
+        pop_outline:   {c:'#FDE047', h:'#FDE047', w:900, up:1, fx:'stroke'},
+        minimal_white: {c:'#E2E8F0', h:'#FFFFFF', w:500, up:0, fx:'plain'},
+        bold_cyan:     {c:'#ffffff', h:'#22D3EE', w:900, up:1, fx:'stroke'},
+        orange_glow:   {c:'#ffffff', h:'#FF8C00', w:800, up:0, fx:'glow'},
+        pink_pop:      {c:'#ffffff', h:'#FF4FD8', w:900, up:1, fx:'stroke'}
+      };
+      const capPreview = key => {
+        if (key === 'none') return hostGuest() + '<div class="vp-none">NO SUBTITLES</div>';
+        const s = CAPS[key] || CAPS.beasty;
+        const shadow = {
+          stroke: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px #000',
+          shadow: '0 1px 3px #000,0 0 6px rgba(0,0,0,.8)',
+          glow: `0 0 6px ${s.h},0 0 12px ${s.h}`,
+          box: 'none', plain: 'none'
+        }[s.fx];
+        const box = s.fx === 'box' ? 'background:rgba(0,0,0,.72);padding:1px 4px;border-radius:3px;' : '';
+        const style = `font-weight:${s.w};${s.up ? 'text-transform:uppercase;' : ''}text-shadow:${shadow};${box}`;
+        return hostGuest() + `<div class="vp-sub" style="${style}"><span style="color:${s.c}">This is </span><span style="color:${s.h}">wild</span></div>`;
+      };
+
+      // Framing: how a 16:9 source lands inside a 9:16 frame
+      const FRAME = {
+        crop:  `<div class="mf"><div class="mf-src">${sil('m')}</div></div>`,
+        smart: `<div class="mf"><div class="mf-src">${sil('m')}<span class="track"></span></div></div>`,
+        blur:  `<div class="mf"><div class="mf-bg">${sil('')}</div><div class="mf-band">${sil('m')}</div></div>`,
+        fit:   `<div class="mf"><div class="mf-band">${sil('m')}</div></div>`
+      };
+
+      // Quality: relative size and sharpness (illustrative)
+      const QUAL = {
+        '1080p': {b:0,   w:100, t:'Sharpest • slowest render'},
+        '720p':  {b:0.4, w:72,  t:'Balanced quality & speed'},
+        '480p':  {b:1,   w:46,  t:'Fast render'},
+        '360p':  {b:1.6, w:30,  t:'Fastest • smallest file'}
+      };
+      const qualityPreview = key => {
+        const q = QUAL[key] || QUAL['1080p'];
+        return `<div class="vq"><div class="vq-img" style="filter:blur(${q.b}px)">${sil('m')}</div><div class="vq-txt"><div class="vq-bar"><i style="width:${q.w}%"></i></div><small>${q.t}</small></div></div>`;
+      };
+
+      // Clip length: where the clip sits on a 3-minute video
+      const DUR = {
+        under30: [0, 16.7, 'Clips up to 30 s'],
+        '30to60': [16.7, 16.7, 'Clips 30–60 s'],
+        '1to3m': [33.3, 66.7, 'Clips 1–3 min'],
+        auto: [0, 100, 'AI picks the length']
+      };
+      const durPreview = key => {
+        const [l, w, t] = DUR[key] || DUR.auto;
+        return `<div class="vd"><div class="vd-track"><i style="left:${l}%;width:${w}%"></i></div><small>${t}</small></div>`;
+      };
+
+      // Focus: example hook line for each discovery focus
+      const FOCUS = {
+        viral: '“Wait until you hear this…”',
+        action: '“Did that just happen?!”',
+        funny: '“He really said that 😂”',
+        insight: '“The habit that changes everything”',
+        controversial: '“Here’s why you’re wrong”'
+      };
+
+      // Aspect ratio shapes
+      document.querySelectorAll('#aspect-cards .ratio-card').forEach(card => {
+        const cls = {'9:16': 's916', '1:1': 's11', '16:9': 's169'}[card.dataset.val] || 's916';
+        card.classList.add('vis');
+        card.querySelector('.ratio-title').insertAdjacentHTML('beforebegin', `<div class="ratio-shape"><i class="${cls}">${sil('m')}</i></div>`);
+      });
+
+      ['framing-chips', 'gta-framing-chips'].forEach(id => C(id).forEach(ch => vis(ch, FRAME[ch.dataset.val] || FRAME.crop, 'vp-frame')));
+      ['style-chips', 'gta-style-chips'].forEach(id => C(id).forEach(ch => vis(ch, capPreview(ch.dataset.val))));
+      C('color-chips').forEach(ch => {
+        const col = ch.querySelector('.color-dot')?.style.backgroundColor || '#cbd5e1';
+        vis(ch, `<span class="vp-col" style="color:${col};text-shadow:0 0 8px ${col};">WORD</span>`, 'vp-c');
+      });
+      ['quality-chips', 'review-quality-chips'].forEach(id => C(id).forEach(ch => vis(ch, qualityPreview(ch.dataset.val), 'vp-c')));
+      C('duration-chips').forEach(ch => vis(ch, durPreview(ch.dataset.val), 'vp-c'));
+      C('count-chips').forEach(ch => {
+        const n = Math.min(parseInt(ch.dataset.val, 10) || 0, 20);
+        vis(ch, `<div class="vdots">${'<i></i>'.repeat(n)}</div>`, 'vp-c');
+      });
+      C('focus-chips').forEach(ch => vis(ch, sil('m') + `<div class="vbub">${esc(FOCUS[ch.dataset.val] || '')}</div>`));
+    })();
 
     function bindChips(containerId, callback) {
       const container = $(containerId);
