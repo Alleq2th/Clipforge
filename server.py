@@ -16,7 +16,8 @@ from notifications import send_completion_email, build_clipper_email, build_face
 from voice_profiles import list_voice_profiles, create_voice_profile, delete_voice_profile, rename_voice_profile, get_voice_preview_file
 from security import validate_video_url, safe_join_path
 from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs
-from process_manager import submit_job, terminate_job_processes
+from process_manager import submit_job, terminate_job_processes, MAX_CONCURRENT_JOBS
+from memory_guard import get_memory_status
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -256,11 +257,13 @@ def health_check():
             "total_mb": round(out_mb + work_mb, 1),
             "budget_mb": 400.0
         },
+        "memory": get_memory_status(),
         "version": "2.0.0-phase1",
         "capabilities": {
             "database": "sqlite3-wal",
             "ssrf_protection": True,
             "bounded_queue": True,
+            "adaptive_memory_guard": True,
             "independent_retry": True
         }
     })
@@ -288,6 +291,8 @@ def storage_info():
         "total_mb": round(out_mb + work_mb, 1),
         "limit_mb": 400.0,
         "cleanup_count": 6,
+        "memory": get_memory_status(),
+        "max_concurrent_jobs": MAX_CONCURRENT_JOBS,
         "cloud_storage": {
             "provider": provider.name,
             "configured": provider.is_configured(),

@@ -1,4 +1,6 @@
 import os
+from memory_guard import get_adaptive_clip_workers
+
 # Keys: set any of these. Tried in order; if one fails (quota/limit), the next is used.
 GEMINI_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 GROQ_KEY = os.getenv("GROQ_API_KEY", "").strip()   # groq.com (free tier)
@@ -12,8 +14,13 @@ OUT_DIR = "output"
 CLIP_COUNT = 5
 MIN_LEN, MAX_LEN = 20, 60  # seconds
 
-# Safe concurrency limit for rendering independent clips (bounded to protect container memory)
-MAX_CLIP_WORKERS = max(1, min(4, int(os.getenv("MAX_CLIP_WORKERS", "2"))))
+# Safe concurrency limit for rendering independent clips (adaptively bounded to protect container memory)
+try:
+    _requested_clip_workers = int(os.getenv("MAX_CLIP_WORKERS", "2"))
+except ValueError:
+    _requested_clip_workers = 2
+MAX_CLIP_WORKERS = get_adaptive_clip_workers(_requested_clip_workers)
+
 # Video Export Profiles (resolution, tuned CRF, and loudness normalization)
 EXPORT_PROFILES = {
     "540p": {

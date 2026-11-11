@@ -3,9 +3,21 @@ import signal
 import threading
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from memory_guard import get_memory_tier, acquire_render_slot
+
+def _get_default_max_jobs():
+    raw = os.getenv("MAX_CONCURRENT_JOBS", "").strip()
+    try:
+        requested = max(1, int(raw)) if raw else 2
+    except ValueError:
+        requested = 2
+    # Hard cap concurrent whole jobs by detected RAM tier, even when env asks for more.
+    tier = get_memory_tier()
+    safe_cap = 1 if tier in ("TINY", "LOW") else (2 if tier == "MEDIUM" else 4)
+    return min(requested, safe_cap)
 
 # Maximum concurrent video processing pipelines on Render container
-MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "2"))
+MAX_CONCURRENT_JOBS = _get_default_max_jobs()
 
 _active_processes_lock = threading.Lock()
 # Mapping of jid -> set of active subprocess.Popen instances
@@ -58,22 +70,31 @@ def terminate_job_processes(jid):
         _active_processes.pop(jid, None)
 
 def run_tracked_subprocess(cmd, jid=None, cwd=None, check=True, capture_output=True, timeout=None):
-    """Runs a subprocess while registering it with process_manager for instant cancellation."""
-    proc = subprocess.Popen(
-        cmd,
-        cwd=cwd,
-        stdout=subprocess.PIPE if capture_output else None,
-        stderr=subprocess.PIPE if capture_output else None
-    )
-    if jid:
-        register_process(jid, proc)
+    """Runs a tracked subprocess. FFmpeg calls share a global memory-bounded render slot."""
+    executable = os.path.basename(str(cmd[0])).lower() if cmd else ""
+    is_ffmpeg = executable in ("ffmpeg", "ffmpeg.exe")
 
-    try:
-        stdout, stderr = proc.communicate(timeout=timeout)
-        retcode = proc.poll()
-        if check and retcode != 0:
-            raise subprocess.CalledProcessError(retcode, cmd, output=stdout, stderr=stderr)
-        return subprocess.CompletedProcess(cmd, retcode, stdout, stderr)
-    finally:
+    def _run():
+        proc = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            stdout=subprocess.PIPE if capture_output else None,
+            stderr=subprocess.PIPE if capture_output else None
+        )
         if jid:
-            unregister_process(jid, proc)
+            register_process(jid, proc)
+
+        try:
+            stdout, stderr = proc.communicate(timeout=timeout)
+            retcode = proc.poll()
+            if check and retcode != 0:
+                raise subprocess.CalledProcessError(retcode, cmd, output=stdout, stderr=stderr)
+            return subprocess.CompletedProcess(cmd, retcode, stdout, stderr)
+        finally:
+            if jid:
+                unregister_process(jid, proc)
+
+    if is_ffmpeg:
+        with acquire_render_slot():
+            return _run()
+    return _run()

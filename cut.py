@@ -4,6 +4,7 @@ import subprocess
 from config import OUT_DIR, EXPORT_PROFILES, DEFAULT_EXPORT_PROFILE
 from captions import make_srt, make_ass, ASS_PRESETS
 from process_manager import run_tracked_subprocess
+from memory_guard import get_adaptive_ffmpeg_params, check_memory_pressure, enforce_gc
 
 STYLES = {
     # Original presets
@@ -136,6 +137,8 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
     profile = resolve_export_profile(export_profile)
     active_crf = str(crf if crf is not None else profile["crf"])
     active_preset = preset or profile.get("preset", "ultrafast")
+    adaptive_ffmpeg = get_adaptive_ffmpeg_params(profile["name"])
+    active_preset = adaptive_ffmpeg["preset"] if not preset else active_preset
     audio_bitrate = profile.get("audio_bitrate", "96k")
     should_normalize = normalize_audio if normalize_audio is not None else profile.get("normalize_audio", False)
 
@@ -181,15 +184,16 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
 
     cmd = [
         "ffmpeg", "-y",
-        "-threads", "2",
         "-ss", str(c["start"]),
         "-i", os.path.abspath(video),
         "-t", str(c["end"] - c["start"]),
         "-filter_complex", vf,
         "-c:v", "libx264",
+        "-threads:v", adaptive_ffmpeg["threads"],
         "-preset", active_preset,
         "-tune", "fastdecode",
         "-crf", active_crf,
+        "-max_muxing_queue_size", adaptive_ffmpeg["max_muxing_queue_size"],
     ]
 
     audio_filters = []
@@ -209,6 +213,12 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
     ])
 
     try:
+        # FFmpeg calls share a global memory-bounded render slot across all jobs.
+        if check_memory_pressure():
+            active_preset = "ultrafast"
+            if "-preset" in cmd:
+                cmd[cmd.index("-preset") + 1] = active_preset
+            print("[MEMORY] Low available memory detected; using ultrafast FFmpeg preset.")
         run_tracked_subprocess(cmd, jid=jid, cwd=d, check=True, capture_output=True)
     except subprocess.CalledProcessError as e:
         err_msg = e.stderr.decode("utf-8", errors="replace")[-300:] if e.stderr else str(e)
@@ -243,4 +253,5 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
         hook_line = f"Hook Intelligence: {c.get('hook_reason', 'Strong opening moment')}\n\n"
         f.write(f"{c['title']}\n\n{score_line}{hook_line}{c.get('caption', '')}\n\n{' '.join(c.get('hashtags', []))}\n")
 
+    enforce_gc("clip render complete")
     return os.path.join(d, out)

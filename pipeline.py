@@ -8,6 +8,7 @@ from cut import cut
 from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage, get_storage_provider
 from jobs_db import update_job, save_clip_record
 from config import MAX_CLIP_WORKERS, DEFAULT_EXPORT_PROFILE
+from memory_guard import get_adaptive_clip_workers
 
 def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None):
     """Renders an individual clip cleanly; returns (index, item_dict, error)."""
@@ -105,7 +106,12 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
 
         # Concurrency control with safe container limits (default 2 workers, bounded [1, 4])
         raw_workers = opts.get("max_workers", MAX_CLIP_WORKERS)
-        max_workers = max(1, min(4, int(raw_workers)))
+        max_workers = get_adaptive_clip_workers(
+            requested_workers=raw_workers,
+            export_profile=export_profile,
+            options=opts
+        )
+        print(f"[MEMORY] Adaptive render concurrency: {max_workers} clip worker(s) for {export_profile} profile.")
 
         # Attempt concurrent rendering when multiple clips are requested
         if max_workers > 1 and total > 1:

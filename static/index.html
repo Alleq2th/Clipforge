@@ -1398,6 +1398,7 @@
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <h3 style="font-size:17px;font-weight:800;margin:0;">Saved Videos & Clips Library</h3>
             <span id="storage-status-badge" style="font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(234,179,8,0.15);color:#eab308;font-weight:700;cursor:help;" title="Storage Status">💾 Local Storage</span>
+            <span id="memory-status-badge" style="font-size:10px;padding:2px 8px;border-radius:6px;background:rgba(59,130,246,0.15);color:#60a5fa;font-weight:700;cursor:help;" title="Adaptive memory protection">🧠 Checking memory…</span>
           </div>
           <div style="font-size:11px;color:var(--mute);" id="storage-status-sub">Persisted directly on server • Connect Supabase for permanent cloud backup</div>
         </div>
@@ -1714,6 +1715,16 @@
         const badge = $('storage-status-badge');
         const sub = $('storage-status-sub');
         if (!badge) return;
+        const memoryBadge = $('memory-status-badge');
+        if (memoryBadge && data.memory) {
+          const mem = data.memory;
+          const riskColor = mem.oom_risk === 'critical' ? '#ef4444' : (mem.oom_risk === 'medium' ? '#eab308' : '#10b981');
+          memoryBadge.style.color = riskColor;
+          memoryBadge.style.border = `1px solid ${riskColor}`;
+          memoryBadge.style.background = mem.low_memory_mode ? 'rgba(234,179,8,0.12)' : 'rgba(16,185,129,0.12)';
+          memoryBadge.textContent = `🧠 ${mem.tier} • ${mem.adaptive_workers} render worker${mem.adaptive_workers === 1 ? '' : 's'}`;
+          memoryBadge.title = `${mem.tier_description}; ${Math.round(mem.available_mb)}MB available of ${Math.round(mem.limit_mb)}MB; ${mem.active_render_slots}/${mem.max_render_slots} render slots active; OOM risk: ${mem.oom_risk}`;
+        }
         if (data.cloud_storage && data.cloud_storage.configured) {
           badge.style.background = 'rgba(16,185,129,0.15)';
           badge.style.color = '#10b981';
