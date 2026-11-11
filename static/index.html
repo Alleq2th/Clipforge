@@ -2149,7 +2149,7 @@
       updateLibBadge();
     }
 
-    function updateStepIndicator(status, currentCount, totalCount) {
+    function updateStepIndicator(status, currentCount, totalCount, reportedProgress) {
       const s = status.toLowerCase();
       ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step');
 
@@ -2190,8 +2190,11 @@
         pct = 100;
         eta = 'Complete!';
       }
-      bar.style.width = `${Math.min(100, pct)}%`;
-      if ($('run-pct-label')) $('run-pct-label').textContent = `${Math.min(100, pct)}%`;
+      const progress = Number.isFinite(Number(reportedProgress)) && Number(reportedProgress) > 0
+        ? Math.min(100, Number(reportedProgress))
+        : Math.min(100, pct);
+      bar.style.width = `${progress}%`;
+      if ($('run-pct-label')) $('run-pct-label').textContent = `${progress}%`;
       if ($('run-eta')) $('run-eta').textContent = eta;
     }
 
@@ -2257,9 +2260,10 @@
               return;
             }
 
-            $('status-text').textContent = data.status || 'Processing...';
+            const stageLabel = data.stage || data.status || 'Processing...';
+            $('status-text').textContent = stageLabel;
             const totalOpt = parseInt(state.options.count, 10) || 5;
-            updateStepIndicator(data.status || '', data.clips ? data.clips.length : 0, totalOpt);
+            updateStepIndicator(stageLabel, data.clips ? data.clips.length : 0, totalOpt, data.progress);
 
             // In-Browser Clip Review & Trim Trigger
             if (data.status === 'awaiting_review' && data.candidates && data.candidates.length) {
