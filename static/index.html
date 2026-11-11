@@ -465,46 +465,77 @@
       display: inline-block;
     }
 
-    /* ===== Visual previews for every option ===== */
-    .sil{position:absolute;bottom:0;background:url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 60'%3E%3Ccircle cx='20' cy='15' r='11' fill='%2364748b'/%3E%3Cpath d='M1 60Q2 31 20 29Q38 31 39 60Z' fill='%2364748b'/%3E%3C/svg%3E") center bottom/contain no-repeat;}
-    .sil.s1{left:12%;width:36%;height:74%}
-    .sil.s2{right:12%;width:36%;height:74%;opacity:.8}
-    .sil.m{left:10%;width:80%;height:88%}
-    .vp{position:relative;width:100%;height:66px;border-radius:7px;overflow:hidden;background:linear-gradient(180deg,#1e293b 0%,#0b1120 100%);border:1px solid rgba(255,255,255,.06);box-sizing:border-box;}
-    .vp.vp-c{display:flex;align-items:center;justify-content:center;}
-    .vp.vp-frame{display:flex;align-items:center;justify-content:center;}
-    .chip.vis{display:flex;flex-direction:column;align-items:stretch;gap:6px;padding:7px;flex:1 1 128px;max-width:100%;box-sizing:border-box;text-align:center;}
-    .chip.vis .vl{font-size:11.5px;line-height:1.25;text-align:center;}
-    .vp-sub{position:absolute;left:6px;right:6px;bottom:6px;text-align:center;font-size:11px;line-height:1.15;z-index:1;}
-    .vp-none{position:absolute;top:10px;left:0;right:0;text-align:center;font-size:10px;font-weight:800;color:#f87171;letter-spacing:.5px;}
-    .vp-col{font-size:17px;font-weight:900;letter-spacing:1px;}
-    .mf{position:relative;width:36px;height:58px;border:1px solid rgba(255,255,255,.35);border-radius:4px;overflow:hidden;background:#000;}
-    .mf-src{position:absolute;inset:0;background:#1e293b;}
-    .mf-band{position:absolute;left:0;right:0;top:26%;height:48%;background:#1e293b;overflow:hidden;}
-    .mf-band .sil{left:4%;width:92%;height:96%;}
-    .mf-bg{position:absolute;inset:0;background:#334155;overflow:hidden;}
-    .mf-bg .sil{left:0;width:100%;height:100%;opacity:.45;filter:blur(2px);}
-    .track{position:absolute;left:26%;top:10%;width:48%;height:30%;border:1px dashed #10b981;border-radius:3px;box-shadow:0 0 6px rgba(16,185,129,.5);}
-    .ratio-card.vis .ratio-icon{display:none;}
-    .ratio-shape{height:58px;display:flex;align-items:flex-end;justify-content:center;margin-bottom:6px;}
-    .ratio-shape i{position:relative;display:block;background:#0b1120;border:1.5px solid var(--mute);border-radius:4px;overflow:hidden;}
-    .ratio-shape i.s916{width:30px;height:52px;}
-    .ratio-shape i.s11{width:44px;height:44px;}
-    .ratio-shape i.s169{width:64px;height:36px;}
-    .ratio-card.active .ratio-shape i{border-color:var(--acc);}
-    .vq{display:flex;align-items:center;gap:8px;width:100%;height:100%;padding:0 10px;box-sizing:border-box;}
-    .vq-img{position:relative;flex:0 0 36px;height:50px;background:#1e293b;border-radius:4px;overflow:hidden;}
-    .vq-txt{flex:1;min-width:0;text-align:left;}
-    .vq-bar{height:7px;border-radius:4px;background:rgba(255,255,255,.08);overflow:hidden;}
-    .vq-bar i{display:block;height:100%;background:linear-gradient(90deg,#10b981,#34d399);border-radius:4px;}
-    .vq-txt small{display:block;font-size:9.5px;color:var(--mute);margin-top:6px;line-height:1.2;}
-    .vd{width:100%;padding:0 12px;box-sizing:border-box;text-align:center;}
-    .vd-track{position:relative;height:10px;border-radius:5px;background:rgba(255,255,255,.08);overflow:hidden;margin-bottom:8px;}
-    .vd-track i{position:absolute;top:0;bottom:0;background:linear-gradient(90deg,#10b981,#34d399);border-radius:5px;}
-    .vd small{font-size:9.5px;color:var(--mute);}
-    .vdots{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;align-items:center;max-width:100%;padding:0 6px;box-sizing:border-box;}
-    .vdots i{width:8px;height:12px;border-radius:2px;background:#10b981;opacity:.9;}
-    .vbub{position:absolute;top:8px;left:8%;right:8%;background:#fff;color:#0b1120;font-size:10.5px;font-weight:700;line-height:1.2;padding:5px 7px;border-radius:9px;text-align:center;z-index:1;}
+    /* ===== Visual previews for every option (vertical lists, real photos) ===== */
+    .pv-list.chips-grid,
+    .pv-list.ratio-grid {
+      display: flex;
+      flex-direction: column;
+      flex-wrap: nowrap;
+      gap: 10px;
+      max-height: 470px;
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: y proximity;
+      padding: 2px 6px 6px 2px;
+    }
+    .chip.pv-row,
+    .ratio-card.pv-row {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border-radius: 14px;
+      text-align: left;
+      font-size: 14px;
+      flex: 0 0 auto;
+      scroll-snap-align: start;
+    }
+    .pv-prev { flex: 0 0 112px; width: 112px; min-height: 112px; display: flex; align-items: center; justify-content: center; }
+    .pv-txt { flex: 1; min-width: 0; }
+    .pv-title { font-size: 15px; font-weight: 800; line-height: 1.25; color: var(--ink); }
+    .pv-row.active .pv-title { color: var(--acc-light); }
+    .pv-desc { font-size: 12px; line-height: 1.35; color: var(--mute); margin-top: 4px; font-weight: 500; }
+    .ratio-card.pv-row .ratio-badge { top: -7px; right: 8px; }
+
+    .pv-phone { position: relative; width: 112px; height: 199px; border-radius: 14px; overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,.16); box-sizing: border-box; flex: 0 0 auto; }
+    .pv-row.active .pv-phone { border-color: var(--acc); }
+    .pv-phone::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,.55) 100%); pointer-events: none; }
+    .pv-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 25%; }
+    .pv-fg { position: absolute; left: 0; top: 50%; width: 100%; height: auto; transform: translateY(-50%); }
+    .pv-sub { position: absolute; left: 5px; right: 5px; bottom: 16px; text-align: center; font-size: 13px; line-height: 1.12; z-index: 2; }
+    .pv-badge { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.72); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 10px; z-index: 2; white-space: nowrap; }
+    .pv-bub { position: absolute; top: 10px; left: 6px; right: 6px; background: #fff; color: #0b1120; font-size: 12px; font-weight: 800; line-height: 1.2; padding: 6px 7px; border-radius: 10px; text-align: center; z-index: 2; }
+    .pv-none { position: absolute; top: 8px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 900; color: #f87171; z-index: 2; }
+    .pv-track { position: absolute; left: 30%; top: 9%; width: 40%; height: 42%; border: 2px dashed #10b981; border-radius: 6px; box-shadow: 0 0 8px rgba(16,185,129,.6); z-index: 2; }
+
+    .pv-shape { position: relative; overflow: hidden; border: 2px solid var(--mute); border-radius: 8px; background: #000; }
+    .pv-shape img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .pv-shape.r916 { width: 63px; height: 112px; }
+    .pv-shape.r11 { width: 100px; height: 100px; }
+    .pv-shape.r169 { width: 112px; height: 63px; }
+    .pv-row.active .pv-shape { border-color: var(--acc); }
+
+    .pv-meters { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+    .pv-meters div { display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--mute); }
+    .pv-dots { display: inline-flex; gap: 3px; }
+    .pv-dots i { width: 10px; height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); }
+    .pv-dots i.on { background: #10b981; }
+
+    .pv-tlwrap { width: 112px; height: 199px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; font-size: 11px; color: var(--mute); padding: 4px 0; box-sizing: border-box; }
+    .pv-tlv { position: relative; width: 34px; flex: 1; margin: 6px 0; border-radius: 17px; background: rgba(255,255,255,.08); overflow: hidden; }
+    .pv-tlv i { position: absolute; left: 0; right: 0; border-radius: 17px; background: linear-gradient(180deg, #10b981, #34d399); }
+
+    .pv-cnt { width: 112px; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .pv-cnt b { font-size: 44px; font-weight: 900; color: #10b981; line-height: 1; }
+    .pv-cnt small { font-size: 11px; color: var(--mute); text-align: center; }
+    .pv-cthumbs { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; width: 100px; margin-top: 4px; }
+    .pv-mini { position: relative; width: 16px; height: 28px; border-radius: 3px; overflow: hidden; border: 1px solid rgba(255,255,255,.3); background: #000; }
+    .pv-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .pv-more { font-size: 11px; font-weight: 800; color: var(--acc-light); }
 
     /* Footer Buttons */
     .wizard-footer {
@@ -1970,20 +2001,50 @@
       else startProcessing();
     };
 
-    // ===== Visual previews for every option (illustrative, approximate) =====
+    // ===== Visual previews for every option (vertical lists, real photos) =====
     (function addVisualPreviews() {
+      const P = '/previews/podcast-portrait.jpg';
+      const L = '/previews/podcast-landscape.jpg';
+      const STROKE = '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px #000';
       const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      const sil = cls => `<span class="sil ${cls || ''}"></span>`;
-      const hostGuest = () => sil('s1') + sil('s2');
-      const C = id => document.querySelectorAll(`#${id} .chip`);
+      const img = (src, cls, style) => `<img class="${cls || ''}" src="${src}" alt="" style="${style || ''}">`;
+      const phone = inner => `<div class="pv-phone">${inner}</div>`;
+      const dots = n => `<span class="pv-dots">${[1,2,3,4,5].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}</span>`;
+      const chipsOf = id => document.querySelectorAll(`#${id} .chip`);
+      const makeList = id => { const el = document.getElementById(id); if (el) el.classList.add('pv-list'); };
 
-      function vis(chip, inner, cls) {
+      function row(chip, prevHtml, desc) {
         const label = chip.textContent.replace(/\s+/g, ' ').trim();
-        chip.classList.add('vis');
-        chip.innerHTML = `<div class="vp ${cls || ''}">${inner}</div><div class="vl">${esc(label)}</div>`;
+        chip.classList.add('pv-row');
+        chip.innerHTML = `<div class="pv-prev">${prevHtml}</div><div class="pv-txt"><div class="pv-title">${esc(label)}</div>${desc ? `<div class="pv-desc">${desc}</div>` : ''}</div>`;
       }
 
-      // Caption styles: sample line "This is wild" in each style, over a podcast-style frame
+      // Aspect ratio: real photo inside the true shape
+      document.querySelectorAll('#aspect-cards .ratio-card').forEach(card => {
+        const v = card.dataset.val;
+        const title = card.querySelector('.ratio-title')?.textContent.trim() || '';
+        const desc = card.querySelector('.ratio-desc')?.textContent.trim() || '';
+        const badge = card.querySelector('.ratio-badge')?.outerHTML || '';
+        const shape = {
+          '9:16': `<div class="pv-shape r916">${img(P, '')}</div>`,
+          '1:1': `<div class="pv-shape r11">${img(L, '', 'object-position:50% 25%')}</div>`,
+          '16:9': `<div class="pv-shape r169">${img(L, '', 'object-position:50% 25%')}</div>`
+        }[v] || '';
+        card.classList.add('pv-row');
+        card.innerHTML = `${badge}<div class="pv-prev">${shape}</div><div class="pv-txt"><div class="pv-title">${esc(title)}</div><div class="pv-desc">${esc(desc)}</div></div>`;
+      });
+
+      // Framing: how a 16:9 source lands in a 9:16 phone
+      const FRAME = {
+        crop:  {p: phone(img(L, 'pv-bg', 'object-position:50% 25%')), d: 'Fills the whole screen. The sides of the video are cut off.'},
+        smart: {p: phone(img(L, 'pv-bg', 'object-position:50% 25%') + '<span class="pv-track"></span>'), d: 'Follows the speaker’s face so they stay in frame.'},
+        blur:  {p: phone(img(L, 'pv-bg', 'filter:blur(10px) brightness(.55);transform:scale(1.15)') + img(L, 'pv-fg')), d: 'Shows the full picture with a blurred background.'},
+        fit:   {p: phone(img(L, 'pv-fg')), d: 'Shows the full picture with black bars above and below.'}
+      };
+      chipsOf('framing-chips').forEach(ch => row(ch, (FRAME[ch.dataset.val] || FRAME.crop).p, (FRAME[ch.dataset.val] || FRAME.crop).d));
+      chipsOf('gta-framing-chips').forEach(ch => row(ch, (FRAME[ch.dataset.val] || FRAME.crop).p, (FRAME[ch.dataset.val] || FRAME.crop).d));
+
+      // Captions: sample line in each style over the podcast photo
       const CAPS = {
         beasty:        {c:'#ffffff', h:'#FACC15', w:900, up:1, fx:'stroke'},
         karaoke:       {c:'#ffffff', h:'#22C55E', w:900, up:1, fx:'stroke'},
@@ -2000,81 +2061,106 @@
         orange_glow:   {c:'#ffffff', h:'#FF8C00', w:800, up:0, fx:'glow'},
         pink_pop:      {c:'#ffffff', h:'#FF4FD8', w:900, up:1, fx:'stroke'}
       };
-      const capPreview = key => {
-        if (key === 'none') return hostGuest() + '<div class="vp-none">NO SUBTITLES</div>';
+      const CAP_DESC = {
+        beasty: 'Big yellow highlight. Loud and bold.',
+        karaoke: 'Green highlight, like karaoke lyrics.',
+        bold_creator: 'Heavy yellow text made for creators.',
+        social_bold: 'Amber highlight with a strong shadow.',
+        clean_minimal: 'Light and simple with a blue highlight.',
+        podcast: 'Text on a dark bar, like a podcast.',
+        cinematic: 'Soft gold glow, movie-style.',
+        classic: 'Plain white text that suits any video.',
+        cyber: 'Pink glow with a futuristic feel.',
+        pop_outline: 'Yellow words with a thick black outline.',
+        minimal_white: 'Thin white text. Very clean.',
+        bold_cyan: 'Cyan highlight with a thick outline.',
+        orange_glow: 'Orange glow on the spoken word.',
+        pink_pop: 'Pink highlight with a thick outline.',
+        none: 'No text on the video. Fastest render.'
+      };
+      chipsOf('style-chips').forEach(ch => capRow(ch));
+      chipsOf('gta-style-chips').forEach(ch => capRow(ch));
+      function capRow(ch) {
+        const key = ch.dataset.val;
+        if (key === 'none') return row(ch, phone(img(P, 'pv-bg') + '<div class="pv-none">NO SUBTITLES</div>'), CAP_DESC.none);
         const s = CAPS[key] || CAPS.beasty;
         const shadow = {
-          stroke: '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 3px #000',
+          stroke: STROKE,
           shadow: '0 1px 3px #000,0 0 6px rgba(0,0,0,.8)',
           glow: `0 0 6px ${s.h},0 0 12px ${s.h}`,
           box: 'none', plain: 'none'
         }[s.fx];
         const box = s.fx === 'box' ? 'background:rgba(0,0,0,.72);padding:1px 4px;border-radius:3px;' : '';
         const style = `font-weight:${s.w};${s.up ? 'text-transform:uppercase;' : ''}text-shadow:${shadow};${box}`;
-        return hostGuest() + `<div class="vp-sub" style="${style}"><span style="color:${s.c}">This is </span><span style="color:${s.h}">wild</span></div>`;
-      };
+        row(ch, phone(img(P, 'pv-bg') + `<div class="pv-sub" style="${style}"><span style="color:${s.c}">This is </span><span style="color:${s.h}">wild</span></div>`), CAP_DESC[key] || '');
+      }
 
-      // Framing: how a 16:9 source lands inside a 9:16 frame
-      const FRAME = {
-        crop:  `<div class="mf"><div class="mf-src">${sil('m')}</div></div>`,
-        smart: `<div class="mf"><div class="mf-src">${sil('m')}<span class="track"></span></div></div>`,
-        blur:  `<div class="mf"><div class="mf-bg">${sil('')}</div><div class="mf-band">${sil('m')}</div></div>`,
-        fit:   `<div class="mf"><div class="mf-band">${sil('m')}</div></div>`
+      // Caption color: same frame, highlight word in the chosen color
+      const COL_DESC = {
+        '': 'Uses the default color of the chosen style.',
+        '&H0000FFFF': 'Classic, easy to spot.',
+        '&H0000FF00': 'Fresh and energetic.',
+        '&H00D84FFF': 'Playful and bold.',
+        '&H00EED322': 'Cool and crisp.',
+        '&H00008CFF': 'Warm and attention-grabbing.',
+        '&H00FFFFFF': 'Neutral and easy to read.'
       };
+      chipsOf('color-chips').forEach(ch => {
+        const dot = ch.querySelector('.color-dot');
+        const key = ch.dataset.val;
+        const hl = key && dot ? dot.style.backgroundColor : '#e2e8f0';
+        row(ch, phone(img(P, 'pv-bg') + `<div class="pv-sub" style="font-weight:900;text-transform:uppercase;text-shadow:${STROKE}"><span style="color:#ffffff">This is </span><span style="color:${hl}">wild</span></div>`), COL_DESC[key] || '');
+      });
 
-      // Quality: relative size and sharpness (illustrative)
+      // Export quality: sharpness and speed on the same photo
       const QUAL = {
-        '1080p': {b:0,   w:100, t:'Sharpest • slowest render'},
-        '720p':  {b:0.4, w:72,  t:'Balanced quality & speed'},
-        '480p':  {b:1,   w:46,  t:'Fast render'},
-        '360p':  {b:1.6, w:30,  t:'Fastest • smallest file'}
+        '1080p': {b:0,   q:5, s:2, badge:'1080p', d:'Sharpest picture. Slowest to render.'},
+        '720p':  {b:0.6, q:4, s:3, badge:'720p',  d:'Good quality with a quicker render.'},
+        '480p':  {b:1.4, q:3, s:4, badge:'480p',  d:'Smaller files and fast renders.'},
+        '360p':  {b:2.4, q:2, s:5, badge:'360p',  d:'Smallest files and fastest renders. Lowest detail.'}
       };
-      const qualityPreview = key => {
-        const q = QUAL[key] || QUAL['1080p'];
-        return `<div class="vq"><div class="vq-img" style="filter:blur(${q.b}px)">${sil('m')}</div><div class="vq-txt"><div class="vq-bar"><i style="width:${q.w}%"></i></div><small>${q.t}</small></div></div>`;
-      };
+      ['quality-chips', 'review-quality-chips'].forEach(id => chipsOf(id).forEach(ch => {
+        const q = QUAL[ch.dataset.val] || QUAL['1080p'];
+        row(ch, phone(img(P, 'pv-bg', `filter:blur(${q.b}px);transform:scale(1.04)`) + `<div class="pv-badge">${q.badge}</div>`),
+          `${q.d}<div class="pv-meters"><div><span>Quality</span>${dots(q.q)}</div><div><span>Speed</span>${dots(q.s)}</div></div>`);
+      }));
 
       // Clip length: where the clip sits on a 3-minute video
       const DUR = {
-        under30: [0, 16.7, 'Clips up to 30 s'],
-        '30to60': [16.7, 16.7, 'Clips 30–60 s'],
-        '1to3m': [33.3, 66.7, 'Clips 1–3 min'],
-        auto: [0, 100, 'AI picks the length']
+        under30: {l: 0,    h: 16.7, d: 'Quick, punchy clips. Good for fast hooks.'},
+        '30to60': {l: 16.7, h: 16.7, d: 'Best for Shorts, Reels and TikTok.'},
+        '1to3m': {l: 33.3, h: 66.7, d: 'Longer stories and explanations.'},
+        auto: {l: 0,    h: 100,  d: 'AI picks the length for each clip.'}
       };
-      const durPreview = key => {
-        const [l, w, t] = DUR[key] || DUR.auto;
-        return `<div class="vd"><div class="vd-track"><i style="left:${l}%;width:${w}%"></i></div><small>${t}</small></div>`;
-      };
+      chipsOf('duration-chips').forEach(ch => {
+        const d = DUR[ch.dataset.val] || DUR.auto;
+        row(ch, `<div class="pv-tlwrap"><span>0:00</span><div class="pv-tlv"><i style="top:${d.l}%;height:${d.h}%"></i></div><span>3:00</span></div>`, d.d);
+      });
+
+      // Clip count: big number plus thumbnails of the clips
+      const COUNT_DESC = {3: 'A quick test run.', 5: 'A small batch to review.', 10: 'Good for a full video.', 15: 'More options to choose from.', 20: 'Maximum output. Takes the longest.'};
+      chipsOf('count-chips').forEach(ch => {
+        const n = parseInt(ch.dataset.val, 10) || 0;
+        const shown = Math.min(n, 6);
+        const thumbs = Array.from({length: shown}, () => `<div class="pv-mini">${img(P, '')}</div>`).join('') + (n > shown ? `<span class="pv-more">+${n - shown}</span>` : '');
+        row(ch, `<div class="pv-cnt"><b>${n}</b><small>clips from one video</small><div class="pv-cthumbs">${thumbs}</div></div>`, COUNT_DESC[n] || '');
+      });
 
       // Focus: example hook line for each discovery focus
       const FOCUS = {
-        viral: '“Wait until you hear this…”',
-        action: '“Did that just happen?!”',
-        funny: '“He really said that 😂”',
-        insight: '“The habit that changes everything”',
-        controversial: '“Here’s why you’re wrong”'
+        viral: {q: '“Wait until you hear this…”', d: 'Hooks that grab attention in the first seconds.'},
+        action: {q: '“Did that just happen?!”', d: 'Fast, high-energy moments.'},
+        funny: {q: '“He really said that 😂”', d: 'Laughs, fails and surprises.'},
+        insight: {q: '“The habit that changes everything”', d: 'Key lessons and useful ideas.'},
+        controversial: {q: '“Here’s why you’re wrong”', d: 'Debates and strong opinions.'}
       };
-
-      // Aspect ratio shapes
-      document.querySelectorAll('#aspect-cards .ratio-card').forEach(card => {
-        const cls = {'9:16': 's916', '1:1': 's11', '16:9': 's169'}[card.dataset.val] || 's916';
-        card.classList.add('vis');
-        card.querySelector('.ratio-title').insertAdjacentHTML('beforebegin', `<div class="ratio-shape"><i class="${cls}">${sil('m')}</i></div>`);
+      chipsOf('focus-chips').forEach(ch => {
+        const f = FOCUS[ch.dataset.val] || FOCUS.viral;
+        row(ch, phone(img(P, 'pv-bg') + `<div class="pv-bub">${esc(f.q)}</div>`), f.d);
       });
 
-      ['framing-chips', 'gta-framing-chips'].forEach(id => C(id).forEach(ch => vis(ch, FRAME[ch.dataset.val] || FRAME.crop, 'vp-frame')));
-      ['style-chips', 'gta-style-chips'].forEach(id => C(id).forEach(ch => vis(ch, capPreview(ch.dataset.val))));
-      C('color-chips').forEach(ch => {
-        const col = ch.querySelector('.color-dot')?.style.backgroundColor || '#cbd5e1';
-        vis(ch, `<span class="vp-col" style="color:${col};text-shadow:0 0 8px ${col};">WORD</span>`, 'vp-c');
-      });
-      ['quality-chips', 'review-quality-chips'].forEach(id => C(id).forEach(ch => vis(ch, qualityPreview(ch.dataset.val), 'vp-c')));
-      C('duration-chips').forEach(ch => vis(ch, durPreview(ch.dataset.val), 'vp-c'));
-      C('count-chips').forEach(ch => {
-        const n = Math.min(parseInt(ch.dataset.val, 10) || 0, 20);
-        vis(ch, `<div class="vdots">${'<i></i>'.repeat(n)}</div>`, 'vp-c');
-      });
-      C('focus-chips').forEach(ch => vis(ch, sil('m') + `<div class="vbub">${esc(FOCUS[ch.dataset.val] || '')}</div>`));
+      ['aspect-cards', 'framing-chips', 'gta-framing-chips', 'style-chips', 'gta-style-chips', 'color-chips',
+       'quality-chips', 'review-quality-chips', 'duration-chips', 'count-chips', 'focus-chips'].forEach(makeList);
     })();
 
     function bindChips(containerId, callback) {
