@@ -1605,6 +1605,17 @@
   <script>
     const $ = id => document.getElementById(id);
 
+    // Escape untrusted text before inserting it into review-card HTML.
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[char]);
+    }
+
     // Client Library LocalStorage Cache Helper
     function saveToClientLibrary(entry) {
       if (!entry || !entry.id) return;
