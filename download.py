@@ -83,6 +83,7 @@ def download(url, dest_dir=None, max_duration=None, check_cancelled=None):
             "remote_components": ["ejs:github"],
             "quiet": True,
             "no_warnings": True,
+            "ignoreerrors": True,  # Don't fail entire video download if YouTube returns 429 on subtitles
             "writesubtitles": True,
             "writeautomaticsub": True,
             "subtitleslangs": ["en", "en-US", "en-GB", "a.en", "en-orig"],
