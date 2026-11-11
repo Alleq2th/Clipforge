@@ -44,6 +44,16 @@ def validate_video_url(url):
         raise ValueError("URL must be a non-empty string.")
 
     url = url.strip()
+    if url.startswith("upload://"):
+        upload_id = url.replace("upload://", "").strip()
+        if not re.match(r"^[a-zA-Z0-9_\-]+$", upload_id):
+            raise ValueError("Invalid upload ID format.")
+        from config import WORK_DIR
+        upload_path = safe_join_path(WORK_DIR, "uploads", f"{upload_id}.mp4")
+        if not os.path.exists(upload_path):
+            raise ValueError(f"Uploaded video file not found: {upload_id}")
+        return url
+
     parsed = urllib.parse.urlparse(url)
 
     if parsed.scheme.lower() not in ("http", "https"):

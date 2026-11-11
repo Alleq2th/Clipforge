@@ -132,6 +132,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
         clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus)
 
         # Save discovered candidates for metadata and retry
+        os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "discovered_clips.json"), "w", encoding="utf-8") as f:
             json.dump(clips, f, indent=2)
 

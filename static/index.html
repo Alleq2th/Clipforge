@@ -1019,7 +1019,30 @@
               <button class="btn-add" id="btn-add">Add Video</button>
             </div>
 
-            <div class="queue-container" id="queue-list"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin:12px 0;">
+              <div style="flex:1;height:1px;background:var(--line);"></div>
+              <span style="font-size:10px;color:var(--mute);text-transform:uppercase;font-weight:800;letter-spacing:0.5px;">or upload video file</span>
+              <div style="flex:1;height:1px;background:var(--line);"></div>
+            </div>
+
+            <div class="dropzone" id="video-dropzone" style="border:2px dashed var(--line);border-radius:10px;padding:16px;text-align:center;cursor:pointer;background:rgba(255,255,255,0.02);transition:all 0.2s ease;">
+              <div style="font-size:22px;margin-bottom:4px;">📁</div>
+              <div style="font-size:13px;font-weight:700;color:var(--ink);">Choose MP4 / MOV video from device</div>
+              <div style="font-size:11px;color:var(--mute);margin-top:2px;">or drag & drop here (up to 1 GB)</div>
+            </div>
+            <input type="file" id="video-file-input" accept="video/mp4,video/quicktime,video/webm,video/x-matroska" style="display:none;">
+
+            <div id="upload-progress-wrap" style="display:none;margin-top:10px;background:var(--card-inner);border:1px solid var(--line);border-radius:8px;padding:10px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;font-weight:700;margin-bottom:6px;">
+                <span id="upload-status-text" style="color:var(--acc-light);">Uploading video...</span>
+                <span id="upload-pct-text" style="color:var(--acc-light);">0%</span>
+              </div>
+              <div class="progress-track" style="height:6px;margin:0;">
+                <div class="progress-fill" id="upload-progress-fill" style="width:0%;"></div>
+              </div>
+            </div>
+
+            <div class="queue-container" id="queue-list" style="margin-top:14px;"></div>
           </div>
 
           <!-- Step 2: Framing & Length -->
@@ -1156,10 +1179,10 @@
                 <span class="option-hint">Fine-tune highlights in browser before rendering</span>
               </div>
               <label style="display:flex;align-items:center;gap:12px;cursor:pointer;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,0.02);transition:all 0.2s ease;">
-                <input type="checkbox" id="clipper-review-toggle" checked style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;">
+                <input type="checkbox" id="clipper-review-toggle" style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;">
                 <div>
-                  <div style="font-weight:700;font-size:13px;color:var(--ink);">🎯 In-Browser Clip Review & Trim (Recommended)</div>
-                  <div style="font-size:11px;color:var(--mute);">Preview each moment, adjust start/end timestamps, and choose which clips to render to save render time.</div>
+                  <div style="font-weight:700;font-size:13px;color:var(--ink);">🎯 Pause for In-Browser Review & Trimming (Optional)</div>
+                  <div style="font-size:11px;color:var(--mute);">Leave unchecked for 100% automatic background generation — you can close Chrome right away and return anytime.</div>
                 </div>
               </label>
             </div>
@@ -1184,6 +1207,28 @@
 
       <!-- Live Clipper Running Screen -->
       <div class="wizard-card" id="run-view">
+        <!-- 100% Background Processing Safe to Exit Banner -->
+        <div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.25);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:flex-start;gap:12px;">
+          <div style="font-size:24px;line-height:1;">☁️</div>
+          <div style="flex:1;">
+            <div style="font-weight:800;font-size:14px;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+              <span>100% Background Processing Active</span>
+              <span style="background:rgba(16,185,129,0.2);color:var(--acc-light);font-size:10px;padding:2px 8px;border-radius:12px;text-transform:uppercase;font-weight:800;">Safe to exit Chrome</span>
+            </div>
+            <div style="font-size:12px;color:var(--mute);margin-top:4px;line-height:1.45;">
+              You can safely close Chrome, swipe this app away on your phone, or disconnect. Your video is processing on our server. When you return, your clips will be waiting in your <b>Library</b>.
+            </div>
+            <div id="live-email-box" style="margin-top:10px;border-top:1px solid rgba(255,255,255,0.06);padding-top:10px;">
+              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                <span style="font-size:11px;font-weight:700;color:var(--mute);">📧 Get email when ready:</span>
+                <input type="email" id="live-email-input" placeholder="your@email.com" class="url-input" style="padding:6px 10px;font-size:11px;max-width:220px;">
+                <button type="button" id="btn-save-live-email" class="btn-step" style="padding:6px 12px;font-size:11px;white-space:nowrap;">Notify Me</button>
+                <span id="live-email-msg" style="font-size:11px;color:var(--acc-light);font-weight:700;"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="run-header">
           <div class="pulse-wrap">
             <div class="pulse-dot"></div>
@@ -1560,6 +1605,164 @@
   <script>
     const $ = id => document.getElementById(id);
 
+    // Client Library LocalStorage Cache Helper
+    function saveToClientLibrary(entry) {
+      if (!entry || !entry.id) return;
+      try {
+        let localLib = JSON.parse(localStorage.getItem("clipforge_client_library") || "[]");
+        const idx = localLib.findIndex(x => String(x.id) === String(entry.id));
+        if (idx !== -1) {
+          localLib[idx] = { ...localLib[idx], ...entry };
+        } else {
+          localLib.unshift(entry);
+        }
+        localLib = localLib.slice(0, 50);
+        localStorage.setItem("clipforge_client_library", JSON.stringify(localLib));
+      } catch (e) {}
+    }
+
+    // Live Email Notification Setup
+    function setupLiveEmail(jid, initialEmail) {
+      const liveInput = $("live-email-input");
+      const liveBtn = $("btn-save-live-email");
+      const liveMsg = $("live-email-msg");
+      if (!liveInput || !liveBtn) return;
+
+      const emailVal = initialEmail || state.options.email || "";
+      if (emailVal) {
+        liveInput.value = emailVal;
+        liveMsg.textContent = "✅ We will email " + emailVal + " when clips are ready!";
+        liveInput.style.display = "none";
+        liveBtn.style.display = "none";
+      } else {
+        liveInput.style.display = "inline-block";
+        liveBtn.style.display = "inline-block";
+        liveMsg.textContent = "";
+      }
+
+      liveBtn.onclick = async () => {
+        const email = liveInput.value.trim();
+        if (!email || !email.includes("@")) {
+          alert("Please enter a valid email address.");
+          return;
+        }
+        liveBtn.disabled = true;
+        liveBtn.textContent = "Saving...";
+        try {
+          const res = await fetch("/api/jobs/" + jid + "/email", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            state.options.email = email;
+            liveInput.style.display = "none";
+            liveBtn.style.display = "none";
+            liveMsg.textContent = "✅ Saved! We will email " + email + " when clips are ready.";
+          } else {
+            alert(data.error || "Failed to save email");
+          }
+        } catch (e) {
+          alert("Failed to save email: " + e.message);
+        } finally {
+          liveBtn.disabled = false;
+          liveBtn.textContent = "Notify Me";
+        }
+      };
+    }
+
+    // Video File Drag & Drop / File Input Handler
+    function initVideoUpload() {
+      const dropzone = $("video-dropzone");
+      const fileInput = $("video-file-input");
+      if (!dropzone || !fileInput) return;
+
+      ["dragenter", "dragover"].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropzone.style.borderColor = "var(--acc)";
+          dropzone.style.background = "rgba(16, 185, 129, 0.08)";
+        });
+      });
+      ["dragleave", "drop"].forEach(name => {
+        dropzone.addEventListener(name, (e) => {
+          e.preventDefault();
+          dropzone.style.borderColor = "var(--line)";
+          dropzone.style.background = "rgba(255, 255, 255, 0.02)";
+        });
+      });
+      dropzone.addEventListener("drop", (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+          uploadVideoFile(e.dataTransfer.files[0]);
+        }
+      });
+      dropzone.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files && fileInput.files.length) {
+          uploadVideoFile(fileInput.files[0]);
+        }
+      });
+    }
+
+    function uploadVideoFile(file) {
+      if (!file) return;
+      const progressWrap = $("upload-progress-wrap");
+      const progressFill = $("upload-progress-fill");
+      const statusText = $("upload-status-text");
+      const pctText = $("upload-pct-text");
+
+      progressWrap.style.display = "block";
+      statusText.textContent = "Uploading \"" + file.name + "\"...";
+      pctText.textContent = "0%";
+      progressFill.style.width = "0%";
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/upload", true);
+
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          progressFill.style.width = pct + "%";
+          pctText.textContent = pct + "%";
+          if (pct >= 100) {
+            statusText.textContent = "Extracting video preview & metadata...";
+          }
+        }
+      };
+
+      xhr.onload = () => {
+        progressWrap.style.display = "none";
+        if (xhr.status === 200) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.ok) {
+              state.queue = [data];
+              renderQueue();
+              goToStep(2);
+            } else {
+              alert(data.error || "Upload failed");
+            }
+          } catch (e) {
+            alert("Upload response parse error");
+          }
+        } else {
+          alert("Upload failed: HTTP " + xhr.status);
+        }
+      };
+
+      xhr.onerror = () => {
+        progressWrap.style.display = "none";
+        alert("Network error while uploading video.");
+      };
+
+      xhr.send(formData);
+    }
+
+
     // Global direct download helper
     window.downloadDirect = function(url, filename) {
       const a = document.createElement('a');
@@ -1888,13 +2091,14 @@
               framing: state.options.framing,
               export_profile: state.options.export_profile,
               caption_style: state.options.caption_style,
-              review_clips: Boolean($('clipper-review-toggle') ? $('clipper-review-toggle').checked : true),
+              review_clips: Boolean($('clipper-review-toggle') ? $('clipper-review-toggle').checked : false),
               email: state.options.email
             })
           });
           const data = await res.json();
           if (data.error) throw new Error(data.error);
 
+          setupLiveEmail(data.id, state.options.email);
           state.activeJobId = data.id;
           localStorage.setItem('clipforge_active_job', JSON.stringify({
             jid: data.id,
@@ -1905,6 +2109,16 @@
 
           window._activeJid = data.id;
           const clips = await pollJob(data.id, item);
+          saveToClientLibrary({
+            id: data.id,
+            type: "clipper",
+            title: item.title || "Video Batch",
+            thumbnail: item.thumbnail || "",
+            clips,
+            done: true,
+            total_target: state.options.count,
+            clips_count: clips.length
+          });
           showResults(clips, item, state.options.aspect_ratio);
         } catch (err) {
           clearInterval(state.timer);
@@ -2334,13 +2548,55 @@
 
     function renderLibraryContent(items) {
       const container = $('lib-content');
-      if (!items || !items.length) {
-        container.innerHTML = '<p style="color:var(--mute);padding:20px;text-align:center;">No saved videos in library yet. Start clipping or generate a GTA 6 video!</p>';
+
+      // Merge with localStorage client library cache for offline/background resilience
+      let mergedItems = items ? [...items] : [];
+      try {
+        const localLib = JSON.parse(localStorage.getItem('clipforge_client_library') || '[]');
+        localLib.forEach(localItem => {
+          if (!mergedItems.some(x => String(x.id) === String(localItem.id))) {
+            mergedItems.push(localItem);
+          }
+        });
+      } catch (e) {}
+
+      // Check if an active job is running
+      let activeJob = null;
+      try {
+        const activeStr = localStorage.getItem('clipforge_active_job');
+        if (activeStr) activeJob = JSON.parse(activeStr);
+      } catch (e) {}
+
+      if (!mergedItems.length && !activeJob) {
+        container.innerHTML = '<p style="color:var(--mute);padding:20px;text-align:center;">No saved videos in library yet. Start clipping or upload a video!</p>';
         return;
       }
 
       container.innerHTML = '';
-      items.forEach(item => {
+
+      if (activeJob && activeJob.jid) {
+        const banner = document.createElement('div');
+        banner.className = 'video-card';
+        banner.style.marginBottom = '12px';
+        banner.style.border = '1px solid rgba(16,185,129,0.35)';
+        banner.style.background = 'rgba(16,185,129,0.06)';
+        banner.innerHTML = `
+          <div style="display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;width:100%;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="pulse-dot"></div>
+              <div>
+                <div style="font-weight:700;font-size:13px;color:var(--ink);">⚡ Active Job Running in Background (${activeJob.item?.title || "Video"})</div>
+                <div style="font-size:11px;color:var(--acc-light);font-weight:600;">Processing on server • Safe to close browser anytime</div>
+              </div>
+            </div>
+            <button class="btn-step" style="padding:6px 12px;font-size:11px;" onclick="$('lib-modal').style.display='none';$('wizard-box').style.display='none';$('run-view').style.display='block';">
+              View Live Progress
+            </button>
+          </div>
+        `;
+        container.appendChild(banner);
+      }
+      mergedItems.forEach(item => {
         const wrap = document.createElement('div');
         wrap.className = 'video-card';
         wrap.style.marginBottom = '12px';
@@ -2760,6 +3016,7 @@
 
     // Auto-Resume Active Background Job
     async function checkBackgroundJob() {
+      initVideoUpload();
       const activeStr = localStorage.getItem('clipforge_active_job');
       if (!activeStr) {
         goToStep(1);

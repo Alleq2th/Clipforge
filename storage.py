@@ -125,6 +125,12 @@ class StorageProvider:
         raise NotImplementedError
     def delete_clip(self, destination_path):
         raise NotImplementedError
+    def save_json(self, destination_path, data):
+        return False
+
+    def load_json(self, destination_path):
+        return None
+
 
 class LocalStorageProvider(StorageProvider):
     name = "local"
@@ -241,6 +247,47 @@ class SupabaseStorageProvider(StorageProvider):
         except Exception as e:
             print(f"[STORAGE] Error deleting from Supabase: {e}")
             return False
+
+    def save_json(self, destination_path, data):
+        if not self.is_configured():
+            return False
+        try:
+            self._ensure_bucket()
+            import requests, json
+            clean_dest = destination_path.lstrip("/")
+            upload_url = f"{self.supabase_url}/storage/v1/object/{self.bucket}/{clean_dest}"
+            headers = {
+                "Authorization": f"Bearer {self.supabase_key}",
+                "apikey": self.supabase_key,
+                "Content-Type": "application/json",
+                "x-upsert": "true"
+            }
+            body = json.dumps(data, indent=2).encode("utf-8")
+            resp = requests.post(upload_url, headers=headers, data=body, timeout=15)
+            return resp.status_code in (200, 201)
+        except Exception as e:
+            print(f"[STORAGE] Error saving JSON to Supabase: {e}")
+            return False
+
+    def load_json(self, destination_path):
+        if not self.is_configured():
+            return None
+        try:
+            import requests
+            clean_dest = destination_path.lstrip("/")
+            dl_url = f"{self.supabase_url}/storage/v1/object/public/{self.bucket}/{clean_dest}"
+            headers = {
+                "Authorization": f"Bearer {self.supabase_key}",
+                "apikey": self.supabase_key
+            }
+            resp = requests.get(dl_url, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                return resp.json()
+            return None
+        except Exception as e:
+            print(f"[STORAGE] Error loading JSON from Supabase: {e}")
+            return None
+
 
 # Active storage provider
 def get_storage_provider():

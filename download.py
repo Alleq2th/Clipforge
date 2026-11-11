@@ -49,6 +49,16 @@ def download(url, dest_dir=None, max_duration=None, check_cancelled=None):
     target_dir = dest_dir or WORK_DIR
     os.makedirs(target_dir, exist_ok=True)
 
+    if url.startswith("upload://"):
+        upload_id = url.replace("upload://", "").strip()
+        from security import safe_join_path
+        src_file = safe_join_path(WORK_DIR, "uploads", f"{upload_id}.mp4")
+        if not os.path.exists(src_file):
+            raise RuntimeError(f"Uploaded video file not found on disk: {upload_id}")
+        dest_file = os.path.join(target_dir, f"source_{upload_id}.mp4")
+        shutil.copy2(src_file, dest_file)
+        return dest_file, upload_id
+
     if check_cancelled and check_cancelled():
         raise RuntimeError("Cancelled by user before download")
 

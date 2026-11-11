@@ -14,17 +14,30 @@ def _get_lib_path():
 
 def get_library():
     path = _get_lib_path()
-    if not os.path.exists(path):
-        return []
     with _lock:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    if isinstance(data, list) and len(data) > 0:
+                        return data
+            except Exception:
+                pass
+
+        # If local is empty or missing (e.g. after container restart), restore from Supabase
         try:
-            with open(path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    return data
-                return []
-        except Exception:
-            return []
+            from storage import get_storage_provider
+            provider = get_storage_provider()
+            if provider and provider.is_configured():
+                cloud_lib = provider.load_json("library.json")
+                if isinstance(cloud_lib, list) and len(cloud_lib) > 0:
+                    with open(path, "w", encoding="utf-8") as f:
+                        json.dump(cloud_lib, f, indent=2)
+                    return cloud_lib
+        except Exception as e:
+            print(f"[LIBRARY] Notice restoring library from cloud: {e}")
+
+        return []
 
 def save_library_entry(entry):
     if not entry or not entry.get("id"):
@@ -59,6 +72,15 @@ def save_library_entry(entry):
                 json.dump(lib, f, indent=2)
         except Exception as e:
             print(f"[LIBRARY] Error saving library.json: {e}")
+
+        # Async backup to cloud storage so library survives server restarts
+        try:
+            from storage import get_storage_provider
+            provider = get_storage_provider()
+            if provider and provider.is_configured():
+                threading.Thread(target=provider.save_json, args=("library.json", lib), daemon=True).start()
+        except Exception:
+            pass
 
 def delete_library_entry(entry_id):
     path = _get_lib_path()

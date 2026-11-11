@@ -54,6 +54,18 @@ def parse_duration_options(data):
         return 20, 60
 
 def get_video_meta(url):
+    if url.startswith("upload://"):
+        upload_id = url.replace("upload://", "").strip()
+        thumb_p = safe_join_path(WORK_DIR, "uploads", f"{upload_id}_thumb.jpg")
+        has_thumb = os.path.exists(thumb_p)
+        return {
+            "ok": True,
+            "id": upload_id,
+            "title": f"Uploaded Video ({upload_id})",
+            "author": "Local Upload",
+            "thumbnail": f"/api/uploads/{upload_id}/thumbnail" if has_thumb else "",
+            "platform": "File Upload"
+        }
     domain = urllib.parse.urlparse(url).netloc.lower()
 
     # 1. YouTube
@@ -113,6 +125,11 @@ def save_job(jid):
     # Backward compatible JSON file save + database update
     try:
         j = jobs.get(jid, {})
+        db_cur = db_get_job(jid)
+        if db_cur and db_cur.get("cancelled"):
+            j["cancelled"] = True
+            j["status"] = "Cancelled by user"
+            j["stage"] = "Cancelled by user"
         os.makedirs(os.path.join(WORK_DIR, "jobs"), exist_ok=True)
         with open(os.path.join(WORK_DIR, "jobs", f"{jid}.json"), "w", encoding="utf-8") as f:
             json.dump(j, f)
@@ -229,17 +246,31 @@ def work(jid, url, options, app_url=""):
         lib_entry["status"] = "Done"
         save_library_entry(lib_entry)
 
-        recipient = options.get("email") or os.getenv("NOTIFICATION_EMAIL")
+        recipient = options.get("email") or jobs.get(jid, {}).get("options", {}).get("email") or os.getenv("NOTIFICATION_EMAIL")
         if recipient and len(formatted_clips) > 0:
             html, text = build_clipper_email(lib_entry["title"], formatted_clips, len(formatted_clips), app_url=app_url)
             send_completion_email(to_email=recipient, subject=f"🎉 ClipForge: {len(formatted_clips)} viral clips ready!", html_content=html, text_content=text)
 
     except Exception as e:
-        print(f"[WORKER] Job {jid} failed: {e}")
+        db_state = db_get_job(jid) or {}
+        is_cancelled = (
+            check_cancelled()
+            or jobs.get(jid, {}).get("cancelled", False)
+            or bool(db_state.get("cancelled"))
+            or "cancelled" in str(e).lower()
+        )
+        print(f"[WORKER] Job {jid} {"cancelled" if is_cancelled else "failed"}: {e}")
         if jid in jobs:
-            jobs[jid].update(error=str(e), status="Failed")
+            if is_cancelled:
+                jobs[jid]["cancelled"] = True
+                jobs[jid]["status"] = "Cancelled by user"
+                jobs[jid]["stage"] = "Cancelled by user"
+                jobs[jid]["done"] = True
+            else:
+                jobs[jid].update(error=str(e), status="Failed")
             save_job(jid)
-        lib_entry["status"] = f"Failed: {e}"
+        lib_entry["status"] = "Cancelled by user" if is_cancelled else f"Failed: {e}"
+        lib_entry["done"] = True if is_cancelled else False
         save_library_entry(lib_entry)
 
 # ================= CORE API ENDPOINTS =================
@@ -305,6 +336,98 @@ def storage_info():
 def force_cleanup():
     cleanup_storage()
     return jsonify({"ok": True})
+
+
+@app.post("/api/upload")
+def upload_video():
+    """
+    Accepts direct MP4/MOV/MKV/WEBM file upload,
+    saves cleanly into WORK_DIR/uploads/, extracts thumbnail, and returns preview metadata.
+    """
+    from security import sanitize_filename
+    if "file" not in request.files and "video" not in request.files:
+        return jsonify({"error": "No file uploaded. Please select a video file."}), 400
+
+    uploaded_file = request.files.get("file") or request.files.get("video")
+    if not uploaded_file or not uploaded_file.filename:
+        return jsonify({"error": "Empty filename."}), 400
+
+    orig_name = sanitize_filename(uploaded_file.filename)
+    ext = os.path.splitext(orig_name)[1].lower()
+    allowed_exts = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+    if ext not in allowed_exts:
+        return jsonify({"error": f"Unsupported format '{ext}'. Please upload an MP4, MOV, WEBM, or MKV video."}), 400
+
+    upload_id = str(uuid.uuid4())[:8]
+    uploads_dir = safe_join_path(WORK_DIR, "uploads")
+    os.makedirs(uploads_dir, exist_ok=True)
+
+    save_path = safe_join_path(uploads_dir, f"{upload_id}.mp4")
+    uploaded_file.save(save_path)
+
+    # Generate thumbnail frame with ffmpeg
+    thumb_path = safe_join_path(uploads_dir, f"{upload_id}_thumb.jpg")
+    try:
+        import subprocess
+        subprocess.run([
+            "ffmpeg", "-y", "-ss", "00:00:01", "-i", save_path,
+            "-vframes", "1", "-vf", "scale=320:-1", "-q:v", "3", thumb_path
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    except Exception as e:
+        print(f"[UPLOAD] Notice generating thumbnail: {e}")
+
+    has_thumb = os.path.exists(thumb_path)
+    thumb_url = f"/api/uploads/{upload_id}/thumbnail" if has_thumb else ""
+
+    display_title = os.path.splitext(orig_name)[0].replace("_", " ").replace("-", " ").strip()
+    if len(display_title) > 60:
+        display_title = display_title[:57] + "..."
+
+    return jsonify({
+        "ok": True,
+        "id": upload_id,
+        "title": display_title or "Uploaded Video",
+        "author": "Local Upload",
+        "thumbnail": thumb_url,
+        "platform": "File Upload",
+        "url": f"upload://{upload_id}"
+    })
+
+@app.get("/api/uploads/<upload_id>/thumbnail")
+def get_upload_thumbnail(upload_id):
+    from security import sanitize_filename
+    safe_id = sanitize_filename(upload_id)
+    thumb_p = safe_join_path(WORK_DIR, "uploads", f"{safe_id}_thumb.jpg")
+    if os.path.exists(thumb_p):
+        return send_file(thumb_p, mimetype="image/jpeg")
+    return jsonify({"error": "Thumbnail not found"}), 404
+
+@app.post("/api/jobs/<jid>/email")
+def set_job_email(jid):
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip()
+    if not email or "@" not in email:
+        return jsonify({"error": "Valid email address required"}), 400
+
+    if jid in jobs:
+        if "options" not in jobs[jid]:
+            jobs[jid]["options"] = {}
+        jobs[jid]["options"]["email"] = email
+        save_job(jid)
+
+    lib = get_library()
+    for entry in lib:
+        if str(entry.get("id")) == str(jid):
+            if "options" not in entry:
+                entry["options"] = {}
+            entry["options"]["email"] = email
+            save_library_entry(entry)
+            break
+
+    return jsonify({"ok": True, "email": email})
 
 @app.post("/api/jobs")
 def create():
