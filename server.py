@@ -259,7 +259,8 @@ def work(jid, url, options, app_url=""):
             or bool(db_state.get("cancelled"))
             or "cancelled" in str(e).lower()
         )
-        print(f"[WORKER] Job {jid} {"cancelled" if is_cancelled else "failed"}: {e}")
+        outcome = "cancelled" if is_cancelled else "failed"
+        print(f"[WORKER] Job {jid} {outcome}: {e}")
         if jid in jobs:
             if is_cancelled:
                 jobs[jid]["cancelled"] = True
