@@ -100,5 +100,25 @@ class TestClipReview(unittest.TestCase):
         )
         self.assertEqual(res_inv.status_code, 400)
 
+    def test_confirm_review_with_custom_export_profile(self):
+        jid = "test_review_custom_profile"
+        candidates = [
+            {"start": 10.0, "end": 30.0, "title": "Test 720p Clip", "score": 91}
+        ]
+        jobs_db.create_job(jid, title="Profile Test Video", candidates=candidates, options={"review_clips": True, "export_profile": "1080p"})
+        jobs_db.update_job(jid, status="awaiting_review", stage="Review & trim clips", candidates=candidates)
+
+        # Confirm review specifying 720p
+        res = self.client.post(
+            f"/api/jobs/{jid}/confirm-review",
+            data=json.dumps({"clips": candidates, "export_profile": "720p"}),
+            content_type="application/json"
+        )
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(pipeline.get_confirmed_profile(jid), "720p")
+
+        job = jobs_db.get_job(jid)
+        self.assertEqual(job["options"].get("export_profile"), "720p")
+
 if __name__ == "__main__":
     unittest.main()

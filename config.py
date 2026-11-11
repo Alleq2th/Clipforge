@@ -23,6 +23,34 @@ MAX_CLIP_WORKERS = get_adaptive_clip_workers(_requested_clip_workers)
 
 # Video Export Profiles (resolution, tuned CRF, and loudness normalization)
 EXPORT_PROFILES = {
+    "360p": {
+        "name": "360p",
+        "label": "Mobile Draft (360p • Fastest)",
+        "resolutions": {
+            "9:16": (360, 640),
+            "1:1": (360, 360),
+            "16:9": (640, 360),
+        },
+        "crf": 28,
+        "preset": "ultrafast",
+        "audio_bitrate": "64k",
+        "normalize_audio": False,
+        "font_scale": 0.70,
+    },
+    "480p": {
+        "name": "480p",
+        "label": "Standard Definition (480p • Fast)",
+        "resolutions": {
+            "9:16": (480, 854),
+            "1:1": (480, 480),
+            "16:9": (854, 480),
+        },
+        "crf": 26,
+        "preset": "ultrafast",
+        "audio_bitrate": "96k",
+        "normalize_audio": False,
+        "font_scale": 0.85,
+    },
     "540p": {
         "name": "540p",
         "label": "Standard Draft (540p)",
@@ -37,9 +65,23 @@ EXPORT_PROFILES = {
         "normalize_audio": False,
         "font_scale": 1.0,
     },
+    "720p": {
+        "name": "720p",
+        "label": "HD Quality (720p • Balanced)",
+        "resolutions": {
+            "9:16": (720, 1280),
+            "1:1": (720, 720),
+            "16:9": (1280, 720),
+        },
+        "crf": 23,
+        "preset": "veryfast",
+        "audio_bitrate": "128k",
+        "normalize_audio": True,
+        "font_scale": 1.35,
+    },
     "1080p": {
         "name": "1080p",
-        "label": "Full HD Studio (1080p)",
+        "label": "Full HD Studio (1080p • Best Quality)",
         "resolutions": {
             "9:16": (1080, 1920),
             "1:1": (1080, 1080),

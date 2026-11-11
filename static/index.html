@@ -1094,8 +1094,10 @@
                 <span class="option-hint">Full HD, tuned CRF compression & loudness normalization</span>
               </div>
               <div class="chips-grid" id="quality-chips">
-                <div class="chip active" data-val="1080p">✨ 1080p Studio (Full HD • Tuned CRF 21 • Normalized Audio)</div>
-                <div class="chip" data-val="540p">⚡ 540p Draft (Fast Render • CRF 26)</div>
+                <div class="chip active" data-val="1080p">✨ 1080p Studio (Full HD • Best Quality)</div>
+                <div class="chip" data-val="720p">⚡ 720p HD (Balanced Quality & Speed)</div>
+                <div class="chip" data-val="480p">📺 480p SD (Fast Render)</div>
+                <div class="chip" data-val="360p">📱 360p Draft (Ultra-Fast • Small File)</div>
               </div>
             </div>
 
@@ -1317,6 +1319,23 @@
 
         <div id="review-candidates-list" style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px;">
           <!-- Dynamically populated candidate cards -->
+        </div>
+
+        <!-- Export Resolution Selection on Review Screen -->
+        <div style="background:var(--card-inner);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px;">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+            <div style="font-size:13px;font-weight:800;color:var(--ink);display:flex;align-items:center;gap:6px;">
+              <span>🎬</span>
+              <span>Download Resolution & Render Quality</span>
+            </div>
+            <span style="font-size:11px;color:var(--mute);">Choose export quality before rendering clips</span>
+          </div>
+          <div class="chips-grid" id="review-quality-chips">
+            <div class="chip" data-val="360p">📱 360p Draft (Ultra-Fast)</div>
+            <div class="chip" data-val="480p">📺 480p SD (Fast)</div>
+            <div class="chip" data-val="720p">⚡ 720p HD (Balanced)</div>
+            <div class="chip active" data-val="1080p">✨ 1080p Studio (Full HD • Best Quality)</div>
+          </div>
         </div>
 
         <div style="border-top:1px solid var(--line);padding-top:16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
@@ -1979,6 +1998,8 @@
       const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
       const dlUrl = c.download_url || `/clips/${c.vid}/${c.file}?dl=1`;
       const streamUrl = c.stream_url || `/clips/${c.vid}/${c.file}`;
+      const exportProf = c.export_profile || '1080p';
+      const profileBadge = exportProf ? `<span class="cat-badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;">🎬 ${escapeHtml(exportProf)}</span>` : '';
 
       card.innerHTML = `
         <div class="video-wrap ${ratioClass}">
@@ -1987,13 +2008,14 @@
         <div class="clip-details">
           <div class="clip-badges">
             <span class="score-badge">⚡ ${score} Virality</span>
-            <span class="cat-badge">${cat}</span>
+            <span class="cat-badge">${escapeHtml(cat)}</span>
+            ${profileBadge}
           </div>
-          <div class="clip-heading">${c.title || ('Highlight #' + (idx + 1))}</div>
-          <div class="hook-alert"><b>Why it works:</b> ${hookReason}</div>
-          <div class="clip-snippet">${c.caption || ''}</div>
+          <div class="clip-heading">${escapeHtml(c.title || ('Highlight #' + (idx + 1)))}</div>
+          <div class="hook-alert"><b>Why it works:</b> ${escapeHtml(hookReason)}</div>
+          <div class="clip-snippet">${escapeHtml(c.caption || '')}</div>
           <div class="clip-acts">
-            <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')">⬇️ Download MP4</button>
+            <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${escapeHtml(c.title || c.file)}')">⬇️ Download MP4 (${escapeHtml(exportProf)})</button>
             <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
           </div>
         </div>
@@ -2315,6 +2337,13 @@
 
       $('review-count-badge').textContent = `${candidates.length} Discovered Moments`;
 
+      function formatTimeSec(sec) {
+        const s = Math.max(0, Math.floor(sec || 0));
+        const m = Math.floor(s / 60);
+        const rem = s % 60;
+        return `${m}:${rem < 10 ? '0' : ''}${rem}`;
+      }
+
       const list = $('review-candidates-list');
       list.innerHTML = '';
 
@@ -2331,18 +2360,18 @@
 
         const startVal = parseFloat(c.start || 0).toFixed(1);
         const endVal = parseFloat(c.end || 0).toFixed(1);
-        const duration = (parseFloat(endVal) - parseFloat(startVal)).toFixed(1);
+        const duration = Math.max(1, parseFloat(endVal) - parseFloat(startVal)).toFixed(1);
 
         card.innerHTML = `
           <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
             <div style="display:flex;align-items:center;gap:10px;">
               <input type="checkbox" class="candidate-checkbox" checked style="width:18px;height:18px;accent-color:var(--acc);cursor:pointer;">
               <span style="font-weight:800;font-size:14px;color:var(--ink);">Clip #${idx + 1}</span>
-              <span style="background:rgba(234,179,8,0.15);color:#facc15;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">🔥 ${c.score || 90} Score</span>
+              <span style="background:rgba(234,179,8,0.15);color:#facc15;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">🔥 ${c.score || 90} Virality</span>
               <span style="background:rgba(59,130,246,0.15);color:#60a5fa;font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px;">${escapeHtml(c.category || 'Viral Hook')}</span>
             </div>
             <div class="candidate-duration" style="font-size:12px;font-weight:700;color:var(--acc-light);">
-              ⏱️ ${duration}s
+              ⏱️ ${duration}s (${formatTimeSec(startVal)} → ${formatTimeSec(endVal)})
             </div>
           </div>
 
@@ -2358,27 +2387,61 @@
             <video class="candidate-video" src="/api/jobs/${jid}/source-video#t=${startVal},${endVal}" controls playsinline preload="metadata" style="max-height:260px;width:100%;"></video>
           </div>
 
-          <!-- Timestamp Trimming Controls -->
-          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,0.2);padding:8px 12px;border-radius:8px;margin-top:8px;">
-            <div style="display:flex;align-items:center;gap:4px;">
-              <span style="font-size:11px;color:var(--mute);font-weight:700;">Start:</span>
-              <button type="button" class="btn-nudge" data-action="sub" data-target="start" data-amount="1">-1s</button>
+          <!-- Timestamp Trimming & Quick Extending Controls -->
+          <div style="background:rgba(0,0,0,0.25);border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+              <div style="font-size:12px;font-weight:700;color:var(--ink);">✂️ Fine-Tune & Extend Cut Points</div>
+              <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                <span style="font-size:11px;color:var(--mute);">Quick extend:</span>
+                <button type="button" class="btn-nudge" data-action="sub" data-target="start" data-amount="5" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:1px solid rgba(59,130,246,0.3);padding:3px 8px;" title="Start 5 seconds earlier">+5s at Start</button>
+                <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="5" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);padding:3px 8px;" title="Extend end by 5 seconds">+5s at End</button>
+                <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="10" style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);padding:3px 8px;" title="Extend end by 10 seconds">+10s at End</button>
+                <button type="button" class="btn-nudge" data-action="sub" data-target="end" data-amount="5" style="background:rgba(239,68,68,0.15);color:#f87171;border:1px solid rgba(239,68,68,0.3);padding:3px 8px;" title="Trim 5 seconds off end">-5s at End</button>
+              </div>
+            </div>
+
+            <!-- Start Time Adjuster -->
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px;">
+              <span style="font-size:11px;color:var(--mute);font-weight:700;min-width:44px;">Start:</span>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="start" data-amount="10" title="Shift start back 10s">-10s</button>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="start" data-amount="5" title="Shift start back 5s">-5s</button>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="start" data-amount="1" title="Shift start back 1s">-1s</button>
               <input type="number" step="0.5" class="trim-input candidate-start" value="${startVal}">
-              <button type="button" class="btn-nudge" data-action="add" data-target="start" data-amount="1">+1s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="start" data-amount="1" title="Shift start forward 1s">+1s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="start" data-amount="5" title="Shift start forward 5s">+5s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="start" data-amount="10" title="Shift start forward 10s">+10s</button>
+              <span class="start-formatted" style="font-size:11px;color:#94a3b8;margin-left:4px;">(${formatTimeSec(startVal)})</span>
             </div>
-            <div style="display:flex;align-items:center;gap:4px;">
-              <span style="font-size:11px;color:var(--mute);font-weight:700;">End:</span>
-              <button type="button" class="btn-nudge" data-action="sub" data-target="end" data-amount="1">-1s</button>
+
+            <!-- End Time Adjuster -->
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:10px;">
+              <span style="font-size:11px;color:var(--mute);font-weight:700;min-width:44px;">End:</span>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="end" data-amount="10" title="Shift end back 10s">-10s</button>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="end" data-amount="5" title="Shift end back 5s">-5s</button>
+              <button type="button" class="btn-nudge" data-action="sub" data-target="end" data-amount="1" title="Shift end back 1s">-1s</button>
               <input type="number" step="0.5" class="trim-input candidate-end" value="${endVal}">
-              <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="1">+1s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="1" title="Shift end forward 1s">+1s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="5" title="Shift end forward 5s">+5s</button>
+              <button type="button" class="btn-nudge" data-action="add" data-target="end" data-amount="10" title="Shift end forward 10s">+10s</button>
+              <span class="end-formatted" style="font-size:11px;color:#94a3b8;margin-left:4px;">(${formatTimeSec(endVal)})</span>
             </div>
-            <button type="button" class="btn-back btn-play-snippet" style="font-size:11px;padding:4px 10px;margin-left:auto;cursor:pointer;">
-              ▶️ Play Highlight (${startVal}s - ${endVal}s)
-            </button>
+
+            <!-- Playback Controls -->
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid rgba(255,255,255,0.08);padding-top:10px;">
+              <button type="button" class="btn-play-snippet" style="font-size:12px;padding:6px 14px;background:var(--acc);color:#000;font-weight:800;border:none;border-radius:6px;cursor:pointer;">
+                ▶️ Watch Highlight Snippet (${duration}s)
+              </button>
+              <button type="button" class="btn-restart-snippet" style="font-size:11px;padding:6px 10px;background:var(--card-inner);border:1px solid var(--line);color:var(--mute);border-radius:6px;cursor:pointer;">
+                ⏮️ Replay from Cut Start
+              </button>
+              <span class="snippet-play-status" style="font-size:11px;color:var(--mute);margin-left:auto;">
+                Ready to preview
+              </span>
+            </div>
           </div>
         `;
 
-        // Card events
+        // Card elements & events
         const checkbox = card.querySelector('.candidate-checkbox');
         checkbox.onchange = () => {
           card.classList.toggle('selected', checkbox.checked);
@@ -2387,17 +2450,69 @@
 
         const startInput = card.querySelector('.candidate-start');
         const endInput = card.querySelector('.candidate-end');
+        const startFormatted = card.querySelector('.start-formatted');
+        const endFormatted = card.querySelector('.end-formatted');
         const durationEl = card.querySelector('.candidate-duration');
         const videoEl = card.querySelector('.candidate-video');
         const playBtn = card.querySelector('.btn-play-snippet');
+        const restartBtn = card.querySelector('.btn-restart-snippet');
+        const statusEl = card.querySelector('.snippet-play-status');
+
+        let isSnippetPlaying = false;
+        let snippetTimeListener = null;
+
+        function stopSnippetPlayback(statusMsg) {
+          isSnippetPlaying = false;
+          if (snippetTimeListener) {
+            videoEl.removeEventListener('timeupdate', snippetTimeListener);
+            snippetTimeListener = null;
+          }
+          const s = parseFloat(startInput.value) || 0;
+          const e = parseFloat(endInput.value) || (s + 5);
+          const dur = Math.max(1, e - s).toFixed(1);
+          playBtn.innerHTML = `▶️ Watch Highlight Snippet (${dur}s)`;
+          playBtn.style.background = 'var(--acc)';
+          playBtn.style.color = '#000';
+          if (statusMsg) statusEl.textContent = statusMsg;
+        }
+
+        function playSnippetFromStart() {
+          let s = parseFloat(startInput.value) || 0;
+          let e = parseFloat(endInput.value) || (s + 5);
+          if (e <= s) e = s + 5;
+          if (snippetTimeListener) {
+            videoEl.removeEventListener('timeupdate', snippetTimeListener);
+          }
+          videoEl.currentTime = s;
+          videoEl.play();
+          isSnippetPlaying = true;
+          playBtn.innerHTML = `⏸️ Pause Snippet`;
+          playBtn.style.background = '#eab308';
+          playBtn.style.color = '#000';
+          statusEl.textContent = `Playing snippet (${formatTimeSec(s)} → ${formatTimeSec(e)})...`;
+
+          snippetTimeListener = () => {
+            if (videoEl.currentTime >= e) {
+              videoEl.pause();
+              videoEl.currentTime = s;
+              stopSnippetPlayback('✓ Finished highlight preview');
+            }
+          };
+          videoEl.addEventListener('timeupdate', snippetTimeListener);
+        }
 
         function updateCardTimes() {
           let s = parseFloat(startInput.value) || 0;
           let e = parseFloat(endInput.value) || 0;
+          if (s < 0) s = 0;
           if (e <= s) e = s + 5;
           const dur = (e - s).toFixed(1);
-          durationEl.textContent = `⏱️ ${dur}s`;
-          playBtn.textContent = `▶️ Play Highlight (${s.toFixed(1)}s - ${e.toFixed(1)}s)`;
+          startFormatted.textContent = `(${formatTimeSec(s)})`;
+          endFormatted.textContent = `(${formatTimeSec(e)})`;
+          durationEl.textContent = `⏱️ ${dur}s (${formatTimeSec(s)} → ${formatTimeSec(e)})`;
+          if (!isSnippetPlaying) {
+            playBtn.innerHTML = `▶️ Watch Highlight Snippet (${dur}s)`;
+          }
           videoEl.src = `/api/jobs/${jid}/source-video#t=${s.toFixed(1)},${e.toFixed(1)}`;
         }
 
@@ -2415,20 +2530,36 @@
         });
 
         playBtn.onclick = () => {
-          const s = parseFloat(startInput.value) || 0;
-          const e = parseFloat(endInput.value) || 0;
-          videoEl.currentTime = s;
-          videoEl.play();
-          const onTimeUpdate = () => {
-            if (videoEl.currentTime >= e) {
-              videoEl.pause();
-              videoEl.removeEventListener('timeupdate', onTimeUpdate);
-            }
-          };
-          videoEl.addEventListener('timeupdate', onTimeUpdate);
+          if (isSnippetPlaying) {
+            videoEl.pause();
+            stopSnippetPlayback('Preview paused');
+          } else {
+            playSnippetFromStart();
+          }
+        };
+
+        restartBtn.onclick = () => {
+          playSnippetFromStart();
+        };
+
+        videoEl.onpause = () => {
+          if (isSnippetPlaying && videoEl.currentTime < (parseFloat(endInput.value) || 0)) {
+            stopSnippetPlayback('Preview paused');
+          }
         };
 
         list.appendChild(card);
+      });
+
+      // Interactivity for Export Resolution chips on review view
+      const activeProf = state.options.export_profile || '1080p';
+      document.querySelectorAll('#review-quality-chips .chip').forEach(ch => {
+        ch.classList.toggle('active', ch.dataset.val === activeProf);
+        ch.onclick = () => {
+          document.querySelectorAll('#review-quality-chips .chip').forEach(c => c.classList.remove('active'));
+          ch.classList.add('active');
+          state.options.export_profile = ch.dataset.val;
+        };
       });
 
       function updateReviewSummary() {
@@ -2501,14 +2632,16 @@
           return;
         }
 
+        const chosenProfile = document.querySelector('#review-quality-chips .chip.active')?.dataset.val || state.options.export_profile || '1080p';
+
         $('btn-confirm-render').disabled = true;
-        $('btn-confirm-render').textContent = 'Confirming render...';
+        $('btn-confirm-render').textContent = `Starting ${chosenProfile} render...`;
 
         try {
           const res = await fetch('/api/jobs/' + jid + '/confirm-review', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clips: chosen })
+            body: JSON.stringify({ clips: chosen, export_profile: chosenProfile })
           });
           const data = await res.json();
           if (data.error) throw new Error(data.error);
@@ -2516,8 +2649,8 @@
           // Transition back to live run-view for Stage 4
           $('review-view').style.display = 'none';
           $('run-view').style.display = 'block';
-          $('status-text').textContent = `Confirmed ${chosen.length} clip(s). Cutting, reframing & burning subtitles...`;
-          updateStepIndicator(`Cut, Reframe & Burn Subtitles (${chosen.length} clips)`, 0, chosen.length);
+          $('status-text').textContent = `Confirmed ${chosen.length} clip(s) at ${chosenProfile}. Cutting, reframing & burning subtitles...`;
+          updateStepIndicator(`Cut, Reframe & Burn Subtitles (${chosen.length} clips at ${chosenProfile})`, 0, chosen.length);
         } catch (e) {
           alert('Error confirming clips: ' + e.message);
           $('btn-confirm-render').disabled = false;

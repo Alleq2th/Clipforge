@@ -185,22 +185,17 @@ ASS_PRESETS = {
 
 def get_ass_dimensions(aspect_ratio="9:16", export_profile=None):
     """Returns (width, height, default_margin_v) based on aspect ratio and export profile."""
+    from cut import resolve_export_profile
     ratio = aspect_ratio if aspect_ratio in ("9:16", "1:1", "16:9") else "9:16"
-    is_1080p = bool(export_profile and any(p in str(export_profile).lower() for p in ("1080", "hd", "high", "premium")))
-    if is_1080p:
-        if ratio == "1:1":
-            return 1080, 1080, 120
-        elif ratio == "16:9":
-            return 1920, 1080, 80
-        else:
-            return 1080, 1920, 280
+    prof = resolve_export_profile(export_profile)
+    w, h = prof["resolutions"][ratio]
+    if ratio == "9:16":
+        margin_v = round(280 * (h / 1920.0))
+    elif ratio == "1:1":
+        margin_v = round(120 * (h / 1080.0))
     else:
-        if ratio == "1:1":
-            return 540, 540, 60
-        elif ratio == "16:9":
-            return 960, 540, 40
-        else:
-            return 540, 960, 140
+        margin_v = round(80 * (h / 1080.0))
+    return w, h, margin_v
 
 def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", export_profile=None, words=3, animation_mode="karaoke"):
     """
@@ -212,21 +207,17 @@ def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", ex
 
     preset = ASS_PRESETS.get(style_key, ASS_PRESETS["beasty"])
 
-    # Base typography sizing scaled by canvas dimensions
-    if is_1080p:
-        base_font_size = 64 if aspect_ratio == "9:16" else (48 if aspect_ratio == "1:1" else 42)
-        base_outline = 4.8
-        base_shadow = 1.5
-    else:
-        base_font_size = 32 if aspect_ratio == "9:16" else (24 if aspect_ratio == "1:1" else 21)
-        base_outline = 2.4
-        base_shadow = 0.8
+    # Base typography sizing cleanly scaled by canvas dimensions
+    scale_factor = h / 960.0
+    base_font_size = round((32 if aspect_ratio == "9:16" else (24 if aspect_ratio == "1:1" else 21)) * scale_factor)
+    base_outline = round(2.4 * scale_factor, 1)
+    base_shadow = round(0.8 * scale_factor, 1)
 
     font_size = round(base_font_size * preset.get("font_mult", 1.0))
     outline = round(base_outline * preset.get("outline_mult", 1.0), 1)
     shadow = round(base_shadow * preset.get("shadow_mult", 1.0), 1)
     margin_v = round(def_margin_v * preset.get("margin_v_mult", 1.0))
-    margin_lr = 40 if is_1080p else 20
+    margin_lr = max(12, round(20 * scale_factor))
 
     k_tag = "kf" if animation_mode == "sweep" else preset.get("karaoke_tag", "k")
     style_name = style_key if style_key in ASS_PRESETS else "beasty"

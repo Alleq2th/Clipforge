@@ -14,6 +14,7 @@ from memory_guard import get_adaptive_clip_workers
 # ================= IN-BROWSER CLIP REVIEW COORDINATION =================
 _review_events = {}
 _confirmed_clips = {}
+_confirmed_profiles = {}
 _review_lock = threading.Lock()
 
 def get_review_event(jid):
@@ -22,9 +23,11 @@ def get_review_event(jid):
             _review_events[jid] = threading.Event()
         return _review_events[jid]
 
-def set_confirmed_clips(jid, clips):
+def set_confirmed_clips(jid, clips, export_profile=None):
     with _review_lock:
         _confirmed_clips[jid] = clips
+        if export_profile:
+            _confirmed_profiles[jid] = str(export_profile).strip().lower()
         if jid in _review_events:
             _review_events[jid].set()
 
@@ -32,9 +35,14 @@ def get_confirmed_clips(jid):
     with _review_lock:
         return _confirmed_clips.pop(jid, None)
 
+def get_confirmed_profile(jid):
+    with _review_lock:
+        return _confirmed_profiles.pop(jid, None)
+
 def cancel_review(jid):
     with _review_lock:
         _confirmed_clips.pop(jid, None)
+        _confirmed_profiles.pop(jid, None)
         if jid in _review_events:
             _review_events[jid].set()
             _review_events.pop(jid, None)
@@ -71,7 +79,8 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
             "ok": True,
             "download_url": download_url,
             "stream_url": stream_url,
-            "cloud_url": cloud_url or ""
+            "cloud_url": cloud_url or "",
+            "export_profile": export_profile or "1080p"
         }
         return i, item, None
     except Exception as e:
@@ -156,13 +165,19 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
                 return []
 
             confirmed = get_confirmed_clips(jid)
+            confirmed_prof = get_confirmed_profile(jid)
             if confirmed:
                 clips = confirmed
                 print(f"[PIPELINE] Job {jid}: user confirmed {len(clips)} clip(s) to render.")
             elif not reviewed:
                 print(f"[PIPELINE] Job {jid}: review timed out after 30m; auto-rendering initial candidates.")
 
-            update_stage(f"Rendering {len(clips)} selected & trimmed clip(s)...", 58)
+            if confirmed_prof:
+                export_profile = confirmed_prof
+                opts["export_profile"] = export_profile
+                print(f"[PIPELINE] Job {jid}: applied user-selected export profile '{export_profile}'.")
+
+            update_stage(f"Rendering {len(clips)} selected & trimmed clip(s) at {export_profile}...", 58)
 
         total = len(clips)
         out_map = {}

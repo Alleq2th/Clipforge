@@ -140,6 +140,7 @@ def save_job(jid):
             stage=j.get("stage") or j.get("status"),
             clips=j.get("clips", []),
             candidates=j.get("candidates", []),
+            options=j.get("options"),
             error=j.get("error"),
             done=j.get("done", False),
             cancelled=j.get("cancelled", False)
@@ -539,14 +540,29 @@ def confirm_job_review(jid):
     if not validated:
         return jsonify({"error": "At least one valid clip must be selected"}), 400
 
-    set_confirmed_clips(jid, validated)
+    export_prof = (data.get("export_profile") or data.get("resolution") or "").strip().lower()
+    set_confirmed_clips(jid, validated, export_profile=export_prof if export_prof else None)
+    stage_msg = f"Confirmed {len(validated)} clip(s); preparing to render at {export_prof or '1080p'}..."
     if jid in jobs:
+        if export_prof:
+            if "options" not in jobs[jid]:
+                jobs[jid]["options"] = {}
+            jobs[jid]["options"]["export_profile"] = export_prof
+            jobs[jid]["options"]["resolution"] = export_prof
         jobs[jid]["status"] = "processing"
-        jobs[jid]["stage"] = f"Confirmed {len(validated)} clip(s); preparing to render..."
+        jobs[jid]["stage"] = stage_msg
         jobs[jid]["progress"] = 58
         save_job(jid)
     else:
-        db_update_job(jid, status="processing", stage=f"Confirmed {len(validated)} clip(s); preparing to render...", progress=58)
+        update_kw = {"status": "processing", "stage": stage_msg, "progress": 58}
+        if export_prof:
+            cur_job = db_get_job(jid)
+            if cur_job:
+                opts = dict(cur_job.get("options") or {})
+                opts["export_profile"] = export_prof
+                opts["resolution"] = export_prof
+                update_kw["options"] = opts
+        db_update_job(jid, **update_kw)
 
     return jsonify({"ok": True, "count": len(validated)})
 

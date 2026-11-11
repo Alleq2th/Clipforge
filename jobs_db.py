@@ -102,7 +102,7 @@ def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="
             conn.close()
     return get_job(jid)
 
-def update_job(jid, status=None, stage=None, progress=None, clips=None, candidates=None, error=None, done=None, cancelled=None):
+def update_job(jid, status=None, stage=None, progress=None, clips=None, candidates=None, error=None, done=None, cancelled=None, options=None):
     now = time.time()
     updates = []
     params = []
@@ -131,6 +131,9 @@ def update_job(jid, status=None, stage=None, progress=None, clips=None, candidat
     if cancelled is not None:
         updates.append("cancelled = ?")
         params.append(1 if cancelled else 0)
+    if options is not None:
+        updates.append("options = ?")
+        params.append(json.dumps(options))
 
     if not updates:
         return

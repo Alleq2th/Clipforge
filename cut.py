@@ -39,11 +39,19 @@ def check_has_audio(video_path):
         return False
 
 def resolve_export_profile(profile_name=None):
-    """Resolves export profile configuration dict with safe fallback to 540p."""
-    key = (profile_name or DEFAULT_EXPORT_PROFILE or "540p").strip().lower()
-    if any(p in key for p in ("1080", "hd", "high", "premium", "full_hd")):
+    """Resolves export profile configuration dict across 360p, 480p, 540p, 720p, and 1080p."""
+    key = str(profile_name or DEFAULT_EXPORT_PROFILE or "1080p").strip().lower()
+    if any(p in key for p in ("1080", "fhd", "full_hd", "studio", "premium", "max")):
         return EXPORT_PROFILES["1080p"]
-    return EXPORT_PROFILES.get(key, EXPORT_PROFILES["540p"])
+    if any(p in key for p in ("720", "hd")):
+        return EXPORT_PROFILES["720p"]
+    if any(p in key for p in ("480", "sd")):
+        return EXPORT_PROFILES["480p"]
+    if any(p in key for p in ("360", "320", "tiny", "draft", "mobile")):
+        return EXPORT_PROFILES["360p"]
+    if "540" in key:
+        return EXPORT_PROFILES["540p"]
+    return EXPORT_PROFILES.get(key, EXPORT_PROFILES.get("1080p", EXPORT_PROFILES["540p"]))
 
 def scale_style_for_1080p(style_str, font_scale=1.85, outline_scale=1.8):
     """Scales subtitle font size and outline for high-resolution 1080p rendering."""
@@ -63,16 +71,20 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.ass", fra
 
     profile = resolve_export_profile(export_profile)
     is_1080p = profile["name"] == "1080p"
+    w, h = profile["resolutions"][ratio]
+    font_scale = profile.get("font_scale", 1.0)
 
-    if is_1080p:
-        margin_v = 280 if ratio == "9:16" else (120 if ratio == "1:1" else 80)
+    if ratio == "9:16":
+        margin_v = round(280 * (h / 1920.0))
+    elif ratio == "1:1":
+        margin_v = round(120 * (h / 1080.0))
     else:
-        margin_v = 140 if ratio == "9:16" else (60 if ratio == "1:1" else 40)
+        margin_v = round(80 * (h / 1080.0))
 
     style_key = caption_style if caption_style in STYLES else "beasty"
     raw_style = STYLES[style_key] if has_captions else ""
-    if has_captions and is_1080p:
-        raw_style = scale_style_for_1080p(raw_style, font_scale=profile.get("font_scale", 1.85))
+    if has_captions and font_scale != 1.0:
+        raw_style = scale_style_for_1080p(raw_style, font_scale=font_scale)
 
     style_str = raw_style.format(margin_v=margin_v) if has_captions else ""
 
@@ -87,12 +99,12 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.ass", fra
     cy = max(0.05, min(0.95, float(y_norm)))
     is_smart = framing in ("smart", "face", "auto")
 
-    w, h = profile["resolutions"][ratio]
+    blur_w = max(2, (round(w / 4) // 2) * 2)
+    blur_h = max(2, (round(h / 4) // 2) * 2)
 
     if ratio == "1:1":
-        # Square (540x540 or 1080x1080)
+        # Square (360x360 up to 1080x1080)
         if framing == "blur":
-            blur_w, blur_h = (270, 270) if is_1080p else (135, 135)
             vf = (
                 "[0:v]split[a][b];"
                 f"[a]scale={blur_w}:{blur_h}:force_original_aspect_ratio=increase,crop={blur_w}:{blur_h},boxblur=4:1,scale={w}:{h}[bg];"
@@ -113,7 +125,6 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.ass", fra
     else:
         # 9:16 Vertical (540x960 or 1080x1920)
         if framing == "blur":
-            blur_w, blur_h = (270, 480) if is_1080p else (135, 240)
             vf = (
                 "[0:v]split[a][b];"
                 f"[a]scale={blur_w}:{blur_h}:force_original_aspect_ratio=increase,crop={blur_w}:{blur_h},boxblur=4:1,scale={w}:{h}[bg];"
