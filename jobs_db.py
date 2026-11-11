@@ -37,6 +37,7 @@ def init_db():
                     progress INTEGER NOT NULL DEFAULT 0,
                     options TEXT,
                     clips TEXT,
+                    candidates TEXT,
                     error TEXT,
                     done INTEGER NOT NULL DEFAULT 0,
                     cancelled INTEGER NOT NULL DEFAULT 0,
@@ -44,6 +45,12 @@ def init_db():
                     updated_at REAL
                 );
                 """)
+                # Migration: add candidates column if missing in existing database
+                try:
+                    conn.execute("ALTER TABLE jobs ADD COLUMN candidates TEXT;")
+                except Exception:
+                    pass
+
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at);")
 
@@ -70,30 +77,32 @@ def init_db():
         finally:
             conn.close()
 
-def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="", options=None):
+def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="", options=None, candidates=None):
     init_db()
     now = time.time()
     options_json = json.dumps(options or {})
     clips_json = json.dumps([])
+    candidates_json = json.dumps(candidates or [])
     with _lock:
         conn = get_connection()
         try:
             with conn:
                 conn.execute("""
-                INSERT INTO jobs (id, type, url, title, thumbnail, status, stage, progress, options, clips, error, done, cancelled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'queued', 'Queued in processing pool...', 0, ?, ?, NULL, 0, 0, ?, ?)
+                INSERT INTO jobs (id, type, url, title, thumbnail, status, stage, progress, options, clips, candidates, error, done, cancelled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'queued', 'Queued in processing pool...', 0, ?, ?, ?, NULL, 0, 0, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     url = excluded.url,
                     title = excluded.title,
                     thumbnail = excluded.thumbnail,
                     options = excluded.options,
+                    candidates = excluded.candidates,
                     updated_at = excluded.updated_at;
-                """, (jid, job_type, url, title, thumbnail, options_json, clips_json, now, now))
+                """, (jid, job_type, url, title, thumbnail, options_json, clips_json, candidates_json, now, now))
         finally:
             conn.close()
     return get_job(jid)
 
-def update_job(jid, status=None, stage=None, progress=None, clips=None, error=None, done=None, cancelled=None):
+def update_job(jid, status=None, stage=None, progress=None, clips=None, candidates=None, error=None, done=None, cancelled=None):
     now = time.time()
     updates = []
     params = []
@@ -110,6 +119,9 @@ def update_job(jid, status=None, stage=None, progress=None, clips=None, error=No
     if clips is not None:
         updates.append("clips = ?")
         params.append(json.dumps(clips))
+    if candidates is not None:
+        updates.append("candidates = ?")
+        params.append(json.dumps(candidates))
     if error is not None:
         updates.append("error = ?")
         params.append(error)
@@ -151,13 +163,17 @@ def get_job(jid):
             res["done"] = bool(res["done"])
             res["cancelled"] = bool(res["cancelled"])
             try:
-                res["options"] = json.loads(res["options"]) if res["options"] else {}
+                res["options"] = json.loads(res["options"]) if res.get("options") else {}
             except Exception:
                 res["options"] = {}
             try:
-                res["clips"] = json.loads(res["clips"]) if res["clips"] else []
+                res["clips"] = json.loads(res["clips"]) if res.get("clips") else []
             except Exception:
                 res["clips"] = []
+            try:
+                res["candidates"] = json.loads(res["candidates"]) if "candidates" in res and res.get("candidates") else []
+            except Exception:
+                res["candidates"] = []
             return res
         finally:
             conn.close()
@@ -175,10 +191,12 @@ def list_jobs(limit=50):
                 r = dict(row)
                 r["done"] = bool(r["done"])
                 r["cancelled"] = bool(r["cancelled"])
-                try: r["options"] = json.loads(r["options"]) if r["options"] else {}
+                try: r["options"] = json.loads(r["options"]) if r.get("options") else {}
                 except Exception: r["options"] = {}
-                try: r["clips"] = json.loads(r["clips"]) if r["clips"] else []
+                try: r["clips"] = json.loads(r["clips"]) if r.get("clips") else []
                 except Exception: r["clips"] = []
+                try: r["candidates"] = json.loads(r["candidates"]) if "candidates" in r and r.get("candidates") else []
+                except Exception: r["candidates"] = []
                 out.append(r)
             return out
         finally:

@@ -7,9 +7,9 @@ import urllib.parse
 import urllib.request
 from flask import Flask, request, jsonify, send_from_directory, send_file, redirect
 from config import DEFAULT_EXPORT_PROFILE, WORK_DIR, OUT_DIR
-from pipeline import run
+from pipeline import run, cancel_review, set_confirmed_clips
 from cut import cut
-from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir, get_storage_provider
+from storage import get_dir_size_mb, cleanup_storage, get_job_out_dir, cleanup_job_work_dir, get_job_work_dir, get_storage_provider
 from faceless import create_faceless_video, VOICES, STYLES
 from library import get_library, save_library_entry, delete_library_entry, delete_library_clip, clear_completed_entries
 from notifications import send_completion_email, build_clipper_email, build_faceless_email
@@ -120,8 +120,9 @@ def save_job(jid):
         db_update_job(
             jid,
             status=j.get("status"),
-            stage=j.get("status"),
+            stage=j.get("stage") or j.get("status"),
             clips=j.get("clips", []),
+            candidates=j.get("candidates", []),
             error=j.get("error"),
             done=j.get("done", False),
             cancelled=j.get("cancelled", False)
@@ -130,13 +131,13 @@ def save_job(jid):
         print(f"[SERVER] Notice saving job {jid}: {e}")
 
 def load_job(jid):
-    if jid in jobs:
-        return jobs[jid]
-    # Check SQLite database first
+    # Check SQLite database first for authoritative state
     db_j = db_get_job(jid)
     if db_j:
         jobs[jid] = db_j
         return db_j
+    if jid in jobs:
+        return jobs[jid]
     # Fallback to file on disk
     p = os.path.join(WORK_DIR, "jobs", f"{jid}.json")
     if os.path.exists(p):
@@ -331,6 +332,7 @@ def create():
         "caption_style": data.get("caption_style", "beasty"),
         "framing": data.get("framing", "crop"),
         "export_profile": data.get("export_profile") or data.get("resolution", DEFAULT_EXPORT_PROFILE),
+        "review_clips": bool(data.get("review_clips", False)),
         "email": (data.get("email") or "").strip()
     }
 
@@ -364,6 +366,79 @@ def status(jid):
     if not j: return jsonify({"error": "Job not found"}), 404
     return jsonify(j)
 
+@app.get("/api/jobs/<jid>/review")
+def get_job_review(jid):
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+    return jsonify({
+        "id": jid,
+        "status": j.get("status"),
+        "stage": j.get("stage"),
+        "candidates": j.get("candidates", []),
+        "options": j.get("options", {}),
+        "preview": j.get("preview", {})
+    })
+
+@app.post("/api/jobs/<jid>/confirm-review")
+def confirm_job_review(jid):
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    chosen_clips = data.get("clips")
+    if not chosen_clips or not isinstance(chosen_clips, list):
+        return jsonify({"error": "No clips provided for rendering"}), 400
+
+    validated = []
+    for idx, c in enumerate(chosen_clips, 1):
+        try:
+            start = float(c.get("start", 0))
+            end = float(c.get("end", 0))
+            if end <= start:
+                continue
+            validated.append({
+                "start": start,
+                "end": end,
+                "title": str(c.get("title", f"Clip #{idx}")).strip(),
+                "score": int(c.get("score", 90)),
+                "category": str(c.get("category", "Viral Hook")),
+                "hook_reason": str(c.get("hook_reason", "")),
+                "caption": str(c.get("caption", "")),
+                "hashtags": c.get("hashtags", []),
+                "index": idx
+            })
+        except Exception:
+            pass
+
+    if not validated:
+        return jsonify({"error": "At least one valid clip must be selected"}), 400
+
+    set_confirmed_clips(jid, validated)
+    if jid in jobs:
+        jobs[jid]["status"] = "processing"
+        jobs[jid]["stage"] = f"Confirmed {len(validated)} clip(s); preparing to render..."
+        jobs[jid]["progress"] = 58
+        save_job(jid)
+    else:
+        db_update_job(jid, status="processing", stage=f"Confirmed {len(validated)} clip(s); preparing to render...", progress=58)
+
+    return jsonify({"ok": True, "count": len(validated)})
+
+@app.get("/api/jobs/<jid>/source-video")
+def get_source_video(jid):
+    try:
+        work_dir = get_job_work_dir(jid)
+    except Exception:
+        return jsonify({"error": "Invalid job ID"}), 400
+    if not os.path.exists(work_dir):
+        return jsonify({"error": "Work directory not found"}), 404
+    for fname in os.listdir(work_dir):
+        if fname.endswith(".mp4") and not fname.startswith("tmp_"):
+            return send_from_directory(work_dir, fname)
+    return jsonify({"error": "Source video file not found"}), 404
+
 @app.post("/api/jobs/<jid>/cancel")
 def cancel_job(jid):
     j = load_job(jid)
@@ -373,6 +448,9 @@ def cancel_job(jid):
     jobs[jid]["status"] = "Cancelled by user"
     jobs[jid]["stage"] = "Cancelled by user"
     save_job(jid)
+
+    # Cancel any active in-browser review wait
+    cancel_review(jid)
 
     # Immediately terminate active subprocesses (ffmpeg / yt-dlp)
     terminate_job_processes(jid)

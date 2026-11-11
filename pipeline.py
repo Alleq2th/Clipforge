@@ -1,5 +1,6 @@
 import os
 import json
+import threading
 import concurrent.futures
 from download import download
 from transcribe import transcribe
@@ -9,6 +10,39 @@ from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cle
 from jobs_db import update_job, save_clip_record
 from config import MAX_CLIP_WORKERS, DEFAULT_EXPORT_PROFILE
 from memory_guard import get_adaptive_clip_workers
+
+# ================= IN-BROWSER CLIP REVIEW COORDINATION =================
+_review_events = {}
+_confirmed_clips = {}
+_review_lock = threading.Lock()
+
+def get_review_event(jid):
+    with _review_lock:
+        if jid not in _review_events:
+            _review_events[jid] = threading.Event()
+        return _review_events[jid]
+
+def set_confirmed_clips(jid, clips):
+    with _review_lock:
+        _confirmed_clips[jid] = clips
+        if jid in _review_events:
+            _review_events[jid].set()
+
+def get_confirmed_clips(jid):
+    with _review_lock:
+        return _confirmed_clips.pop(jid, None)
+
+def cancel_review(jid):
+    with _review_lock:
+        _confirmed_clips.pop(jid, None)
+        if jid in _review_events:
+            _review_events[jid].set()
+            _review_events.pop(jid, None)
+
+def cleanup_review(jid):
+    with _review_lock:
+        _confirmed_clips.pop(jid, None)
+        _review_events.pop(jid, None)
 
 def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None):
     """Renders an individual clip cleanly; returns (index, item_dict, error)."""
@@ -64,6 +98,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
     caption_style = opts.get("caption_style", "beasty")
     framing = opts.get("framing", "crop")
     export_profile = opts.get("export_profile") or opts.get("resolution") or DEFAULT_EXPORT_PROFILE
+    review_clips = bool(opts.get("review_clips", False))
 
     job_id = jid or "default"
     work_dir = get_job_work_dir(job_id)
@@ -99,6 +134,34 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
         # Save discovered candidates for metadata and retry
         with open(os.path.join(out_dir, "discovered_clips.json"), "w", encoding="utf-8") as f:
             json.dump(clips, f, indent=2)
+
+        # In-Browser Clip Review & Trim Stage (if requested)
+        if review_clips and jid:
+            update_job(
+                jid,
+                status="awaiting_review",
+                stage="Review & trim your clips before rendering...",
+                progress=55,
+                candidates=clips
+            )
+            print(f"[PIPELINE] Job {jid}: awaiting in-browser review for {len(clips)} candidate clip(s).")
+
+            review_evt = get_review_event(jid)
+            # Wait up to 30 minutes for user review; auto-proceeds if user steps away
+            reviewed = review_evt.wait(timeout=1800)
+
+            if check_cancelled and check_cancelled():
+                update_stage("Cancelled by user", 0)
+                return []
+
+            confirmed = get_confirmed_clips(jid)
+            if confirmed:
+                clips = confirmed
+                print(f"[PIPELINE] Job {jid}: user confirmed {len(clips)} clip(s) to render.")
+            elif not reviewed:
+                print(f"[PIPELINE] Job {jid}: review timed out after 30m; auto-rendering initial candidates.")
+
+            update_stage(f"Rendering {len(clips)} selected & trimmed clip(s)...", 58)
 
         total = len(clips)
         out_map = {}
@@ -203,5 +266,6 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
 
         return out
     finally:
+        cleanup_review(job_id)
         # Clean up temporary work directory (raw downloads, temp audio)
         cleanup_job_work_dir(job_id)
