@@ -15,7 +15,7 @@ from library import get_library, save_library_entry, delete_library_entry, delet
 from notifications import send_completion_email, build_clipper_email, build_faceless_email
 from voice_profiles import list_voice_profiles, create_voice_profile, delete_voice_profile, rename_voice_profile, get_voice_preview_file
 from security import validate_video_url, safe_join_path
-from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs
+from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs, get_active_job_ids
 from process_manager import submit_job, terminate_job_processes, MAX_CONCURRENT_JOBS
 from memory_guard import get_memory_status
 
@@ -23,6 +23,18 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 
 # Initialize SQLite database on startup
 init_db()
+
+def _mark_interrupted_jobs():
+    # Jobs still unfinished in the database when the server starts were killed by a restart or redeploy.
+    for jid in get_active_job_ids():
+        db_update_job(
+            jid,
+            status="Interrupted: the server restarted while this job was running. Please start it again.",
+            error="Interrupted by server restart",
+            done=True,
+        )
+
+_mark_interrupted_jobs()
 
 # In-memory caches with database fallback
 jobs = {}
