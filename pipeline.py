@@ -52,7 +52,7 @@ def cleanup_review(jid):
         _confirmed_clips.pop(jid, None)
         _review_events.pop(jid, None)
 
-def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None):
+def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None, highlight_color=None):
     """Renders an individual clip cleanly; returns (index, item_dict, error)."""
     try:
         f = cut(
@@ -62,7 +62,8 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
             framing=framing,
             out_dir=out_dir,
             jid=jid,
-            export_profile=export_profile
+            export_profile=export_profile,
+            highlight_color=highlight_color
         )
         # Offload to durable cloud storage if configured (Supabase / S3)
         provider = get_storage_provider()
@@ -105,6 +106,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
     focus = opts.get("focus", "viral")
     aspect_ratio = opts.get("aspect_ratio", "9:16")
     caption_style = opts.get("caption_style", "beasty")
+    caption_color = opts.get("caption_color") or None
     framing = opts.get("framing", "crop")
     export_profile = opts.get("export_profile") or opts.get("resolution") or DEFAULT_EXPORT_PROFILE
     review_clips = bool(opts.get("review_clips", False))
@@ -205,7 +207,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
                             _render_clip_worker,
                             video, segs, c, i, vid,
                             aspect_ratio, caption_style, framing,
-                            out_dir, jid, job_id, export_profile
+                            out_dir, jid, job_id, export_profile, caption_color
                         )
                         future_to_i[fut] = i
 
@@ -260,7 +262,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
             _, item, _ = _render_clip_worker(
                 video, segs, c, i, vid,
                 aspect_ratio, caption_style, framing,
-                out_dir, jid, job_id, export_profile
+                out_dir, jid, job_id, export_profile, caption_color
             )
             out_map[i] = item
 

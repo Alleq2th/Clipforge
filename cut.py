@@ -7,6 +7,12 @@ from process_manager import run_tracked_subprocess
 from memory_guard import get_adaptive_ffmpeg_params, check_memory_pressure, enforce_gc
 
 STYLES = {
+    # New caption styles
+    "pop_outline": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=4,Shadow=1,Alignment=2,MarginV={margin_v}",
+    "minimal_white": "FontName=Arial,FontSize=13,Bold=0,PrimaryColour=&H00FFFFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=2,Shadow=1,Alignment=2,MarginV={margin_v}",
+    "bold_cyan": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H00EED322,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
+    "orange_glow": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H00008CFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=2,Alignment=2,MarginV={margin_v}",
+    "pink_pop": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H00D84FFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
     # Original presets
     "beasty": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H0000FFFF,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
     "karaoke": "FontName=Arial,FontSize=13,Bold=1,PrimaryColour=&H0000FF00,OutlineColour=&H00000000,BorderStyle=1,Outline=3,Shadow=1,Alignment=2,MarginV={margin_v}",
@@ -144,7 +150,7 @@ def get_filter_complex(aspect_ratio, caption_style, srt_filename="clip.ass", fra
 
     return vf
 
-def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", framing="crop", out_dir=None, jid=None, export_profile=None, crf=None, preset=None, normalize_audio=None):
+def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", framing="crop", out_dir=None, jid=None, export_profile=None, crf=None, preset=None, normalize_audio=None, highlight_color=None):
     profile = resolve_export_profile(export_profile)
     active_crf = str(crf if crf is not None else profile["crf"])
     active_preset = preset or profile.get("preset", "ultrafast")
@@ -166,7 +172,7 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
             make_ass(
                 segs, c["start"], c["end"], ass_path,
                 style_key=caption_style, aspect_ratio=aspect_ratio,
-                export_profile=profile["name"], words=3
+                export_profile=profile["name"], words=3, highlight_color=highlight_color
             )
         except Exception as e:
             print(f"[CAPTIONS] ASS generation warning ({e}); generating SRT fallback...")

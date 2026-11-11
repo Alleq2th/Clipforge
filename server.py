@@ -467,6 +467,7 @@ def create():
         "focus": data.get("focus", "viral"),
         "aspect_ratio": data.get("aspect_ratio", "9:16"),
         "caption_style": data.get("caption_style", "beasty"),
+        "caption_color": data.get("caption_color") or "",
         "framing": data.get("framing", "crop"),
         "export_profile": data.get("export_profile") or data.get("resolution", DEFAULT_EXPORT_PROFILE),
         "review_clips": bool(data.get("review_clips", False)),

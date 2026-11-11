@@ -1090,6 +1090,22 @@
 
             <div class="option-group">
               <div class="option-label">
+                <span>Caption Color</span>
+                <span class="option-hint">Highlight color for the spoken words</span>
+              </div>
+              <div class="chips-grid" id="color-chips">
+                <div class="chip active" data-val=""><span class="color-dot" style="background:#94a3b8;"></span> Default for style</div>
+                <div class="chip" data-val="&H0000FFFF"><span class="color-dot" style="background:#FFFF00;"></span> Yellow</div>
+                <div class="chip" data-val="&H0000FF00"><span class="color-dot" style="background:#00FF00;"></span> Green</div>
+                <div class="chip" data-val="&H00D84FFF"><span class="color-dot" style="background:#FF4FD8;"></span> Pink</div>
+                <div class="chip" data-val="&H00EED322"><span class="color-dot" style="background:#22D3EE;"></span> Cyan</div>
+                <div class="chip" data-val="&H00008CFF"><span class="color-dot" style="background:#FF8C00;"></span> Orange</div>
+                <div class="chip" data-val="&H00FFFFFF"><span class="color-dot" style="background:#FFFFFF;"></span> White</div>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <div class="option-label">
                 <span>Export Quality Profile</span>
                 <span class="option-hint">Full HD, tuned CRF compression & loudness normalization</span>
               </div>
@@ -1146,6 +1162,21 @@
                 </div>
                 <div class="chip" data-val="cyber">
                   <span class="color-dot" style="background:#ec4899;"></span> Cyber Pink
+                </div>
+                <div class="chip" data-val="pop_outline">
+                  <span class="color-dot" style="background:#FDE047;"></span> Pop Outline
+                </div>
+                <div class="chip" data-val="minimal_white">
+                  <span class="color-dot" style="background:#e2e8f0;"></span> Minimal White
+                </div>
+                <div class="chip" data-val="bold_cyan">
+                  <span class="color-dot" style="background:#22D3EE;"></span> Bold Cyan
+                </div>
+                <div class="chip" data-val="orange_glow">
+                  <span class="color-dot" style="background:#FF8C00;"></span> Orange Glow
+                </div>
+                <div class="chip" data-val="pink_pop">
+                  <span class="color-dot" style="background:#FF4FD8;"></span> Pink Pop
                 </div>
                 <div class="chip" data-val="none">
                   🚫 No Captions (Ultra-Fast Render)
@@ -1834,6 +1865,7 @@
         framing: 'crop',
         export_profile: '1080p',
         caption_style: 'beasty',
+        caption_color: '',
         duration: '30to60',
         focus: 'viral',
         email: ''
@@ -1915,6 +1947,7 @@
     bindChips('duration-chips', val => state.options.duration = val);
     bindChips('count-chips', val => state.options.count = val);
     bindChips('style-chips', val => state.options.caption_style = val);
+    bindChips('color-chips', val => state.options.caption_color = val);
     bindChips('focus-chips', val => state.options.focus = val);
 
     // Queue input
@@ -2124,6 +2157,7 @@
               framing: state.options.framing,
               export_profile: state.options.export_profile,
               caption_style: state.options.caption_style,
+              caption_color: state.options.caption_color,
               review_clips: Boolean($('clipper-review-toggle') ? $('clipper-review-toggle').checked : false),
               email: state.options.email
             })

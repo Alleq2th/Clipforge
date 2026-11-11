@@ -181,6 +181,31 @@ ASS_PRESETS = {
         "shadow_mult": 1.4,
         "karaoke_tag": "k",
     },
+    # Pop Outline: thick outline, bigger words, yellow highlight
+    "pop_outline": {
+        "primary": "&H0000FFFF", "secondary": "&H00FFFFFF", "outline": "&H00000000", "back": "&H80000000",
+        "bold": 1, "font_mult": 1.15, "outline_mult": 1.4, "shadow_mult": 0.6, "karaoke_tag": "k",
+    },
+    # Minimal White: quiet, light weight, white highlight with grey base
+    "minimal_white": {
+        "primary": "&H00FFFFFF", "secondary": "&H00B4B4B4", "outline": "&H00000000", "back": "&H60000000",
+        "bold": 0, "font_mult": 0.95, "outline_mult": 0.8, "shadow_mult": 0.5, "karaoke_tag": "k",
+    },
+    # Bold Cyan: cool cyan highlight, medium outline
+    "bold_cyan": {
+        "primary": "&H00EED322", "secondary": "&H00FFFFFF", "outline": "&H00000000", "back": "&H80000000",
+        "bold": 1, "font_mult": 1.1, "outline_mult": 1.2, "shadow_mult": 1.0, "karaoke_tag": "k",
+    },
+    # Orange Glow: warm orange highlight with a soft glow shadow
+    "orange_glow": {
+        "primary": "&H00008CFF", "secondary": "&H00FFFFFF", "outline": "&H00000000", "back": "&H80000000",
+        "bold": 1, "font_mult": 1.05, "outline_mult": 1.0, "shadow_mult": 2.0, "karaoke_tag": "k",
+    },
+    # Pink Pop: playful pink highlight, larger shadow
+    "pink_pop": {
+        "primary": "&H00D84FFF", "secondary": "&H00FFFFFF", "outline": "&H00000000", "back": "&H80000000",
+        "bold": 1, "font_mult": 1.12, "outline_mult": 1.25, "shadow_mult": 1.3, "karaoke_tag": "k",
+    },
 }
 
 def get_ass_dimensions(aspect_ratio="9:16", export_profile=None):
@@ -197,7 +222,7 @@ def get_ass_dimensions(aspect_ratio="9:16", export_profile=None):
         margin_v = round(80 * (h / 1080.0))
     return w, h, margin_v
 
-def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", export_profile=None, words=3, animation_mode="karaoke"):
+def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", export_profile=None, words=3, animation_mode="karaoke", highlight_color=None):
     """
     Builds styled Advanced SubStation Alpha (.ass) subtitles with animated
     karaoke word highlights matching viral short-form pacing.
@@ -206,6 +231,8 @@ def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", ex
     is_1080p = (h >= 1080 and w >= 1080)
 
     preset = ASS_PRESETS.get(style_key, ASS_PRESETS["beasty"])
+    if highlight_color and str(highlight_color).startswith("&H"):
+        preset = dict(preset, primary=highlight_color)
 
     # Base typography sizing cleanly scaled by canvas dimensions
     scale_factor = h / 960.0
