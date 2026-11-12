@@ -1636,6 +1636,108 @@
       .pv-prev { height: 132px; }
     }
 
+  
+
+    /* ClipForge visual polish — pass 2 */
+    body { background: var(--bg); }
+    main { max-width: 860px; }
+    .hero {
+      text-align: left;
+      align-items: center;
+      gap: 22px;
+      margin-bottom: 26px;
+    }
+    .hero h1 { max-width: 620px; font-size: clamp(27px, 4vw, 38px); letter-spacing: -.045em; line-height: 1.08; }
+    .hero p { max-width: 560px; font-size: 14px; line-height: 1.65; }
+    .hero-steps { margin-top: 12px; }
+    .hero-visual { width: 112px; border-radius: 14px; border-color: rgba(255,255,255,.10); }
+    .wizard-card {
+      border-color: rgba(255,255,255,.085);
+      border-radius: 16px;
+      box-shadow: 0 18px 54px rgba(0,0,0,.26);
+    }
+    .steps-header { background: #101015; }
+    .step-tab { min-height: 54px; font-size: 12px; letter-spacing: .01em; }
+    .step-tab.active { background: rgba(124,58,237,.055); }
+    .step-tab::after { left: 14px; right: 14px; }
+    .step-circle { width: 20px; height: 20px; }
+    .step-body { padding: 26px; }
+    .pane-title { font-size: 19px; letter-spacing: -.025em; margin-bottom: 6px; }
+    .pane-subtitle { font-size: 13px; line-height: 1.6; margin-bottom: 22px; max-width: 620px; }
+    .option-group { margin-bottom: 26px; }
+    .option-label { font-size: 13px; margin-bottom: 11px; gap: 12px; }
+    .option-hint { font-size: 11px; line-height: 1.4; text-align: right; }
+    .ratio-grid { gap: 12px; }
+    .ratio-card { min-height: 138px; padding: 18px 12px; border-radius: 12px; }
+    .ratio-card.active, .chip.active, .pv-row.active {
+      box-shadow: none;
+      background: rgba(124,58,237,.105);
+    }
+    .chip.pv-row, .ratio-card.pv-row {
+      border-radius: 13px;
+      border-width: 1px;
+      padding: 12px;
+      gap: 10px;
+      min-width: 0;
+    }
+    .pv-title { font-size: 12px; line-height: 1.35; min-height: 2.7em; }
+    .pv-caption { line-height: 1.5; min-height: 0; margin-top: 8px; }
+    .pv-phone { border-radius: 9px; }
+    .wizard-footer { padding: 18px 26px; background: #101015; }
+    .btn-next { max-width: 320px; }
+    .url-input, .btn-add, .btn-next, .btn-back { border-radius: 10px; }
+    .check-row { border-radius: 11px; padding: 14px; }
+    .check-title { font-size: 12px; line-height: 1.45; }
+    .check-sub { line-height: 1.5; }
+
+    @media (max-width: 680px) {
+      main { max-width: 100%; padding: 20px 14px 56px; }
+      .hero { gap: 12px; margin-bottom: 18px; }
+      .hero h1 { font-size: clamp(25px, 7vw, 32px); }
+      .hero p { font-size: 12px; line-height: 1.55; }
+      .hero-visual { width: 76px; border-radius: 10px; }
+      .hero-steps { font-size: 10px; }
+      .step-body { padding: 20px 16px; }
+      .steps-header .step-tab { min-height: 48px; font-size: 10px; gap: 5px; }
+      .step-circle { width: 17px; height: 17px; font-size: 9px; }
+      .pane-title { font-size: 17px; }
+      .pane-subtitle { font-size: 12px; margin-bottom: 18px; }
+      .option-group { margin-bottom: 22px; }
+      .option-label { align-items: flex-start; flex-direction: column; gap: 3px; }
+      .option-hint { text-align: left; }
+      .pv-list.chips-grid, .pv-list.ratio-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        overflow: visible;
+        -webkit-mask-image: none;
+        mask-image: none;
+      }
+      .chip.pv-row, .ratio-card.pv-row {
+        width: auto;
+        min-width: 0;
+        flex: initial;
+        padding: 10px 8px;
+        border-radius: 12px;
+      }
+      .pv-prev { height: 138px; }
+      .pv-phone { width: 78px; height: 138px; }
+      .pv-title { font-size: 11px; min-height: 2.6em; }
+      .pv-caption { font-size: 11px; }
+      .ratio-grid { gap: 8px; }
+      .ratio-card { min-height: 118px; padding: 13px 7px; }
+      .wizard-footer { padding: 14px 16px; }
+      .btn-next { max-width: none; }
+    }
+    @media (max-width: 380px) {
+      .nav-inner { padding-left: 10px; padding-right: 10px; gap: 7px; }
+      .brand { font-size: 16px; }
+      .mode-btn { padding: 5px 7px; font-size: 10px; }
+      .hero-visual { display: none; }
+      .pv-prev { height: 122px; }
+      .pv-phone { width: 69px; height: 122px; }
+      .step-body { padding: 18px 12px; }
+    }
+
   </style>
 </head>
 <body>
