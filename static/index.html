@@ -1731,6 +1731,73 @@
     @media(max-width:520px){.wizard-footer{flex-direction:column;align-items:stretch}.wizard-footer .btn-next{width:100%;justify-content:center}}
       .pv-row.active .pv-title{color:#161616}
     #gta-email{width:100%}
+  
+    /* ===== v3: pricing, sort, score breakdown, share, live progress, before/after ===== */
+    @keyframes grow{from{transform:scaleX(0)}}@keyframes up{from{opacity:0;transform:translateY(8px)}}
+    .hx-link{margin-left:16px;font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--acc);color:var(--ink)}
+    .ba{margin:0 0 24px}.ba p{font-size:12px;color:var(--mute);margin-bottom:8px}
+    .tl{position:relative;height:12px;background:var(--card-inner);border-radius:4px}
+    .tl i{position:absolute;top:0;height:100%;background:var(--acc);border-radius:4px;transform-origin:left;animation:grow .4s ease-out backwards}
+    .ba-c{display:flex;gap:8px;margin-top:12px}
+    .ba-c b{width:36px;aspect-ratio:9/16;background:var(--card-inner);border-radius:4px;display:flex;align-items:flex-end;justify-content:center;padding-bottom:4px;font-size:12px;color:var(--acc);font-variant-numeric:tabular-nums;animation:up .24s ease-out backwards}
+    .sortbar{display:inline-grid;grid-auto-flow:column;background:var(--card);border-radius:12px;padding:4px;margin-bottom:12px}
+    .sortbar button{background:none;border:0;padding:8px 16px;border-radius:8px;color:var(--mute);cursor:pointer;transition:background .15s,color .15s}
+    .sortbar button.on{background:var(--bg);color:var(--ink);font-weight:600}
+    .bd{display:grid;gap:4px;margin:8px 0}
+    .bd div{display:grid;grid-template-columns:40px 1fr 24px;align-items:center;gap:8px;font-size:11px;color:var(--mute)}
+    .bd span{text-transform:capitalize}.bd i{height:4px;background:var(--card-inner);border-radius:4px;position:relative}
+    .bd i::after{content:"";position:absolute;inset:0;width:var(--w);background:var(--acc);border-radius:4px;transform-origin:left;animation:grow .4s ease-out backwards}
+    .bd b{color:var(--ink);font-variant-numeric:tabular-nums;text-align:right}
+    .live-bar{height:4px;background:var(--card-inner);border-radius:4px;margin:8px 0 12px}
+    .live-bar i{display:block;height:100%;width:var(--done,0%);background:var(--acc);border-radius:4px;transition:width .3s ease-out}
+    header::after{content:"";position:absolute;left:0;bottom:0;height:2px;background:var(--acc);width:var(--done,0%);transition:width .3s ease-out}
+    .pr{margin-top:64px}.pr h2{font-size:32px;font-weight:800;line-height:1.1}.pr>p{color:var(--mute);margin:8px 0 24px}
+    .pl{display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:center;padding:16px;background:var(--card);border-radius:12px;margin-bottom:8px}
+    .pl.hot{background:var(--acc);color:#161616;padding:24px 16px}
+    .pl b{font-size:18px}.pl span{display:block;font-size:13px;color:var(--mute)}.pl.hot span{color:#161616}
+    .pl strong{font-size:28px;font-variant-numeric:tabular-nums}.pl small{font-size:14px;font-weight:400}
+    .pl button{grid-column:1/-1;background:var(--acc);color:#161616;border:0;border-radius:12px;padding:12px 16px;font-weight:700;cursor:pointer;transition:transform .1s ease-out}
+    .pl.hot button{background:#161616;color:var(--acc)}.pl button:active{transform:scale(.97)}
+    @media(min-width:700px){.pl{grid-template-columns:1fr auto auto}.pl button{grid-column:auto}}
+    #su{display:none;gap:8px;margin-top:16px;flex-wrap:wrap}#su.on{display:flex}
+    #su input{flex:1;min-width:200px;border:0;background:var(--card-inner);border-radius:12px;padding:16px;color:var(--ink)}
+    #su button{background:var(--acc);color:#161616;border:0;border-radius:12px;padding:16px 24px;font-weight:700;cursor:pointer}
+    #su-msg{margin-top:8px;color:var(--mute);font-size:14px}
+      .clip-card .clip-acts{flex-wrap:wrap}.clip-card .btn-dl{flex:1 1 100%}.clip-card .btn-copy{flex:1;padding:8px;font-size:12px;min-height:0}
+  
+    /* ===== v4: platform tiles + source video preview rail ===== */
+    .plats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px 0}
+    .plats::-webkit-scrollbar,.queue-container::-webkit-scrollbar{display:none}
+    .plats b{flex:none;display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card-inner);border-radius:8px;font-size:13px;font-weight:600;color:var(--mute);transition:background .15s,color .15s}
+    .plats b span{font-size:11px;font-weight:800;color:var(--ink);transition:color .15s}
+    .plats b.on{background:var(--acc);color:#161616}.plats b.on span{color:#161616}
+    .queue-container{display:flex;flex-direction:row;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;margin-top:16px;align-items:flex-start}
+    .qc{flex:none;scroll-snap-align:start;position:relative;width:184px;animation:up .24s ease-out backwards}
+    .qc.v{width:112px}
+    .qt{position:relative;display:grid;place-items:center;aspect-ratio:16/9;background:var(--card-inner);border-radius:8px;overflow:hidden;font-weight:800;font-size:24px;color:var(--mute);text-decoration:none}
+    .qc.v .qt{aspect-ratio:9/16}
+    .qt img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+    .qp{position:absolute;top:8px;left:8px;background:var(--acc);color:#161616;border-radius:4px;padding:2px 8px;font-size:11px;font-weight:800}
+    .qd{position:absolute;right:8px;bottom:8px;background:#161616;color:#f6f6f6;border-radius:4px;padding:2px 8px;font-size:11px;font-variant-numeric:tabular-nums}
+    .qn{font-size:13px;font-weight:600;margin-top:8px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+    .qa{font-size:12px;color:var(--mute)}
+    .qc .btn-remove{position:absolute;top:4px;right:4px;width:24px;height:24px;display:grid;place-items:center;background:#161616;color:#f6f6f6;border:0;border-radius:4px;padding:0;cursor:pointer;z-index:2}
+  
+    /* ===== v5: in-app player sheet ===== */
+    button.qt{border:0;padding:0;width:100%;cursor:pointer;font-family:inherit}
+    .qt.pl::after{content:"\25B6";position:absolute;inset:0;margin:auto;width:40px;height:40px;display:grid;place-items:center;background:var(--acc);color:#161616;border-radius:8px;font-size:14px;transition:transform .15s ease-out}
+    .qt.pl:hover::after{transform:scale(1.08)}.qt.pl:active::after{transform:scale(.97)}
+    #vp{position:fixed;inset:0;z-index:100;display:none}#vp.on{display:block}
+    .vp-b{position:absolute;inset:0;background:#161616;opacity:.85}
+    .vp-s{position:absolute;left:0;right:0;bottom:0;background:var(--card);border-radius:16px 16px 0 0;padding:48px 16px calc(16px + env(safe-area-inset-bottom,0px));max-height:92vh;overflow:auto;animation:sheet .2s ease-out}
+    @keyframes sheet{from{transform:translateY(24px);opacity:0}}
+    .vp-x{position:absolute;top:8px;right:8px;width:32px;height:32px;background:var(--card-inner);color:var(--ink);border:0;border-radius:8px;cursor:pointer;font-size:18px}
+    .vp-f{display:block;width:100%;border:0;border-radius:8px;background:#161616;aspect-ratio:16/9}
+    .vp-f.v{width:min(100%,325px);aspect-ratio:9/16;margin:0 auto}
+    video.vp-f{aspect-ratio:auto;max-height:70vh}
+    .vp-t{font-weight:600;margin:12px 0 4px}
+    .vp-o{display:inline-block;margin-top:8px;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--acc)}
+    @media(min-width:700px){.vp-s{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);border-radius:16px;animation:none}}
   </style>
 </head>
 <body>
@@ -1755,7 +1822,9 @@
   <main>
     <!-- MODE 1: AI VIDEO CLIPPER -->
     <div id="section-clipper">
-      <div class="hx"><div><h1>One long video. Ten clips ready to post</h1><p>Paste a link. ClipForge finds the best moments, captions them and cuts vertical clips you can download</p><button class="hx-cta" onclick="document.getElementById('yt-url').focus()">Paste a link</button></div><div class="hx-stage" id="hx"><div class="hx-in"><div class="hc l"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:20% 25%"><b>91</b><span>He never <i>saw</i> it coming</span></div><div class="hc r"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:80% 25%"><b>88</b><span>Wait for the <i>end</i></span></div><div class="hc c"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:50% 25%"><b>97</b><span>This is <i>wild</i></span></div></div></div></div>
+      <div class="hx"><div><h1>One long video. Ten clips ready to post</h1><p>Paste a link. ClipForge finds the best moments, captions them and cuts vertical clips you can download</p><button class="hx-cta" onclick="document.getElementById('yt-url').focus()">Paste a link</button><a class="hx-link" href="#pricing">See pricing</a></div><div class="hx-stage" id="hx"><div class="hx-in"><div class="hc l"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:20% 25%"><b>91</b><span>He never <i>saw</i> it coming</span></div><div class="hc r"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:80% 25%"><b>88</b><span>Wait for the <i>end</i></span></div><div class="hc c"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:50% 25%"><b>97</b><span>This is <i>wild</i></span></div></div></div></div>
+
+      <div class="ba" aria-hidden="true"><p>Example: a 42-minute episode becomes five clips</p><div class="tl"><i style="left:6%;width:5%;animation-delay:0ms"></i><i style="left:19%;width:4%;animation-delay:60ms"></i><i style="left:38%;width:6%;animation-delay:120ms"></i><i style="left:57%;width:4%;animation-delay:180ms"></i><i style="left:80%;width:5%;animation-delay:240ms"></i></div><div class="ba-c"><b style="animation-delay:300ms">97</b><b style="animation-delay:330ms">94</b><b style="animation-delay:360ms">91</b><b style="animation-delay:390ms">88</b><b style="animation-delay:420ms">86</b></div></div>
 
       <!-- Clipper Wizard Card -->
       <div class="wizard-card" id="wizard-box">
@@ -1788,6 +1857,8 @@
               <input type="text" class="url-input" id="yt-url" placeholder="Paste a video link">
               <button class="btn-add" id="btn-add">Add Video</button>
             </div>
+
+            <div class="plats" id="plats"></div>
 
             <div class="or-line">or upload a video file</div>
 
@@ -2095,6 +2166,7 @@
               <span></span> <span id="live-stream-title">Finished Clips</span>
             </div>
           </div>
+          <div class="live-bar"><i></i></div>
           <div class="clips-stream" id="live-clips-grid"></div>
         </div>
       </div>
@@ -2160,6 +2232,7 @@
           </div>
           <button class="btn-back" id="btn-clip-new">Clip Another Video</button>
         </div>
+        <div class="sortbar" id="sortbar"><button class="on" data-s="score">Best score</button><button data-s="order">Original order</button></div>
         <div class="clips-stream" id="clips-stream"></div>
       </div>
     </div>
@@ -2339,6 +2412,8 @@
         </div>
       </div>
     </div>
+  <section class="pr" id="pricing"><h2>Pricing</h2><p>Start free, upgrade when you post every day</p><div id="plans"></div>
+    <div id="su"><input type="email" id="su-email" placeholder="Your email" aria-label="Email"><button id="su-go">Join</button></div><div id="su-msg"></div></section>
   </main>
 
   <!-- Library Modal (Server-Backed & Persistent) -->
@@ -2416,6 +2491,7 @@
     </div>
   </div>
 
+  <div id="vp"><div class="vp-b"></div><div class="vp-s" role="dialog" aria-modal="true" aria-label="Video preview"><button class="vp-x" aria-label="Close">&times;</button><div id="vp-body"></div></div></div>
   <script>
     const $ = id => document.getElementById(id);
 
@@ -2955,7 +3031,8 @@
           id: data.id,
           title: data.title || 'Video',
           author: data.author || 'Platform',
-          thumbnail: data.thumbnail
+          thumbnail: data.thumbnail,
+          duration: data.duration
         });
 
         input.value = '';
@@ -2973,25 +3050,26 @@
       if (e.key === 'Enter') $('btn-add').click();
     });
 
+    var PLATS=[['TikTok','TT',/tiktok\.com/,1],['YouTube','YT',/youtube\.com|youtu\.be/,0],['Twitch','TW',/twitch\.tv/,0],['Instagram','IG',/instagram\.com/,1],['Facebook','FB',/facebook\.com|fb\.watch/,0],['Rumble','RB',/rumble\.com/,0],['X','X',/(^|\/\/|\.)(x|twitter)\.com/,0]];
+    function platOf(u){u=u||'';for(var i=0;i<PLATS.length;i++)if(PLATS[i][2].test(u))return PLATS[i];return null}
+    $('plats').innerHTML=PLATS.map(function(p){return '<b data-n="'+p[0]+'"><span>'+p[1]+'</span>'+p[0]+'</b>'}).join('');
+    $('yt-url').addEventListener('input',function(){var p=platOf(this.value);document.querySelectorAll('#plats b').forEach(function(b){b.classList.toggle('on',!!p&&b.dataset.n==p[0])})});
+    function mmss(t){t=Math.round(+t);return isFinite(t)&&t>0?Math.floor(t/60)+':'+String(t%60).padStart(2,'0'):''}
     function renderQueue() {
       const container = $('queue-list');
       container.innerHTML = '';
-
       state.queue.forEach((item, idx) => {
+        const p = platOf(item.url), v = p ? p[3] || /youtube\.com\/shorts\//.test(item.url) : /\.(mp4|mov|webm|mkv)/i.test(item.url||'');
         const card = document.createElement('div');
-        card.className = 'video-card';
-        card.innerHTML = `
-          ${item.thumbnail ? `<img src="${item.thumbnail}" class="video-thumb" alt="Thumbnail">` : ''}
-          <div class="video-meta">
-            <div class="video-name">${item.title}</div>
-            <div class="video-author">${item.author}</div>
-            <div class="video-status">Queued #${idx + 1}</div>
-          </div>
-          <button class="btn-remove" onclick="removeQueue(${idx})">&times;</button>
-        `;
+        card.className = 'qc' + (v ? ' v' : '');
+        card.style.animationDelay = (idx * 30) + 'ms';
+        const link = /^https?:/.test(item.url || '');
+        const inner = (item.thumbnail ? `<img src="${escapeHtml(item.thumbnail)}" alt="">` : '') + `<span class="qp">${p ? p[1] : 'Upload'}</span>` + (mmss(item.duration) ? `<span class="qd">${mmss(item.duration)}</span>` : '') + (item.thumbnail ? '' : (p ? p[1] : 'UP'));
+        card.innerHTML = `<button class="qt pl" onclick="openVp(${idx})" aria-label="Play preview">${inner}</button>` +
+          `<div class="qn">${escapeHtml(item.title || 'Video')}</div><div class="qa">${escapeHtml(item.author || '')}${p ? ' · ' + p[0] : ''} · #${idx + 1}</div>` +
+          `<button class="btn-remove" aria-label="Remove" onclick="removeQueue(${idx})">&times;</button>`;
         container.appendChild(card);
       });
-
       if (currentStep === 1) {
         $('btn-next').disabled = state.queue.length === 0;
       }
@@ -3005,7 +3083,7 @@
     function renderClipCard(c, idx, ratio) {
       const card = document.createElement('div');
       card.className = 'clip-card';
-      const score = c.score || 94;
+      const score = c.score || 94; card.dataset.score = score; card.dataset.i = idx;
       const cat = c.category || 'Viral Hook';
       const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
       const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
@@ -3024,12 +3102,13 @@
             <span class="cat-badge">${escapeHtml(cat)}</span>
             ${profileBadge}
           </div>
-          <div class="clip-heading">${escapeHtml(c.title || ('Highlight #' + (idx + 1)))}</div>
+          <div class="clip-heading">${escapeHtml(c.title || ('Highlight #' + (idx + 1)))}</div>${bd(c)}
           <div class="hook-alert"><b>Why it works:</b> ${escapeHtml(hookReason)}</div>
           <div class="clip-snippet">${escapeHtml(c.caption || '')}</div>
           <div class="clip-acts">
             <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${escapeHtml(c.title || c.file)}')">Download MP4 (${escapeHtml(exportProf)})</button>
             <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
+            <button class="btn-copy" onclick="shareClip(${idx}, this)">Share</button>
           </div>
         </div>
       `;
@@ -3321,6 +3400,7 @@
                 $('live-clips-grid').appendChild(card);
               }
               _lastRenderedClipsCount = data.clips.length;
+              document.documentElement.style.setProperty('--done', Math.min(100, data.clips.length / totalOpt * 100) + '%');
               updateLibBadge();
             }
 
@@ -3683,6 +3763,7 @@
       clips.forEach((c, idx) => {
         grid.appendChild(renderClipCard(c, idx, ratio));
       });
+      document.documentElement.style.setProperty('--done', '0%'); sortClips('score');
     }
 
     $('btn-clip-new').onclick = () => {
@@ -4237,6 +4318,41 @@
     (function(){var h=document.getElementById('hx'),n=h&&h.firstElementChild;if(!n)return;
     h.addEventListener('pointermove',function(e){var r=h.getBoundingClientRect();n.style.setProperty('--ry',((e.clientX-r.left)/r.width-.5)*24+'deg');n.style.setProperty('--rx',(.5-(e.clientY-r.top)/r.height)*12+'deg')});
     h.addEventListener('pointerleave',function(){n.style.setProperty('--ry','0deg');n.style.setProperty('--rx','0deg')})})();
+
+    function bd(c){var b=c.breakdown;if(!b)return '';return '<div class="bd">'+['hook','flow','value','trend'].map(function(k){return '<div><span>'+k+'</span><i style="--w:'+(+b[k]||0)+'%"></i><b>'+(+b[k]||0)+'</b></div>'}).join('')+'</div>'}
+    function sortClips(k){var g=$('clips-stream');Array.prototype.slice.call(g.children).sort(function(a,b){return k=='score'?b.dataset.score-a.dataset.score:a.dataset.i-b.dataset.i}).forEach(function(c){g.appendChild(c)});
+      document.querySelectorAll('#sortbar button').forEach(function(b){b.classList.toggle('on',b.dataset.s==k)})}
+    $('sortbar').addEventListener('click',function(e){var b=e.target.closest('[data-s]');if(b)sortClips(b.dataset.s)});
+    window.shareClip=async function(i,btn){var c=(window._currentClips||[])[i];if(!c)return;var u=c.stream_url||('/clips/'+c.vid+'/'+c.file),x=((c.caption||'')+' '+((c.hashtags||[]).join(' '))).trim();
+      try{var f=new File([await(await fetch(u)).blob()],c.file||'clip.mp4',{type:'video/mp4'});
+        if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:c.title||'Clip',text:x});return}}catch(e){if(e.name=='AbortError')return}
+      try{await navigator.clipboard.writeText(x+' '+location.origin+u)}catch(e){}
+      btn.textContent='Link copied';setTimeout(function(){btn.textContent='Share'},2000)};
+    var PLANS=[['Free','$0','60 minutes a month, ClipForge watermark','Start free'],['Creator','$15','300 minutes a month, no watermark, all aspect ratios','Get Creator'],['Pro','$39','1,000 minutes a month, Studio faceless videos, priority rendering','Get Pro']],plan='';
+    $('plans').innerHTML=PLANS.map(function(p,i){return '<div class="pl'+(i==1?' hot':'')+'"><div><b>'+p[0]+'</b><span>'+p[2]+'</span></div><strong>'+p[1]+'<small>/mo</small></strong><button data-p="'+p[0]+'">'+p[3]+'</button></div>'}).join('');
+    $('plans').addEventListener('click',function(e){var b=e.target.closest('[data-p]');if(!b)return;plan=b.dataset.p;$('su').classList.add('on');$('su-msg').textContent='Sign up for '+plan;$('su-email').focus()});
+    $('su-go').onclick=function(){var m=$('su-email').value.trim();if(!/^\S+@\S+\.\S+$/.test(m)){$('su-msg').textContent='Enter a valid email';return}
+      fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:m,plan:plan})}).then(function(r){if(!r.ok)throw 0;$('su-msg').textContent='You\u2019re on the list for '+plan+'. We\u2019ll email you'}).catch(function(){$('su-msg').textContent='Could not save that. Try again in a minute'})};
+
+    function embedOf(u){var m,h=location.hostname;u=u||'';
+      if(m=u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{6,})/))return['https://www.youtube.com/embed/'+m[1]+'?autoplay=1&playsinline=1',/shorts\//.test(u)];
+      if(m=u.match(/tiktok\.com\/.*video\/(\d+)/))return['https://www.tiktok.com/embed/v2/'+m[1],1];
+      if(m=u.match(/twitch\.tv\/videos\/(\d+)/))return['https://player.twitch.tv/?video=v'+m[1]+'&parent='+h+'&autoplay=true',0];
+      if(m=u.match(/(?:clips\.twitch\.tv\/|twitch\.tv\/[^/]+\/clip\/)([\w-]+)/))return['https://clips.twitch.tv/embed?clip='+m[1]+'&parent='+h+'&autoplay=true',0];
+      if(m=u.match(/instagram\.com\/(reel|p|tv)\/([\w-]+)/))return['https://www.instagram.com/'+m[1]+'/'+m[2]+'/embed',1];
+      if(/facebook\.com|fb\.watch/.test(u))return['https://www.facebook.com/plugins/video.php?show_text=false&href='+encodeURIComponent(u),0];
+      return null}
+    window.openVp=function(i){var it=state.queue[i];if(!it)return;var p=platOf(it.url),e=embedOf(it.url),b='';
+      if(e)b='<iframe class="vp-f'+(e[1]?' v':'')+'" src="'+e[0]+'" allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>';
+      else if(!/^https?:/.test(it.url||''))b='<video class="vp-f" src="'+escapeHtml(it.url)+'" controls autoplay playsinline></video>';
+      else b='<p class="qa">'+(p?p[0]:'This platform')+' videos can\u2019t play inside the app, but you can still clip this one</p>';
+      b+='<div class="vp-t">'+escapeHtml(it.title||'Video')+'</div><div class="qa">'+escapeHtml(it.author||'')+(p?' \u00b7 '+p[0]:'')+'</div>';
+      if(/^https?:/.test(it.url||''))b+='<a class="vp-o" href="'+escapeHtml(it.url)+'" target="_blank" rel="noopener">Open on '+(p?p[0]:'source')+'</a>';
+      $('vp-body').innerHTML=b;$('vp').classList.add('on');document.querySelector('.vp-x').focus()};
+    function closeVp(){$('vp-body').innerHTML='';$('vp').classList.remove('on')}
+    document.querySelector('.vp-x').onclick=closeVp;document.querySelector('.vp-b').onclick=closeVp;
+    document.addEventListener('keydown',function(e){if(e.key=='Escape')closeVp()});
 </script>
+
 </body>
 </html>
