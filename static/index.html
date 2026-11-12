@@ -1552,6 +1552,90 @@
       .pv-row, .pv-txt, .modal-box, .modal-backdrop, .clip-card, .step-pane, .pipe-step .anim-icon { animation: none !important; }
       .step-pane.leaving { display: none; }
     }
+  
+
+    /* ClipForge refinement: calmer surfaces and a mobile-first preset layout */
+    body { background: var(--bg); }
+    main { max-width: 820px; padding-top: 28px; }
+    .hero { text-align: left; margin-bottom: 24px; }
+    .hero h1 { max-width: 620px; letter-spacing: -0.035em; }
+    .hero p { max-width: 560px; font-size: 14px; line-height: 1.6; }
+    .wizard-card {
+      border-color: rgba(255,255,255,.075);
+      border-radius: 16px;
+      box-shadow: 0 18px 54px rgba(0,0,0,.28);
+    }
+    .steps-header { background: rgba(255,255,255,.018); }
+    .step-tab { padding: 14px 8px; }
+    .step-body { padding: 24px; }
+    .pane-title { font-size: 18px; letter-spacing: -.02em; }
+    .pane-subtitle { font-size: 13px; line-height: 1.55; margin-bottom: 20px; }
+    .option-group { margin-bottom: 24px; }
+    .option-label { font-size: 13px; margin-bottom: 10px; }
+    .option-hint { font-size: 11px; }
+    .ratio-card, .chip { transition: border-color .18s ease, background-color .18s ease, color .18s ease; }
+    .ratio-card.active, .chip.active {
+      box-shadow: none;
+      background: rgba(124,58,237,.11);
+    }
+    .pv-list.chips-grid,
+    .pv-list.ratio-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      flex-wrap: initial;
+      overflow: visible;
+      scroll-snap-type: none;
+      padding: 2px 0;
+      margin: 0;
+      gap: 12px;
+    }
+    .chip.pv-row,
+    .ratio-card.pv-row {
+      width: auto;
+      min-width: 0;
+      flex: initial;
+      padding: 12px;
+      border-radius: 13px;
+      gap: 9px;
+    }
+    .pv-prev { height: 174px; }
+    .pv-phone { width: 98px; height: 174px; }
+    .pv-desc { font-size: 11px; }
+    .wizard-footer { padding: 16px 24px; }
+    .btn-next, .btn-add { border-radius: 10px; }
+    .url-input { border-radius: 10px; }
+
+    @media (max-width: 680px) {
+      main { max-width: 100%; padding: 22px 14px 64px; }
+      .hero { margin-bottom: 18px; }
+      .hero h1 { font-size: clamp(25px, 7vw, 32px); }
+      .step-body { padding: 18px 16px; }
+      .wizard-footer { padding: 14px 16px; }
+      .pv-list.chips-grid,
+      .pv-list.ratio-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+      .chip.pv-row,
+      .ratio-card.pv-row {
+        padding: 10px 8px;
+        border-radius: 12px;
+      }
+      .pv-prev { height: 148px; }
+      .pv-phone { width: 83px; height: 148px; border-radius: 11px; }
+      .pv-sub { font-size: 11px; }
+      .pv-title { font-size: 12px; }
+      .pv-desc { font-size: 10.5px; }
+      .option-group { margin-bottom: 20px; }
+    }
+    @media (max-width: 380px) {
+      .nav-inner { padding-left: 10px; padding-right: 10px; gap: 8px; }
+      .brand { font-size: 16px; }
+      .mode-btn { padding: 5px 8px; font-size: 11px; }
+      .pv-phone { width: 74px; height: 132px; }
+      .pv-prev { height: 132px; }
+    }
+
   </style>
 </head>
 <body>
