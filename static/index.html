@@ -1636,6 +1636,17 @@
       .pv-prev { height: 132px; }
     }
 
+    /* ===== Four-step flow + compact option grids ===== */
+    @media (max-width: 680px) {
+      .pv-list.chips-grid,
+      .pv-list.ratio-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+      .chip.pv-row, .ratio-card.pv-row { padding: 8px 6px; border-radius: 12px; }
+      .pv-prev { height: 112px; }
+      .pv-phone { width: 63px; height: 112px; border-radius: 8px; }
+    }
+    @media (max-width: 380px) {
+      .step-tab { font-size: 11px; padding: 14px 2px; gap: 4px; }
+    }
   </style>
 </head>
 <body>
@@ -1681,11 +1692,15 @@
           </div>
           <div class="step-tab" id="tab-2">
             <div class="step-circle">2</div>
-            <span>Framing</span>
+            <span>Format</span>
           </div>
           <div class="step-tab" id="tab-3">
             <div class="step-circle">3</div>
-            <span>Captions & AI</span>
+            <span>Style</span>
+          </div>
+          <div class="step-tab" id="tab-4">
+            <div class="step-circle">4</div>
+            <span>Generate</span>
           </div>
         </div>
 
@@ -1722,9 +1737,10 @@
             <div class="queue-container" id="queue-list"></div>
           </div>
 
-          <!-- Step 2: Framing & Length -->
+          <!-- Step 2: Format -->
           <div class="step-pane" id="pane-2">
-            <div class="pane-title">Framing & Aspect Ratio</div>
+            <div class="pane-title">Format</div>
+            <div class="pane-subtitle">Shape, framing, quality and clip length.</div>
 
             <div class="option-group">
               <div class="option-label">
@@ -1764,22 +1780,6 @@
 
             <div class="option-group">
               <div class="option-label">
-                <span>Caption Color</span>
-                <span class="option-hint">Highlight color for the spoken words</span>
-              </div>
-              <div class="chips-grid" id="color-chips">
-                <div class="chip active" data-val=""><span class="color-dot" style="background:#94a3b8;"></span> Default for style</div>
-                <div class="chip" data-val="&H0000FFFF"><span class="color-dot" style="background:#FFFF00;"></span> Yellow</div>
-                <div class="chip" data-val="&H0000FF00"><span class="color-dot" style="background:#00FF00;"></span> Green</div>
-                <div class="chip" data-val="&H00D84FFF"><span class="color-dot" style="background:#FF4FD8;"></span> Pink</div>
-                <div class="chip" data-val="&H00EED322"><span class="color-dot" style="background:#22D3EE;"></span> Cyan</div>
-                <div class="chip" data-val="&H00008CFF"><span class="color-dot" style="background:#FF8C00;"></span> Orange</div>
-                <div class="chip" data-val="&H00FFFFFF"><span class="color-dot" style="background:#FFFFFF;"></span> White</div>
-              </div>
-            </div>
-
-            <div class="option-group">
-              <div class="option-label">
                 <span>Export Quality Profile</span>
                 <span class="option-hint">Full HD, tuned CRF compression & loudness normalization</span>
               </div>
@@ -1802,10 +1802,10 @@
             </div>
           </div>
 
-          <!-- Step 3: Captions & AI Focus -->
+          <!-- Step 3: Style -->
           <div class="step-pane" id="pane-3">
-            <div class="pane-title">Subtitles & AI Virality</div>
-            <div class="pane-subtitle">Choose animated subtitles (or disable for 3x faster render) and set AI focus.</div>
+            <div class="pane-title">Style</div>
+            <div class="pane-subtitle">Pick animated captions and their highlight color.</div>
 
             <div class="option-group">
               <div class="option-label"><span>Subtitles / Captions Option</span></div>
@@ -1859,6 +1859,29 @@
             </div>
 
             <div class="option-group">
+              <div class="option-label">
+                <span>Caption Color</span>
+                <span class="option-hint">Highlight color for the spoken words</span>
+              </div>
+              <div class="chips-grid" id="color-chips">
+                <div class="chip active" data-val=""><span class="color-dot" style="background:#94a3b8;"></span> Default for style</div>
+                <div class="chip" data-val="&H0000FFFF"><span class="color-dot" style="background:#FFFF00;"></span> Yellow</div>
+                <div class="chip" data-val="&H0000FF00"><span class="color-dot" style="background:#00FF00;"></span> Green</div>
+                <div class="chip" data-val="&H00D84FFF"><span class="color-dot" style="background:#FF4FD8;"></span> Pink</div>
+                <div class="chip" data-val="&H00EED322"><span class="color-dot" style="background:#22D3EE;"></span> Cyan</div>
+                <div class="chip" data-val="&H00008CFF"><span class="color-dot" style="background:#FF8C00;"></span> Orange</div>
+                <div class="chip" data-val="&H00FFFFFF"><span class="color-dot" style="background:#FFFFFF;"></span> White</div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Step 4: Generate -->
+          <div class="step-pane" id="pane-4">
+            <div class="pane-title">Generate</div>
+            <div class="pane-subtitle">Choose how many clips to make and what the AI should look for.</div>
+
+            <div class="option-group">
               <div class="option-label"><span>Number of Clips to Extract</span></div>
               <div class="chips-grid" id="count-chips">
                 <div class="chip" data-val="3">3 clips</div>
@@ -1907,7 +1930,7 @@
         <div class="wizard-footer">
           <button class="btn-back" id="btn-back" style="visibility:hidden;">← Back</button>
           <button class="btn-next" id="btn-next" disabled>
-            <span>Next: Framing</span> <span>→</span>
+            <span>Next: Format</span> <span>→</span>
           </button>
         </div>
       </div>
@@ -2586,7 +2609,7 @@
     function goToStep(step) {
       currentStep = step;
       const prevPane = document.querySelector('.step-pane.active');
-      for (let i = 1; i <= 3; i++) {
+      for (let i = 1; i <= 4; i++) {
         const tab = $('tab-' + i);
         const pane = $('pane-' + i);
         tab.className = 'step-tab' + (i === step ? ' active' : (i < step ? ' completed' : ''));
@@ -2601,14 +2624,18 @@
 
       const nextBtn = $('btn-next');
       if (step === 1) {
-        nextBtn.innerHTML = '<span>Next: Framing</span> <span>→</span>';
+        nextBtn.innerHTML = '<span>Next: Format</span> <span>→</span>';
         nextBtn.disabled = state.queue.length === 0;
         nextBtn.className = 'btn-next';
       } else if (step === 2) {
-        nextBtn.innerHTML = '<span>Next: Captions</span> <span>→</span>';
+        nextBtn.innerHTML = '<span>Next: Style</span> <span>→</span>';
         nextBtn.disabled = false;
         nextBtn.className = 'btn-next';
       } else if (step === 3) {
+        nextBtn.innerHTML = '<span>Next: Generate</span> <span>→</span>';
+        nextBtn.disabled = false;
+        nextBtn.className = 'btn-next';
+      } else {
         const vCount = state.queue.length;
         nextBtn.innerHTML = '<span>Generate Clips</span> <span>(' + vCount + ')</span>';
         nextBtn.disabled = false;
@@ -2618,7 +2645,7 @@
 
     $('btn-back').onclick = () => { if (currentStep > 1) goToStep(currentStep - 1); };
     $('btn-next').onclick = () => {
-      if (currentStep < 3) goToStep(currentStep + 1);
+      if (currentStep < 4) goToStep(currentStep + 1);
       else startProcessing();
     };
 
