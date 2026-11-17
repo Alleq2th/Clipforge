@@ -142,6 +142,9 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
         update_stage(f"AI discovering & ranking {count} viral moments...", 55)
         clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus)
 
+        if len(clips) < count:
+            update_stage(f"Found {len(clips)} of {count} moments that fit this video; rendering those...", 56)
+
         # Save discovered candidates for metadata and retry
         os.makedirs(out_dir, exist_ok=True)
         with open(os.path.join(out_dir, "discovered_clips.json"), "w", encoding="utf-8") as f:
