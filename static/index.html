@@ -1818,6 +1818,15 @@
     .btn-generate:disabled::after { display: none; }
     @keyframes genSheen { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(260%); } }
     @media (prefers-reduced-motion: reduce) { .btn-generate::after { animation: none; display: none; } }
+    .shortfall-banner { border: 1px solid var(--line); border-left: 3px solid var(--acc); border-radius: var(--radius-card); background: var(--card); padding: var(--s3); margin-bottom: var(--s3); }
+    .shortfall-title { font-weight: 600; }
+    .shortfall-reason { margin-top: 4px; font-size: 13px; opacity: .8; line-height: 1.45; }
+    .shortfall-actions { margin-top: var(--s3); display: flex; flex-wrap: wrap; gap: var(--s2); }
+    .shortfall-actions .btn-next { width: auto; min-height: 40px; padding: var(--s2) var(--s3); font-size: 14px; }
+    .pv-lim { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px; box-sizing: border-box; }
+    .pv-lim .trk { position: relative; height: 10px; border-radius: 99px; background: var(--line); }
+    .pv-lim .seg { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: var(--acc); }
+    .pv-lim small { font-size: 11px; opacity: .75; white-space: nowrap; }
   </style>
 </head>
 <body>
@@ -2054,6 +2063,14 @@
                 <div class="chip" data-val="10">10 clips</div>
                 <div class="chip" data-val="15">15 clips</div>
                 <div class="chip active" data-val="20">20 clips (Max Batch)</div>
+              </div>
+            </div>
+
+            <div class="option-group">
+              <div class="option-label"><span>Clip Length &amp; Overlap Limits</span></div>
+              <div class="chips-grid" id="limits-chips">
+                <div class="chip active" data-val="standard">Standard (20–60s, no overlap)</div>
+                <div class="chip" data-val="relaxed">Relaxed (15–90s, closer moments allowed)</div>
               </div>
             </div>
 
@@ -2720,8 +2737,9 @@
         count: 20,
         aspect_ratio: '9:16',
         framing: 'crop',
-        export_profile: '1080p',
+        export_profile: '480p',
         caption_style: 'beasty',
+        relax_limits: false,
         caption_color: '',
         duration: '30to60',
         focus: 'viral',
@@ -2987,8 +3005,18 @@
         row(ch, phone(img(P, 'pv-bg') + `<div class="pv-bub">${esc(f.q)}</div>`), f.d);
       });
 
+      // Clip limits: a timeline showing the allowed length band out of 0-90 seconds
+      const LIMITS = {
+        standard: {band: 'left:22.2%;width:44.4%', len: '20–60 s', d: 'Strict: clips stay 20–60s and never overlap.'},
+        relaxed: {band: 'left:16.7%;width:83.3%', len: '15–90 s', d: 'Looser: 15–90s, and moments can sit closer together.'}
+      };
+      chipsOf('limits-chips').forEach(ch => {
+        const L = LIMITS[ch.dataset.val] || LIMITS.standard;
+        row(ch, `<div class="pv-lim"><div class="trk"><div class="seg" style="${L.band}"></div></div><small>${L.len}</small></div>`, L.d);
+      });
+
       ['aspect-cards', 'framing-chips', 'gta-framing-chips', 'style-chips', 'gta-style-chips', 'color-chips',
-       'quality-chips', 'review-quality-chips', 'duration-chips', 'count-chips', 'focus-chips'].forEach(makeList);
+       'quality-chips', 'review-quality-chips', 'duration-chips', 'count-chips', 'focus-chips', 'limits-chips'].forEach(makeList);
       document.querySelectorAll('.pv-list').forEach(list => {
         list.querySelectorAll('.pv-row').forEach((c, i) => c.style.setProperty('--i', i));
         updateCaption(list);
@@ -3019,6 +3047,7 @@
     bindChips('quality-chips', val => state.options.export_profile = val);
     bindChips('duration-chips', val => state.options.duration = val);
     bindChips('count-chips', val => state.options.count = val);
+    bindChips('limits-chips', val => state.options.relax_limits = val === 'relaxed');
     bindChips('style-chips', val => state.options.caption_style = val);
     bindChips('color-chips', val => state.options.caption_color = val);
     bindChips('focus-chips', val => state.options.focus = val);
@@ -3235,6 +3264,7 @@
               caption_style: state.options.caption_style,
               caption_color: state.options.caption_color,
               review_clips: Boolean($('clipper-review-toggle') ? $('clipper-review-toggle').checked : false),
+              relax_limits: Boolean(state.options.relax_limits),
               email: state.options.email
             })
           });
@@ -3472,6 +3502,7 @@
             if (data.done) {
               clearInterval(interval);
               playChime();
+              window._lastJobInfo = data.info || null;
               resolve(data.clips || []);
             }
           } catch (e) {
@@ -3818,8 +3849,39 @@
       };
     }
 
+    // Shows how many clips were made when fewer than requested, why, and a retry with relaxed limits
+    function renderShortfall() {
+      const old = $('shortfall-banner'); if (old) old.remove();
+      const info = window._lastJobInfo; window._lastJobInfo = null;
+      if (!info || !info.shortfall) return;
+      const esc2 = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const box = document.createElement('div');
+      box.id = 'shortfall-banner';
+      box.className = 'shortfall-banner';
+      box.setAttribute('role', 'status');
+      box.innerHTML = `<div class="shortfall-title">${esc2(info.produced)} of ${esc2(info.requested)} clips made</div>`
+        + `<div class="shortfall-reason">${esc2(info.reason || '')}</div>`
+        + `<div class="shortfall-actions">${info.relaxed ? '' : '<button class="btn-next" id="btn-retry-relaxed" type="button">Try again with relaxed limits</button>'}</div>`;
+      const stream = $('clips-stream');
+      if (stream && stream.parentNode) stream.parentNode.insertBefore(box, stream);
+      const b = $('btn-retry-relaxed');
+      if (b) b.onclick = retryRelaxed;
+    }
+
+    // Re-runs the same video with relaxed limits (longer range, closer moments allowed)
+    function retryRelaxed() {
+      const item = window._lastJobItem;
+      if (!item || state.running) return;
+      state.options.relax_limits = true;
+      document.querySelectorAll('#limits-chips .chip').forEach(c => c.classList.toggle('active', c.dataset.val === 'relaxed'));
+      state.queue = [item];
+      $('results-view').style.display = 'none';
+      startProcessing();
+    }
+
     function showResults(clips, videoMeta, ratio) {
       window._currentClips = clips;
+      window._lastJobItem = videoMeta;
       $('results-heading').textContent = `${clips.length} clips from "${videoMeta?.title || 'Video'}"`;
       $('results-sub').textContent = `Generated from "${videoMeta?.title || 'Video'}". Saved to your library. Download any clip as an MP4.`;
 
@@ -3829,6 +3891,7 @@
         grid.appendChild(renderClipCard(c, idx, ratio));
       });
       document.documentElement.style.setProperty('--done', '0%'); sortClips('score');
+      renderShortfall();
     }
 
     $('btn-clip-new').onclick = () => {
@@ -4352,6 +4415,7 @@
         if (data.done) {
           localStorage.removeItem('clipforge_active_job');
           $('wizard-box').style.display = 'none';
+          window._lastJobInfo = data.info || null;
           showResults(data.clips || [], active.item || { title: 'Finished Video' }, active.options?.aspect_ratio || '9:16');
           $('results-view').style.display = 'block';
         } else {
