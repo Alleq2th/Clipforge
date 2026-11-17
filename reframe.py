@@ -30,7 +30,7 @@ def _get_cascade_path():
 
     return None
 
-def detect_smart_crop_anchor(video_path, start_time, end_time, sample_rate_sec=1.5, max_samples=12):
+def detect_smart_crop_anchor(video_path, start_time, end_time, sample_rate_sec=1.5, max_samples=6):
     """
     Analyzes video segment between start_time and end_time to locate the primary
     human subject / active speaker.
