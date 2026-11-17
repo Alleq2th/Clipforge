@@ -224,6 +224,7 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
         cmd.extend(["-af", ",".join(audio_filters)])
 
     cmd.extend([
+        "-r", "30",
         "-c:a", "aac",
         "-b:a", audio_bitrate,
         out,
