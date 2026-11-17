@@ -513,6 +513,7 @@ def create():
         "framing": data.get("framing", "crop"),
         "export_profile": data.get("export_profile") or data.get("resolution", DEFAULT_EXPORT_PROFILE),
         "review_clips": bool(data.get("review_clips", False)),
+        "relax_limits": bool(data.get("relax_limits", False)),
         "email": (data.get("email") or "").strip()
     }
 
