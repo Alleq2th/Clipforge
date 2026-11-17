@@ -50,6 +50,10 @@ def init_db():
                     conn.execute("ALTER TABLE jobs ADD COLUMN candidates TEXT;")
                 except Exception:
                     pass
+                try:
+                    conn.execute("ALTER TABLE jobs ADD COLUMN info TEXT;")
+                except Exception:
+                    pass
 
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at);")
@@ -102,7 +106,7 @@ def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="
             conn.close()
     return get_job(jid)
 
-def update_job(jid, status=None, stage=None, progress=None, clips=None, candidates=None, error=None, done=None, cancelled=None, options=None):
+def update_job(jid, status=None, stage=None, progress=None, clips=None, candidates=None, error=None, done=None, cancelled=None, options=None, info=None):
     now = time.time()
     updates = []
     params = []
@@ -135,6 +139,10 @@ def update_job(jid, status=None, stage=None, progress=None, clips=None, candidat
         updates.append("options = ?")
         params.append(json.dumps(options))
 
+    if info is not None:
+        updates.append("info = ?")
+        params.append(json.dumps(info))
+
     if not updates:
         return
 
@@ -165,6 +173,10 @@ def get_job(jid):
             res = dict(row)
             res["done"] = bool(res["done"])
             res["cancelled"] = bool(res["cancelled"])
+            try:
+                res["info"] = json.loads(res["info"]) if res.get("info") else None
+            except Exception:
+                res["info"] = None
             try:
                 res["options"] = json.loads(res["options"]) if res.get("options") else {}
             except Exception:
