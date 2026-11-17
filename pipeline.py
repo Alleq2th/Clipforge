@@ -4,7 +4,7 @@ import threading
 import concurrent.futures
 from download import download
 from transcribe import transcribe
-from pick import pick
+from pick import pick, clip_run_report
 from cut import cut
 from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage, get_storage_provider
 from jobs_db import update_job, save_clip_record
@@ -104,6 +104,7 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
     min_len = int(opts.get("min_len", 20))
     max_len = int(opts.get("max_len", 60))
     focus = opts.get("focus", "viral")
+    relax_limits = bool(opts.get("relax_limits", False))
     aspect_ratio = opts.get("aspect_ratio", "9:16")
     caption_style = opts.get("caption_style", "beasty")
     caption_color = opts.get("caption_color") or None
@@ -140,9 +141,12 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
             return []
 
         update_stage(f"AI discovering & ranking {count} viral moments...", 55)
-        clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus)
-
-        if len(clips) < count:
+        clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus, relax=relax_limits)
+        total_seconds = max((float(s.get("end", 0)) for s in segs), default=0.0)
+        report = clip_run_report(count, len(clips), min_len, max_len, total_seconds, relax_limits)
+        if jid:
+            update_job(jid, info=report)
+        if report["shortfall"]:
             update_stage(f"Found {len(clips)} of {count} moments that fit this video; rendering those...", 56)
 
         # Save discovered candidates for metadata and retry
