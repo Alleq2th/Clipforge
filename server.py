@@ -326,6 +326,48 @@ def preview():
     meta = get_video_meta(url)
     return jsonify(meta)
 
+WAITLIST_FILE = os.path.join(WORK_DIR, "waitlist.jsonl")
+
+@app.post("/api/waitlist")
+def save_waitlist():
+    """Saves a signup to Supabase table 'waitlist'. Falls back to a local file so visitors never see an error."""
+    import re
+    from datetime import datetime, timezone
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()[:254]
+    plan = str(data.get("plan", "")).strip()[:40] or "Free"
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return jsonify({"ok": False, "error": "Enter a valid email"}), 400
+    row = {"email": email, "plan": plan, "created_at": datetime.now(timezone.utc).isoformat()}
+    saved = "local"
+    supabase_url = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+    supabase_key = (os.getenv("SUPABASE_SERVICE_KEY") or os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_ANON_KEY") or "").strip()
+    if supabase_url and supabase_key:
+        try:
+            import requests
+            resp = requests.post(
+                f"{supabase_url}/rest/v1/waitlist?on_conflict=email",
+                headers={
+                    "apikey": supabase_key,
+                    "Authorization": f"Bearer {supabase_key}",
+                    "Content-Type": "application/json",
+                    "Prefer": "resolution=merge-duplicates,return=minimal",
+                },
+                json=row,
+                timeout=10,
+            )
+            if resp.status_code in (200, 201, 204):
+                saved = "supabase"
+            else:
+                print(f"[WAITLIST] Supabase returned {resp.status_code}: {resp.text[:200]}")
+        except Exception as e:
+            print(f"[WAITLIST] Supabase save failed: {e}")
+    if saved == "local":
+        os.makedirs(WORK_DIR, exist_ok=True)
+        with open(WAITLIST_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row) + "\n")
+    return jsonify({"ok": True, "saved": saved})
+
 @app.get("/api/storage")
 def storage_info():
     out_mb = get_dir_size_mb(OUT_DIR)
