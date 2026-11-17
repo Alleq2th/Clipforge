@@ -111,7 +111,39 @@ def _align_to_sentence_boundaries(start, end, segs, lo, hi):
 
     return round(best_start, 2), round(best_end, 2)
 
-def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None):
+def effective_limits(min_len, max_len, relax=False):
+    """Clip length bounds. Relaxed mode widens them so short videos can yield more moments."""
+    lo, hi = float(min_len), float(max_len)
+    if relax:
+        lo = max(12.0, lo * 0.75)
+        hi = min(120.0, hi * 1.5)
+    return lo, hi
+
+def clip_run_report(requested, produced, min_len, max_len, total_duration, relaxed=False):
+    """Plain-language account of how many clips were made and why a request came up short."""
+    lo, hi = effective_limits(min_len, max_len, relaxed)
+    minutes = round(float(total_duration or 0) / 60.0, 1)
+    shortfall = int(produced) < int(requested)
+    reason = None
+    if shortfall:
+        reason = (f"Only {produced} distinct moments passed the {int(lo)}–{int(hi)}-second length "
+                  f"and no-overlap checks in this {minutes}-minute video. Short videos only have room "
+                  f"for so many separate clips.")
+        if relaxed:
+            reason = (f"Even with relaxed limits ({int(lo)}–{int(hi)} seconds, moments may sit closer "
+                      f"together), only {produced} distinct moments were found in this {minutes}-minute video.")
+    return {
+        "requested": int(requested),
+        "produced": int(produced),
+        "shortfall": shortfall,
+        "relaxed": bool(relaxed),
+        "min_len": int(lo),
+        "max_len": int(hi),
+        "video_minutes": minutes,
+        "reason": reason,
+    }
+
+def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None, min_gap=14.0, max_overlap=8.0):
     """
     Deduplicates candidates across the entire video timeline,
     enforces temporal and topic diversity, and ranks by genuine score.
@@ -152,7 +184,7 @@ def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None):
             cs, ce = float(chosen["start"]), float(chosen["end"])
             overlap_dur = max(0.0, min(e, ce) - max(s, cs))
             # If clips overlap by more than 8 seconds or start within 14s, consider duplicate
-            if overlap_dur > 8.0 or abs(s - cs) < 14.0:
+            if overlap_dur > max_overlap or abs(s - cs) < min_gap:
                 has_overlap = True
                 break
 
@@ -182,7 +214,7 @@ def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None):
             has_overlap = False
             for chosen in selected:
                 cs, ce = float(chosen["start"]), float(chosen["end"])
-                if max(0.0, min(e, ce) - max(s, cs)) > 8.0 or abs(s - cs) < 14.0:
+                if max(0.0, min(e, ce) - max(s, cs)) > max_overlap or abs(s - cs) < min_gap:
                     has_overlap = True
                     break
             if not has_overlap:
@@ -276,7 +308,7 @@ def _heuristic_clips(segs, count=5, min_len=20, max_len=60, focus="viral"):
         })
     return clips
 
-def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
+def pick(segs, count=None, min_len=None, max_len=None, focus="viral", relax=False):
     """
     Master Phase 2 AI Clip Discovery Engine:
     - Analyzes full transcript using intelligent overlapping temporal windows.
@@ -294,6 +326,8 @@ def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
     hi = float(max_len) if max_len else float(MAX_LEN)
     if hi < lo:
         hi = lo + 30.0
+    lo, hi = effective_limits(lo, hi, relax)
+    min_gap, max_overlap = (6.0, 4.0) if relax else (14.0, 8.0)
 
     focus_guide = FOCUS_GUIDES.get(focus, FOCUS_GUIDES["viral"])
     total_duration = max(float(s.get("end", 0)) for s in segs)
@@ -348,7 +382,8 @@ def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
 
     # 2. Global Deduplication, Snapping, and Diversity Ranking
     if all_candidates:
-        ranked = _deduplicate_and_rank_global(all_candidates, target_count, lo, hi, segs=segs)
+        ranked = _deduplicate_and_rank_global(all_candidates, target_count, lo, hi, segs=segs,
+                                              min_gap=min_gap, max_overlap=max_overlap)
         if ranked:
             print(f"[PICK] Discovered {len(ranked)} high-quality viral moments across complete video.")
             return ranked
