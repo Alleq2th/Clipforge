@@ -177,6 +177,8 @@ def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None):
             if c in selected:
                 continue
             s, e = float(c["start"]), float(c["end"])
+            if not (lo - 0.5 <= e - s <= hi + 0.5):
+                continue
             has_overlap = False
             for chosen in selected:
                 cs, ce = float(chosen["start"]), float(chosen["end"])
@@ -187,6 +189,26 @@ def _deduplicate_and_rank_global(candidates, target_count, lo, hi, segs=None):
                 selected.append(c)
                 if len(selected) >= target_count:
                     break
+
+    # Last resort: allow partial overlap so the requested count is reached whenever the video has room
+    if len(selected) < target_count:
+        for c in candidates:
+            if len(selected) >= target_count:
+                break
+            if c in selected:
+                continue
+            s, e = float(c["start"]), float(c["end"])
+            if not (lo - 0.5 <= e - s <= hi + 0.5):
+                continue
+            ok = True
+            for chosen in selected:
+                cs, ce = float(chosen["start"]), float(chosen["end"])
+                ov = max(0.0, min(e, ce) - max(s, cs))
+                if ov > 0.5 * min(e - s, ce - cs) or abs(s - cs) < 6.0:
+                    ok = False
+                    break
+            if ok:
+                selected.append(c)
 
     # Order by chronological appearance in original video
     selected.sort(key=lambda c: float(c.get("start", 0)))
@@ -295,7 +317,7 @@ def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
                 windows.append((w_start, w_end, w_segs))
 
     all_candidates = []
-    candidates_per_window = max(3, math.ceil((target_count * 1.5) / max(len(windows), 1)))
+    candidates_per_window = min(20, max(10, math.ceil((target_count * 2) / max(len(windows), 1)) + 2))
 
     print(f"[PICK] Analyzing complete transcript ({int(total_duration)}s) across {len(windows)} overlapping windows...")
 
@@ -305,7 +327,7 @@ def pick(segs, count=None, min_len=None, max_len=None, focus="viral"):
             continue
 
         prompt = PROMPT_WINDOW.format(
-            candidate_count=min(10, candidates_per_window),
+            candidate_count=candidates_per_window,
             lo=int(lo),
             hi=int(hi),
             focus_guide=focus_guide,
