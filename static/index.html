@@ -1798,6 +1798,20 @@
     .vp-t{font-weight:600;margin:12px 0 4px}
     .vp-o{display:inline-block;margin-top:8px;font-weight:600;color:var(--ink);text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--acc)}
     @media(min-width:700px){.vp-s{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(560px,92vw);border-radius:16px;animation:none}}
+    /* ===== Finishing pass: loading skeletons, motion, yellow scroll indicators ===== */
+    .clip-skel { flex: 0 0 min(72vw, 280px); min-height: 360px; border-radius: var(--radius-card, 16px); border: 1px solid var(--line); background: linear-gradient(100deg, var(--card) 30%, #2b2b2b 50%, var(--card) 70%); background-size: 240% 100%; animation: skelShimmer 1.3s ease-in-out infinite; }
+    @keyframes skelShimmer { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+    .clip-card.pop { animation: popIn .55s cubic-bezier(.2, .8, .2, 1.12) both; }
+    .progress-fill { position: relative; overflow: hidden; }
+    .progress-fill::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent); transform: translateX(-100%); animation: sweep 1.6s linear infinite; }
+    @keyframes sweep { to { transform: translateX(100%); } }
+    .chip, .pv-row, .btn-next, .btn-generate, .clip-card { transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }
+    .chip:active, .pv-row:active, .btn-next:active, .btn-generate:active { transform: scale(.97); }
+    .scroll-pill { position: fixed; background: var(--acc); border-radius: 99px; opacity: 0; pointer-events: none; transition: opacity .3s ease; z-index: 60; box-shadow: 0 0 10px rgba(212,240,74,.35); }
+    .scroll-pill.show { opacity: .95; }
+    .scroll-pill.v { right: 3px; width: 4px; }
+    .scroll-pill.h { position: absolute; height: 4px; }
+    @media (prefers-reduced-motion: reduce) { .clip-skel, .progress-fill::after, .clip-card.pop { animation: none; } }
   </style>
 </head>
 <body>
@@ -1929,9 +1943,9 @@
                 <span class="option-hint">Full HD, tuned CRF compression & loudness normalization</span>
               </div>
               <div class="chips-grid" id="quality-chips">
-                <div class="chip active" data-val="1080p">1080p Studio (Full HD • Best Quality)</div>
+                <div class="chip" data-val="1080p">1080p Studio (Full HD • Best Quality)</div>
                 <div class="chip" data-val="720p">720p HD (Balanced Quality & Speed)</div>
-                <div class="chip" data-val="480p">480p SD (Fast Render)</div>
+                <div class="chip active" data-val="480p">480p SD (Fast Render)</div>
                 <div class="chip" data-val="360p">360p Draft (Ultra-Fast • Small File)</div>
               </div>
             </div>
@@ -2423,10 +2437,7 @@
         <div>
           <div class="row row-wrap">
             <h3 class="view-title">Saved Videos & Clips Library</h3>
-            <span id="storage-status-badge" class="status-text status-warn" title="Storage Status">Local Storage</span>
-            <span id="memory-status-badge" class="status-text status-info" title="Adaptive memory protection">Checking memory…</span>
           </div>
-          <div class="meta" id="storage-status-sub">Persisted directly on server • Connect Supabase for permanent cloud backup</div>
         </div>
         <div class="row">
           <button class="btn-back btn-danger btn-sm" id="btn-clear-completed">Clear Completed</button>
@@ -3264,6 +3275,33 @@
       updateLibBadge();
     }
 
+    const _eta = { jobStart: Date.now(), renderStart: 0, marks: [] };
+    function fmtEta(sec) {
+      sec = Math.max(1, Math.round(sec));
+      return sec < 90 ? `ETA: ~${sec}s` : `ETA: ~${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, '0')}s`;
+    }
+    // Rate from clips actually finished (rolling window), not a fixed guess
+    function measuredRenderEta(done, total) {
+      const now = Date.now();
+      if (!_eta.renderStart) { _eta.renderStart = now; _eta.marks = [{ n: 0, t: now }]; }
+      const last = _eta.marks[_eta.marks.length - 1];
+      if (done !== last.n) _eta.marks.push({ n: done, t: now });
+      if (_eta.marks.length > 6) _eta.marks.shift();
+      if (!total) return 'Estimating…';
+      const first = _eta.marks[0], end = _eta.marks[_eta.marks.length - 1];
+      if (end.n >= total) return 'Finishing…';
+      if (end.n === first.n) return 'Estimating…';
+      const secPerClip = (end.t - first.t) / 1000 / (end.n - first.n);
+      return fmtEta(secPerClip * (total - end.n));
+    }
+    // Before rendering starts: extrapolate from elapsed time and reported progress
+    function timeEta(progress) {
+      const p = Number(progress);
+      if (!(p >= 5)) return 'Estimating…';
+      const elapsed = (Date.now() - _eta.jobStart) / 1000;
+      return fmtEta(elapsed * (100 - p) / p);
+    }
+
     function updateStepIndicator(status, currentCount, totalCount, reportedProgress) {
       const s = status.toLowerCase();
       ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step');
@@ -3294,16 +3332,17 @@
         $('pipe-4').className = 'pipe-step active';
         if (totalCount && totalCount > 0) {
           pct = 55 + Math.round((currentCount / totalCount) * 42);
-          const remaining = Math.max(0, totalCount - currentCount);
-          eta = `ETA: ~${Math.max(4, remaining * 7)}s`;
         } else {
           pct = 75;
-          eta = 'ETA: ~15s';
         }
+        eta = measuredRenderEta(currentCount, totalCount);
       } else if (s.includes('done')) {
         ['pipe-1', 'pipe-2', 'pipe-3', 'pipe-4'].forEach(id => $(id).className = 'pipe-step completed');
         pct = 100;
         eta = 'Complete!';
+      }
+      if (!s.includes('cut') && !s.includes('render') && !s.includes('clip') && !s.includes('done') && !s.includes('complet')) {
+        eta = timeEta(reportedProgress);
       }
       const progress = Number.isFinite(Number(reportedProgress)) && Number(reportedProgress) > 0
         ? Math.min(100, Number(reportedProgress))
@@ -3350,6 +3389,7 @@
 
     function pollJob(jid, videoMeta) {
       _lastRenderedClipsCount = 0;
+      _eta.jobStart = Date.now(); _eta.renderStart = 0; _eta.marks = [];
       $('live-clips-wrap').style.display = 'none';
       $('live-clips-grid').innerHTML = '';
       let consecutiveErrors = 0;
@@ -3397,11 +3437,28 @@
               for (let i = _lastRenderedClipsCount; i < data.clips.length; i++) {
                 const clip = data.clips[i];
                 const card = renderClipCard(clip, i, state.options.aspect_ratio);
+                card.classList.add('pop');
                 $('live-clips-grid').appendChild(card);
               }
               _lastRenderedClipsCount = data.clips.length;
               document.documentElement.style.setProperty('--done', Math.min(100, data.clips.length / totalOpt * 100) + '%');
               updateLibBadge();
+            }
+
+            const renderingNow = /cut|render|clip/i.test(stageLabel) && !data.done;
+            const doneClips = data.clips ? data.clips.length : 0;
+            if (renderingNow || doneClips) {
+              $('live-clips-wrap').style.display = 'block';
+              if (!doneClips) $('live-stream-title').textContent = 'Rendering clips…';
+              const grid = $('live-clips-grid');
+              grid.querySelectorAll('.clip-skel').forEach(n => n.remove());
+              const pending = renderingNow ? Math.min(6, Math.max(0, totalOpt - doneClips)) : 0;
+              for (let k = 0; k < pending; k++) {
+                const sk = document.createElement('div');
+                sk.className = 'clip-skel';
+                sk.setAttribute('aria-hidden', 'true');
+                grid.appendChild(sk);
+              }
             }
 
             if (data.done) {
@@ -4354,5 +4411,53 @@
     document.addEventListener('keydown',function(e){if(e.key=='Escape')closeVp()});
 </script>
 
+<script>
+(function () {
+  const v = document.createElement('div'); v.className = 'scroll-pill v'; document.body.appendChild(v);
+  const flash = el => { el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 850); };
+  function placeV() {
+    const vh = window.innerHeight, dh = document.documentElement.scrollHeight;
+    if (dh <= vh + 4) { v.style.display = 'none'; return; }
+    v.style.display = 'block';
+    const th = Math.max(40, vh * vh / dh), max = vh - th - 8;
+    v.style.height = th + 'px';
+    v.style.top = (4 + (window.scrollY / (dh - vh)) * max) + 'px';
+  }
+  window.addEventListener('scroll', () => { placeV(); flash(v); }, { passive: true });
+  window.addEventListener('resize', placeV);
+  placeV();
+
+  const rails = new Map();
+  function placeH(el) {
+    const r = rails.get(el); if (!r) return;
+    const b = el.getBoundingClientRect();
+    if (el.scrollWidth <= el.clientWidth + 2 || b.height === 0 || b.bottom < 0 || b.top > window.innerHeight) { r.style.display = 'none'; return; }
+    r.style.display = 'block';
+    const w = Math.max(36, b.width * el.clientWidth / el.scrollWidth), max = el.clientWidth - w - 8;
+    const x = el.scrollLeft / (el.scrollWidth - el.clientWidth);
+    r.style.width = w + 'px';
+    r.style.left = (b.left + window.scrollX + 4 + x * max) + 'px';
+    r.style.top = (b.bottom + window.scrollY - 9) + 'px';
+  }
+  function attach(el) {
+    if (rails.has(el)) return;
+    const r = document.createElement('div'); r.className = 'scroll-pill h'; document.body.appendChild(r); rails.set(el, r);
+    el.addEventListener('scroll', () => { placeH(el); flash(r); }, { passive: true });
+    placeH(el);
+  }
+  function scan() {
+    document.querySelectorAll('body *').forEach(el => {
+      if (el.classList.contains('scroll-pill')) return;
+      const cs = getComputedStyle(el);
+      if ((cs.overflowX === 'auto' || cs.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 2) attach(el);
+    });
+    rails.forEach((_, el) => placeH(el));
+  }
+  let t;
+  new MutationObserver(() => { clearTimeout(t); t = setTimeout(scan, 250); }).observe(document.body, { childList: true, subtree: true });
+  window.addEventListener('resize', () => { placeV(); scan(); });
+  scan();
+})();
+</script>
 </body>
 </html>
