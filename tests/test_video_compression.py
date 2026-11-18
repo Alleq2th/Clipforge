@@ -112,6 +112,51 @@ class TestVideoCompression(unittest.TestCase):
         self.assertEqual(streams[0]["codec_name"], "h264")
         self.assertEqual(streams[0]["pix_fmt"], "yuv420p")
 
+    def test_resolution_export_endpoint_creates_cached_variant(self):
+        app = server.app
+        app.config["TESTING"] = True
+        client = app.test_client()
+        jid = "test_resolution_export_jid"
+        job_dir = os.path.join(server.OUT_DIR, jid)
+        os.makedirs(job_dir, exist_ok=True)
+        shutil.copyfile(self.test_video, os.path.join(job_dir, "clip1.mp4"))
+        server.jobs[jid] = {
+            "id": jid,
+            "status": "Completed",
+            "clips": [{"file": "clip1.mp4", "vid": jid, "title": "Test clip"}],
+        }
+        server.save_job(jid)
+        try:
+            res = client.post(f"/api/jobs/{jid}/clips/0/transcode", json={"resolution": "480p"})
+            self.assertEqual(res.status_code, 200, res.get_json())
+            data = res.get_json()
+            self.assertTrue(data["ok"])
+            self.assertEqual(data["resolution"], "480p")
+            self.assertGreater(data["size_bytes"], 0)
+            variant = os.path.join(job_dir, data["file"])
+            self.assertTrue(os.path.isfile(variant))
+            # The endpoint reuses a complete cached rendition on a second request.
+            second = client.post(f"/api/jobs/{jid}/clips/0/transcode", json={"resolution": "480p"})
+            self.assertEqual(second.status_code, 200)
+            self.assertEqual(second.get_json()["file"], data["file"])
+        finally:
+            shutil.rmtree(job_dir, ignore_errors=True)
+            server.jobs.pop(jid, None)
+
+    def test_resolution_export_rejects_unsupported_profile(self):
+        app = server.app
+        app.config["TESTING"] = True
+        client = app.test_client()
+        jid = "test_resolution_invalid_jid"
+        server.jobs[jid] = {"id": jid, "clips": [{"file": "clip1.mp4"}]}
+        server.save_job(jid)
+        try:
+            res = client.post(f"/api/jobs/{jid}/clips/0/transcode", json={"resolution": "8k"})
+            self.assertEqual(res.status_code, 400)
+            self.assertIn("Choose", res.get_json()["error"])
+        finally:
+            server.jobs.pop(jid, None)
+
     def test_shrink_endpoint_api(self):
         """Verify /api/jobs/<jid>/clips/<clip_idx>/shrink updates job state and library."""
         app = server.app

@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import json
 import time
@@ -763,6 +764,72 @@ def shrink_job_clip(jid, clip_index):
     except Exception as e:
         return jsonify({"error": f"Failed to shrink clip: {str(e)}"}), 500
 
+
+
+@app.post("/api/jobs/<jid>/clips/<int:clip_index>/transcode")
+def transcode_job_clip(jid, clip_index):
+    """Create one validated, cached resolution variant for a completed clip."""
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+    clips = j.get("clips", [])
+    if clip_index < 0 or clip_index >= len(clips):
+        return jsonify({"error": "Clip index out of range"}), 404
+
+    data = request.get_json(silent=True) or {}
+    target_res = str(data.get("resolution") or "").strip().lower()
+    if target_res not in ("360p", "480p", "540p", "720p", "1080p", "shrink"):
+        return jsonify({"error": "Choose 360p, 480p, 540p, 720p, 1080p, or shrink."}), 400
+
+    clip = clips[clip_index]
+    filename = clip.get("file")
+    if not filename:
+        return jsonify({"error": "This clip has no rendered file."}), 404
+    try:
+        job_dir = safe_join_path(OUT_DIR, jid)
+        src_path = safe_join_path(job_dir, filename)
+    except (PermissionError, TypeError):
+        return jsonify({"error": "Invalid clip path."}), 400
+    if not os.path.isfile(src_path):
+        return jsonify({"error": "Rendered clip file is not available on this server."}), 404
+
+    suffix = "shrunk" if target_res == "shrink" else target_res
+    base_name, ext = os.path.splitext(os.path.basename(filename))
+    clean_base = re.sub(r"_(1080p|720p|540p|480p|360p|shrunk)$", "", base_name)
+    variant_name = f"{clean_base}_{suffix}{ext or '.mp4'}"
+    try:
+        variant_path = safe_join_path(job_dir, variant_name)
+        # Reuse only a completed, non-empty cached variant.
+        if not os.path.isfile(variant_path) or os.path.getsize(variant_path) == 0:
+            from cut import transcode_clip_resolution
+            temp_path = safe_join_path(job_dir, f".{clean_base}_{suffix}_{uuid.uuid4().hex}.tmp.mp4")
+            try:
+                transcode_clip_resolution(src_path, temp_path, target_res)
+                if not os.path.isfile(temp_path) or os.path.getsize(temp_path) == 0:
+                    raise RuntimeError("Encoder produced an empty file")
+                os.replace(temp_path, variant_path)
+            finally:
+                try:
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+                except OSError:
+                    pass
+        size_bytes = os.path.getsize(variant_path)
+        size = f"{round(size_bytes / (1024 * 1024), 2)} MB" if size_bytes >= 104858 else f"{round(size_bytes / 1024)} KB"
+        variant_url = f"/clips/{jid}/{variant_name}"
+        return jsonify({
+            "ok": True,
+            "resolution": target_res,
+            "file": variant_name,
+            "download_url": variant_url + "?dl=1",
+            "stream_url": variant_url,
+            "size_formatted": size,
+            "size_bytes": size_bytes,
+        })
+    except Exception as exc:
+        print(f"[TRANSCODE] Failed for job {jid}, clip {clip_index}, {target_res}: {exc}")
+        return jsonify({"error": "Could not create that export. The original clip is unchanged; please try again."}), 500
+
 @app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
 def retry_single_clip(jid, clip_index):
     """Retries a single specific clip without restarting the entire video batch."""
@@ -867,9 +934,7 @@ def get_clip(filepath):
         return jsonify({"error": "Access denied"}), 403
 
     dl = request.args.get("dl") == "1"
-
-    # If local file is missing (e.g. Render restart/sleep or pruned disk), redirect to cloud storage
-    if not os.path.exists(full_path):
+    if not os.path.isfile(full_path):
         provider = get_storage_provider()
         if provider and provider.is_configured():
             cloud_url = provider.get_public_url(filepath)

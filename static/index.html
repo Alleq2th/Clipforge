@@ -1566,7 +1566,7 @@
       .pv-row, .pv-txt, .modal-box, .modal-backdrop, .clip-card, .step-pane, .pipe-step .anim-icon { animation: none !important; }
       .step-pane.leaving { display: none; }
     }
-  
+
 
     /* ClipForge refinement: calmer surfaces and a mobile-first preset layout */
     body { background: var(--bg); }
@@ -1661,7 +1661,7 @@
     @media (max-width: 380px) {
       .step-tab { font-size: 11px; padding: 14px 2px; gap: 4px; }
     }
-  
+
     /* ===== ClipForge premium theme: one accent, filled surfaces, no borders/glows ===== */
     :root{--bg:#161616;--card:#232323;--card-inner:#2C2C2C;--line:#2C2C2C;--line-active:#3a3a3a;--ink:#f6f6f6;--mute:#b9b9bd;
       --acc:#d4f04a;--acc-light:#d4f04a;--acc-glow:#2C2C2C;--purple:#d4f04a;--purple-glow:#2C2C2C;--gold:#d4f04a;--gold-glow:#2C2C2C;--radius:16px;--radius-card:16px}
@@ -1697,7 +1697,7 @@
     .progress-track{background:var(--card-inner)}.progress-fill,.progress-purple{background:var(--acc)}
     .timer-badge{font-family:inherit;font-variant-numeric:tabular-nums;background:var(--card-inner);border:0;color:var(--ink)}
     :focus-visible{outline:2px solid var(--acc);outline-offset:2px}
-  
+
     /* ===== v2: hero with 3D card fan, vertical clip rails ===== */
     @media(min-width:800px){main{max-width:720px}}
     .hx{display:grid;gap:24px;margin-bottom:24px}
@@ -1745,7 +1745,7 @@
     @media(max-width:520px){.wizard-footer{flex-direction:column;align-items:stretch}.wizard-footer .btn-next{width:100%;justify-content:center}}
       .pv-row.active .pv-title{color:#161616}
     #gta-email{width:100%}
-  
+
     /* ===== v3: pricing, sort, score breakdown, share, live progress, before/after ===== */
     @keyframes grow{from{transform:scaleX(0)}}@keyframes up{from{opacity:0;transform:translateY(8px)}}
     .hx-link{margin-left:16px;font-weight:600;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--acc);color:var(--ink)}
@@ -1778,7 +1778,7 @@
     #su button{background:var(--acc);color:#161616;border:0;border-radius:12px;padding:16px 24px;font-weight:700;cursor:pointer}
     #su-msg{margin-top:8px;color:var(--mute);font-size:14px}
       .clip-card .clip-acts{flex-wrap:wrap}.clip-card .btn-dl{flex:1 1 100%}.clip-card .btn-copy{flex:1;padding:8px;font-size:12px;min-height:0}
-  
+
     /* ===== v4: platform tiles + source video preview rail ===== */
     .plats{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:12px 0}
     .plats::-webkit-scrollbar,.queue-container::-webkit-scrollbar{display:none}
@@ -1796,7 +1796,7 @@
     .qn{font-size:13px;font-weight:600;margin-top:8px;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
     .qa{font-size:12px;color:var(--mute)}
     .qc .btn-remove{position:absolute;top:4px;right:4px;width:24px;height:24px;display:grid;place-items:center;background:#161616;color:#f6f6f6;border:0;border-radius:4px;padding:0;cursor:pointer;z-index:2}
-  
+
     /* ===== v5: in-app player sheet ===== */
     button.qt{border:0;padding:0;width:100%;cursor:pointer;font-family:inherit}
     .qt.pl::after{content:"\25B6";position:absolute;inset:0;margin:auto;width:40px;height:40px;display:grid;place-items:center;background:var(--acc);color:#161616;border-radius:8px;font-size:14px;transition:transform .15s ease-out}
@@ -1841,7 +1841,13 @@
     .pv-lim .trk { position: relative; height: 10px; border-radius: 99px; background: var(--line); }
     .pv-lim .seg { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: var(--acc); }
     .pv-lim small { font-size: 11px; opacity: .75; white-space: nowrap; }
-  </style>
+
+    .clip-download-control { display:flex; gap:4px; flex:2; min-width:150px; position:relative; }
+    .clip-download-control .btn-dl { flex:1; }
+    .clip-resolution-select { min-width:86px; border-radius:8px; border:1px solid rgba(255,255,255,.18); background:#20202a; color:var(--ink); padding:7px 8px; font-weight:700; }
+    .video-res-pill { position:absolute; top:8px; right:8px; z-index:5; padding:5px 9px; border-radius:20px; background:rgba(18,18,23,.86); border:1px solid rgba(255,255,255,.2); color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
+
+</style>
 </head>
 <body>
 
@@ -3159,6 +3165,7 @@
       card.innerHTML = `
         <div class="video-wrap ${ratioClass}">
           <video src="${streamUrl}" controls preload="metadata" playsinline></video>
+          <button type="button" class="video-res-pill" onclick="openResolutionPicker('clip-res-${idx}')" aria-label="Choose download quality">⚙ ${escapeHtml(exportProf)} ▾</button>
         </div>
         <div class="clip-details">
           <div class="clip-badges">
@@ -3170,7 +3177,12 @@
           <div class="hook-alert"><b>Why it works:</b> ${escapeHtml(hookReason)}</div>
           <div class="clip-snippet">${escapeHtml(c.caption || '')}</div>
           <div class="clip-acts">
-            <button class="btn-dl" onclick="downloadDirect('${activeDlUrl}', '${escapeHtml(c.title || c.file)}')">Download MP4 (${escapeHtml(exportProf)}${sizeTag})</button>
+            <div class="clip-download-control">
+              <select class="clip-resolution-select" id="clip-res-${idx}" aria-label="Download resolution">
+                <option value="1080p">1080p</option><option value="720p">720p</option><option value="480p" selected>480p</option><option value="360p">360p</option><option value="shrink">Shrink</option>
+              </select>
+              <button class="btn-dl" onclick="exportAndDownload('${c.vid}', ${idx}, 'clip_${idx + 1}', $('clip-res-${idx}').value, this)">Download</button>
+            </div>
             <button class="${shrunkClass}" onclick="shrinkAndDownload('${c.vid}', ${idx}, this)" title="Shrink with Lightsend engine for minimal data (~1 MB)">${shrunkTag}</button>
             <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
             <button class="btn-copy" onclick="shareClip(${idx}, this)">Share</button>
@@ -3189,6 +3201,41 @@
         btn.textContent = 'Copied!';
         setTimeout(() => btn.textContent = 'Copy', 2000);
       });
+    };
+
+    window.openResolutionPicker = function(selectId) {
+      const select = $(selectId);
+      if (!select) return;
+      select.focus();
+      select.click();
+    };
+
+    window.exportAndDownload = async function(vid, idx, title, resolution, btn, libraryMode, libraryEntryId) {
+      const oldText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
+      try {
+        const endpoint = `/api/jobs/${encodeURIComponent(vid)}/clips/${idx}/transcode`;
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ resolution })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Export failed');
+        const sizeLabel = data.size_formatted ? ` (${data.size_formatted})` : '';
+        btn.textContent = `Download${sizeLabel}`;
+        downloadDirect(data.download_url, `${title || 'clip'}_${resolution}.mp4`);
+        if (window._currentClips && window._currentClips[idx] && !libraryMode) {
+          window._currentClips[idx][`${resolution}_url`] = data.download_url;
+          window._currentClips[idx][`${resolution}_size_formatted`] = data.size_formatted;
+        }
+      } catch (err) {
+        alert(`Export error: ${err.message}`);
+        btn.textContent = oldText;
+      } finally {
+        btn.disabled = false;
+      }
     };
 
     window.shrinkAndDownload = async function(vid, idx, btn) {
@@ -3215,7 +3262,7 @@
     };
 
     // Update library badge count from server
-    
+
     async function checkStorageStatus() {
       try {
         const res = await fetch('/api/storage');
@@ -3432,7 +3479,7 @@
 
     let _lastRenderedClipsCount = 0;
 
-    
+
     if ($('btn-cancel-batch')) {
       $('btn-cancel-batch').onclick = async () => {
         if (!confirm('Cancel this clipping batch? Any clips already generated will remain saved in your Library.')) return;
@@ -4048,12 +4095,14 @@
                 <div class="clip-card" style="background:var(--card-inner);">
                   <div class="video-wrap">
                     <video src="${streamUrl}" controls preload="metadata" playsinline></video>
+                    <button type="button" class="video-res-pill" onclick="openResolutionPicker('lib-res-${item.id}-${idx}')" aria-label="Choose download quality">⚙ ${escapeHtml(c.export_profile || '720p')} ▾</button>
                   </div>
                   <div class="clip-details">
                     <div class="clip-heading">${c.title || ('Clip #' + (idx + 1))}</div>
                     <div style="font-size:11px;color:var(--mute);margin-bottom:8px;">${c.hook_reason || c.caption || ''}</div>
                     <div class="clip-acts" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                      <button class="btn-dl" onclick="downloadDirect('${c.shrunk_url || dlUrl}', '${c.title || c.file}')" style="flex:2;min-width:120px;">Download MP4 (${c.export_profile || '720p'}${c.size_formatted ? ' • ' + c.size_formatted : ''})</button>
+                      <select class="clip-resolution-select" id="lib-res-${item.id}-${idx}" aria-label="Download resolution"><option value="1080p">1080p</option><option value="720p">720p</option><option value="480p" selected>480p</option><option value="360p">360p</option><option value="shrink">Shrink</option></select>
+                      <button class="btn-dl" onclick="exportAndDownload('${c.vid || item.id}', ${idx}, 'clip_${idx + 1}', $('lib-res-${item.id}-${idx}').value, this, true, '${item.id}')" style="flex:2;min-width:120px;">Download</button>
                       <button class="btn-copy btn-shrink ${c.shrunk_size_formatted ? 'active' : ''}" onclick="shrinkAndDownload('${c.vid || item.id}', ${idx}, this)" style="flex:1;min-width:75px;padding:6px 8px;font-size:11px;">${c.shrunk_size_formatted ? '✓ ' + c.shrunk_size_formatted : '⚡ Shrink'}</button>
                       <button class="btn-back" onclick="deleteLibraryClip('${item.id}', '${c.file}', this)" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;padding:6px 8px;font-size:11px;font-weight:700;">Delete</button>
                     </div>
@@ -4068,7 +4117,7 @@
       });
     }
 
-    
+
     window.deleteLibraryClip = async function(entryId, filename, btn) {
       if (!confirm('Delete this clip from the server library?')) return;
       try {
@@ -4486,7 +4535,7 @@
     }
 
     checkBackgroundJob();
-  
+
     (function(){var h=document.getElementById('hx'),n=h&&h.firstElementChild;if(!n)return;
     h.addEventListener('pointermove',function(e){var r=h.getBoundingClientRect();n.style.setProperty('--ry',((e.clientX-r.left)/r.width-.5)*24+'deg');n.style.setProperty('--rx',(.5-(e.clientY-r.top)/r.height)*12+'deg')});
     h.addEventListener('pointerleave',function(){n.style.setProperty('--ry','0deg');n.style.setProperty('--rx','0deg')})})();

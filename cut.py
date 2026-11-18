@@ -308,3 +308,51 @@ def shrink_video(src, dst, target_max_dim=1280, maxrate="1000k", crf=28, audio_b
     ]
     subprocess.run(cmd, check=True, capture_output=True)
     return dst
+
+
+def transcode_clip_resolution(src, dst, target_resolution="480p"):
+    """
+    On-demand multi-resolution export and compression pass (inspired by Snaptik and Lightsend).
+    Takes a rendered clip and re-encodes it into the requested target profile (1080p, 720p, 480p, 360p, or shrink)
+    with optimized VBV bitrate caps, high-efficiency audio, and +faststart.
+    """
+    key = str(target_resolution).strip().lower()
+    if key in ("shrink", "lightsend"):
+        return shrink_video(src, dst, target_max_dim=854, maxrate="800k", crf=28, audio_bitrate="64k")
+    if key not in ("360p", "480p", "540p", "720p", "1080p"):
+        raise ValueError("Unsupported resolution. Choose 360p, 480p, 540p, 720p, 1080p, or shrink.")
+
+    prof = resolve_export_profile(key)
+    max_dims = {
+        "1080p": 1920,
+        "720p": 1280,
+        "540p": 960,
+        "480p": 854,
+        "360p": 640,
+    }
+    target_dim = max_dims.get(prof["name"], 854)
+    crf = prof.get("crf", 26)
+    maxrate = prof.get("maxrate", "850k")
+    bufsize = prof.get("bufsize", "1700k")
+    audio_bitrate = prof.get("audio_bitrate", "80k")
+
+    scale_expr = f"scale='if(gt(iw,ih),min({target_dim},iw),-2)':'if(gt(iw,ih),-2,min({target_dim},ih))'"
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", os.path.abspath(src),
+        "-vf", scale_expr,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", str(crf),
+        "-maxrate", maxrate,
+        "-bufsize", bufsize,
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-c:a", "aac",
+        "-b:a", audio_bitrate,
+        os.path.abspath(dst)
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return dst

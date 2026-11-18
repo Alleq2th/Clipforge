@@ -385,8 +385,8 @@ def pick(segs, count=None, min_len=None, max_len=None, focus="viral", relax=Fals
         ranked = _deduplicate_and_rank_global(all_candidates, target_count, lo, hi, segs=segs,
                                               min_gap=min_gap, max_overlap=max_overlap)
         if ranked:
-            print(f"[PICK] Discovered {len(ranked)} high-quality viral moments across complete video.")
-            return ranked
+            print(f"[PICK] Discovered {len(ranked)} valid moments; requested {target_count}.")
+            return ranked[:target_count]
 
     # 3. Fallback to conversational windowing if AI providers were unreachable
     print("[PICK] Falling back to intelligent conversational windowing.")

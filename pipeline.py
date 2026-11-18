@@ -273,11 +273,24 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
             progress_val = int(60 + (completed_count / max(total, 1)) * 35)
             update_stage(f"Rendering clip {i} of {total} ({aspect_ratio} • {framing})...", progress_val)
 
-            _, item, _ = _render_clip_worker(
-                video, segs, c, i, vid,
-                aspect_ratio, caption_style, framing,
-                out_dir, jid, job_id, export_profile, caption_color
-            )
+            try:
+                _, item, _ = _render_clip_worker(
+                    video, segs, c, i, vid,
+                    aspect_ratio, caption_style, framing,
+                    out_dir, jid, job_id, export_profile, caption_color
+                )
+            except Exception as exc:
+                print(f"[PIPELINE] Serial render worker raised for clip {i}: {exc}")
+                item = {
+                    **c,
+                    "file": "",
+                    "vid": str(job_id),
+                    "index": i,
+                    "ok": False,
+                    "error": str(exc),
+                    "download_url": "",
+                    "stream_url": ""
+                }
             out_map[i] = item
 
             if jid:
