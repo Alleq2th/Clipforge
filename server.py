@@ -686,6 +686,83 @@ def retry_failed(jid):
     submit_job(work, jid, url, options, app_url)
     return jsonify({"ok": True, "status": "Retrying", "failed_count": len(failed_clips)})
 
+@app.post("/api/jobs/<jid>/clips/<int:clip_index>/shrink")
+def shrink_job_clip(jid, clip_index):
+    """
+    On-demand lightweight secondary compression pass (inspired by Lightsend).
+    Takes a rendered clip and recompresses it with a 1 Mbps video ceiling and 64k audio,
+    shrinking it down to <2 MB for ultra-low data downloads.
+    """
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+
+    clips = j.get("clips", [])
+    target_clip = None
+    target_idx = None
+    if 0 <= clip_index < len(clips):
+        target_clip = clips[clip_index]
+        target_idx = clip_index
+    elif 1 <= clip_index <= len(clips):
+        target_clip = clips[clip_index - 1]
+        target_idx = clip_index - 1
+
+    if not target_clip:
+        return jsonify({"error": f"Clip index {clip_index} out of range"}), 404
+
+    vid = target_clip.get("vid") or jid
+    out_dir = get_job_out_dir(jid)
+    clip_file = target_clip.get("file")
+    if not clip_file:
+        clip_file = f"clip{target_idx + 1}.mp4"
+
+    src_path = os.path.join(out_dir, clip_file)
+    if not os.path.exists(src_path):
+        alt_path = os.path.join(OUT_DIR, str(vid), clip_file)
+        if os.path.exists(alt_path):
+            src_path = alt_path
+        else:
+            return jsonify({"error": f"Source clip {clip_file} not found on server"}), 404
+
+    shrunk_file = f"clip{target_idx + 1}_shrunk.mp4"
+    dst_path = os.path.join(os.path.dirname(src_path), shrunk_file)
+
+    try:
+        from cut import shrink_video
+        shrink_video(src_path, dst_path)
+        shrunk_bytes = os.path.getsize(dst_path)
+        shrunk_mb = round(shrunk_bytes / (1024 * 1024), 2)
+        shrunk_formatted = f"{shrunk_mb} MB" if shrunk_mb >= 0.1 else f"{round(shrunk_bytes / 1024)} KB"
+
+        target_clip["shrunk_file"] = shrunk_file
+        target_clip["shrunk_url"] = f"/clips/{vid}/{shrunk_file}?dl=1"
+        target_clip["shrunk_stream_url"] = f"/clips/{vid}/{shrunk_file}"
+        target_clip["shrunk_size_formatted"] = shrunk_formatted
+        target_clip["shrunk_size_mb"] = shrunk_mb
+        save_job(jid)
+
+        lib = get_library()
+        for entry in lib:
+            if str(entry.get("id")) == str(jid):
+                entry_clips = entry.get("clips", [])
+                if target_idx < len(entry_clips):
+                    entry_clips[target_idx]["shrunk_file"] = shrunk_file
+                    entry_clips[target_idx]["shrunk_url"] = target_clip["shrunk_url"]
+                    entry_clips[target_idx]["shrunk_size_formatted"] = shrunk_formatted
+                save_library_entry(entry)
+                break
+
+        return jsonify({
+            "ok": True,
+            "shrunk_file": shrunk_file,
+            "download_url": target_clip["shrunk_url"],
+            "stream_url": target_clip["shrunk_stream_url"],
+            "size_formatted": shrunk_formatted,
+            "size_mb": shrunk_mb
+        })
+    except Exception as e:
+        return jsonify({"error": f"Failed to shrink clip: {str(e)}"}), 500
+
 @app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
 def retry_single_clip(jid, clip_index):
     """Retries a single specific clip without restarting the entire video batch."""

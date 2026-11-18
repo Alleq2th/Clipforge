@@ -72,6 +72,10 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
         download_url = cloud_url if cloud_url else f"/clips/{job_id}/{os.path.basename(f)}?dl=1"
         stream_url = cloud_url if cloud_url else f"/clips/{job_id}/{os.path.basename(f)}"
 
+        file_size_bytes = os.path.getsize(f) if os.path.exists(f) else 0
+        size_mb = round(file_size_bytes / (1024 * 1024), 2)
+        size_formatted = f"{size_mb} MB" if size_mb >= 0.1 else f"{round(file_size_bytes / 1024)} KB"
+
         item = {
             **c,
             "file": os.path.basename(f),
@@ -81,7 +85,10 @@ def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, fra
             "download_url": download_url,
             "stream_url": stream_url,
             "cloud_url": cloud_url or "",
-            "export_profile": export_profile or "1080p"
+            "export_profile": export_profile or "1080p",
+            "size_bytes": file_size_bytes,
+            "size_mb": size_mb,
+            "size_formatted": size_formatted
         }
         return i, item, None
     except Exception as e:

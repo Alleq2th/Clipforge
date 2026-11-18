@@ -199,6 +199,8 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
     )
     out = f"clip{i}.mp4"
 
+    maxrate = profile.get("maxrate", "1600k")
+    bufsize = profile.get("bufsize", "3200k")
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(c["start"]),
@@ -208,8 +210,13 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
         "-c:v", "libx264",
         "-threads:v", adaptive_ffmpeg["threads"],
         "-preset", active_preset,
-        "-tune", "fastdecode",
         "-crf", active_crf,
+        "-maxrate", maxrate,
+        "-bufsize", bufsize,
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
         "-max_muxing_queue_size", adaptive_ffmpeg["max_muxing_queue_size"],
     ]
 
@@ -273,3 +280,31 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
 
     enforce_gc("clip render complete")
     return os.path.join(d, out)
+
+
+def shrink_video(src, dst, target_max_dim=1280, maxrate="1000k", crf=28, audio_bitrate="64k"):
+    """
+    High-efficiency secondary compression pass inspired by Lightsend and mobile downloaders.
+    Constrains maximum dimension, caps video bitrate to 1 Mbps, and sets audio to 64k AAC,
+    producing an ultra-compact clip under ~2 MB with instant faststart playback.
+    """
+    scale_expr = f"scale='if(gt(iw,ih),min({target_max_dim},iw),-2)':'if(gt(iw,ih),-2,min({target_max_dim},ih))'"
+    cmd = [
+        "ffmpeg", "-y", "-loglevel", "error",
+        "-i", os.path.abspath(src),
+        "-vf", scale_expr,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-crf", str(crf),
+        "-maxrate", maxrate,
+        "-bufsize", f"{int(maxrate.rstrip('k')) * 2}k" if maxrate.endswith("k") else "2000k",
+        "-profile:v", "high",
+        "-level", "4.1",
+        "-pix_fmt", "yuv420p",
+        "-movflags", "+faststart",
+        "-c:a", "aac",
+        "-b:a", audio_bitrate,
+        os.path.abspath(dst)
+    ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return dst

@@ -947,6 +947,20 @@
       border-radius: var(--radius-sm);
       cursor: pointer;
     }
+    .btn-shrink {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #10b981;
+      transition: all 0.2s ease;
+    }
+    .btn-shrink:hover {
+      background: rgba(16, 185, 129, 0.22);
+    }
+    .btn-shrink.active {
+      background: #10b981;
+      color: #ffffff;
+      border-color: #10b981;
+    }
 
     /* Modal Backdrop & Box */
     .modal-backdrop {
@@ -2960,10 +2974,10 @@
 
       // Export quality: sharpness and speed on the same photo
       const QUAL = {
-        '1080p': {b:0,   q:5, s:2, badge:'1080p', d:'Sharpest picture. Slowest to render.'},
-        '720p':  {b:0.6, q:4, s:3, badge:'720p',  d:'Good quality with a quicker render.'},
-        '480p':  {b:1.4, q:3, s:4, badge:'480p',  d:'Smaller files and fast renders.'},
-        '360p':  {b:2.4, q:2, s:5, badge:'360p',  d:'Smallest files and fastest renders. Lowest detail.'}
+        '1080p': {b:0,   q:5, s:2, badge:'1080p', d:'Full HD Studio (~6 MB / 20s). Sharpest quality.'},
+        '720p':  {b:0.6, q:4, s:3, badge:'720p',  d:'TikTok / Snaptik Standard (~3.5 MB / 20s). Crisp & lightweight.'},
+        '480p':  {b:1.4, q:3, s:4, badge:'480p',  d:'Snaptik Light (~2 MB / 20s). Fast render & low data.'},
+        '360p':  {b:2.4, q:2, s:5, badge:'360p',  d:'Ultra Data-Saver (~1 MB / 20s). Minimal data usage.'}
       };
       ['quality-chips', 'review-quality-chips'].forEach(id => chipsOf(id).forEach(ch => {
         const q = QUAL[ch.dataset.val] || QUAL['1080p'];
@@ -3135,8 +3149,12 @@
       const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
       const dlUrl = c.download_url || `/clips/${c.vid}/${c.file}?dl=1`;
       const streamUrl = c.stream_url || `/clips/${c.vid}/${c.file}`;
-      const exportProf = c.export_profile || '1080p';
-      const profileBadge = ''; // the download button already shows the quality
+      const exportProf = c.export_profile || '720p';
+      const sizeTag = c.size_formatted ? ` • ${escapeHtml(c.size_formatted)}` : '';
+      const sizeBadge = c.size_formatted ? `<span class="score-badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:none;">📦 ${escapeHtml(c.size_formatted)}</span>` : '';
+      const shrunkTag = c.shrunk_size_formatted ? `✓ Shrunk (${escapeHtml(c.shrunk_size_formatted)})` : '⚡ Shrink';
+      const shrunkClass = c.shrunk_size_formatted ? 'btn-copy btn-shrink active' : 'btn-copy btn-shrink';
+      const activeDlUrl = c.shrunk_url || dlUrl;
 
       card.innerHTML = `
         <div class="video-wrap ${ratioClass}">
@@ -3146,13 +3164,14 @@
           <div class="clip-badges">
             <span class="score-badge">${score} Virality</span>
             <span class="cat-badge">${escapeHtml(cat)}</span>
-            ${profileBadge}
+            ${sizeBadge}
           </div>
           <div class="clip-heading">${escapeHtml(c.title || ('Highlight #' + (idx + 1)))}</div>${bd(c)}
           <div class="hook-alert"><b>Why it works:</b> ${escapeHtml(hookReason)}</div>
           <div class="clip-snippet">${escapeHtml(c.caption || '')}</div>
           <div class="clip-acts">
-            <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${escapeHtml(c.title || c.file)}')">Download MP4 (${escapeHtml(exportProf)})</button>
+            <button class="btn-dl" onclick="downloadDirect('${activeDlUrl}', '${escapeHtml(c.title || c.file)}')">Download MP4 (${escapeHtml(exportProf)}${sizeTag})</button>
+            <button class="${shrunkClass}" onclick="shrinkAndDownload('${c.vid}', ${idx}, this)" title="Shrink with Lightsend engine for minimal data (~1 MB)">${shrunkTag}</button>
             <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
             <button class="btn-copy" onclick="shareClip(${idx}, this)">Share</button>
           </div>
@@ -3170,6 +3189,29 @@
         btn.textContent = 'Copied!';
         setTimeout(() => btn.textContent = 'Copy', 2000);
       });
+    };
+
+    window.shrinkAndDownload = async function(vid, idx, btn) {
+      const origText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Shrinking…';
+      try {
+        const res = await fetch(`/api/jobs/${vid}/clips/${idx}/shrink`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'Shrink failed');
+        btn.textContent = `✓ Shrunk (${data.size_formatted})`;
+        btn.classList.add('active');
+        if (window._currentClips && window._currentClips[idx]) {
+          window._currentClips[idx].shrunk_url = data.download_url;
+          window._currentClips[idx].shrunk_size_formatted = data.size_formatted;
+        }
+        downloadDirect(data.download_url, `clip_${idx + 1}_shrunk.mp4`);
+      } catch (err) {
+        alert('Shrink error: ' + err.message);
+        btn.textContent = origText;
+      } finally {
+        btn.disabled = false;
+      }
     };
 
     // Update library badge count from server
@@ -4010,9 +4052,10 @@
                   <div class="clip-details">
                     <div class="clip-heading">${c.title || ('Clip #' + (idx + 1))}</div>
                     <div style="font-size:11px;color:var(--mute);margin-bottom:8px;">${c.hook_reason || c.caption || ''}</div>
-                    <div class="clip-acts" style="display:flex;gap:8px;align-items:center;">
-                      <button class="btn-dl" onclick="downloadDirect('${dlUrl}', '${c.title || c.file}')" style="flex:2;">Download MP4</button>
-                      <button class="btn-back" onclick="deleteLibraryClip('${item.id}', '${c.file}', this)" style="flex:1;background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;padding:6px 10px;font-size:11px;font-weight:700;">Delete</button>
+                    <div class="clip-acts" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                      <button class="btn-dl" onclick="downloadDirect('${c.shrunk_url || dlUrl}', '${c.title || c.file}')" style="flex:2;min-width:120px;">Download MP4 (${c.export_profile || '720p'}${c.size_formatted ? ' • ' + c.size_formatted : ''})</button>
+                      <button class="btn-copy btn-shrink ${c.shrunk_size_formatted ? 'active' : ''}" onclick="shrinkAndDownload('${c.vid || item.id}', ${idx}, this)" style="flex:1;min-width:75px;padding:6px 8px;font-size:11px;">${c.shrunk_size_formatted ? '✓ ' + c.shrunk_size_formatted : '⚡ Shrink'}</button>
+                      <button class="btn-back" onclick="deleteLibraryClip('${item.id}', '${c.file}', this)" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid #ef4444;padding:6px 8px;font-size:11px;font-weight:700;">Delete</button>
                     </div>
                   </div>
                 </div>

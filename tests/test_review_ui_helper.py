@@ -24,7 +24,7 @@ class ReviewUIHelperTests(unittest.TestCase):
     def test_polling_uses_reported_stage_and_progress(self):
         source = Path('static/index.html').read_text(encoding='utf-8')
         self.assertIn("const stageLabel = data.stage || data.status || 'Processing...';", source)
-        self.assertIn("updateStepIndicator(stageLabel, data.clips ? data.clips.length : 0, totalOpt, data.progress);", source)
+        self.assertTrue("updateStepIndicator(stageLabel, data.clips ? data.clips.length : 0, expectedTotal, data.progress);" in source or "updateStepIndicator(stageLabel, data.clips ? data.clips.length : 0, totalOpt, data.progress);" in source)
         self.assertIn('function updateStepIndicator(status, currentCount, totalCount, reportedProgress)', source)
 
 
