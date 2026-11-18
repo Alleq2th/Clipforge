@@ -1827,6 +1827,49 @@
     .pv-lim .trk { position: relative; height: 10px; border-radius: 99px; background: var(--line); }
     .pv-lim .seg { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: var(--acc); }
     .pv-lim small { font-size: 11px; opacity: .75; white-space: nowrap; }
+  
+    /* ===== Accounts, usage bar, sign-in and upgrade ===== */
+    #cf-bar{position:sticky;top:0;z-index:800;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:#0B0B0F;border-bottom:1px solid #24242E;color:#C9C9D6;font:500 13px/1.3 Inter,system-ui,-apple-system,sans-serif}
+    #cf-bar .cf-bar-main{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+    #cf-bar .cf-bar-text{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    #cf-bar .cf-bar-text b{color:#F4F4F8;font-variant-numeric:tabular-nums}
+    #cf-bar .cf-meter{flex:0 1 120px;min-width:60px;height:6px;background:#24242E;border-radius:999px;overflow:hidden}
+    #cf-bar .cf-meter i{display:block;height:100%;background:#8B5CF6;border-radius:999px;transition:width .4s ease-out}
+    .cf-pill{background:#8B5CF6;color:#fff;border-radius:999px;padding:3px 10px;font-weight:700;font-size:12px;white-space:nowrap}
+    .cf-btn,.cf-primary,.cf-link{min-height:40px;padding:0 16px;border-radius:10px;font:600 14px/1 Inter,system-ui,sans-serif;cursor:pointer;transition:transform .12s ease-out,filter .15s ease-out}
+    .cf-btn{border:1px solid #24242E;background:#15151C;color:#F4F4F8}
+    .cf-primary{border:0;background:#8B5CF6;color:#fff}
+    .cf-btn:hover,.cf-primary:hover{filter:brightness(1.08)}
+    .cf-btn:active,.cf-primary:active{transform:scale(.97)}
+    .cf-btn:disabled,.cf-primary:disabled{opacity:.5;cursor:default;transform:none}
+    .cf-link{background:none;border:0;color:#A1A1B5;min-height:36px;padding:0 4px;font-weight:500;text-decoration:underline}
+    .cf-wide{width:100%}
+    .cf-modal{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(5,5,8,.72);opacity:0;pointer-events:none;transition:opacity .2s ease-out}
+    .cf-modal.on{opacity:1;pointer-events:auto}
+    .cf-sheet{position:relative;width:100%;max-width:420px;max-height:90vh;overflow:auto;padding:24px;background:#15151C;border:1px solid #24242E;border-radius:16px;color:#F4F4F8;transform:translateY(8px);transition:transform .2s ease-out}
+    .cf-sheet-wide{max-width:520px}
+    .cf-modal.on .cf-sheet{transform:none}
+    .cf-sheet h2{margin:12px 0 6px;font:700 20px/1.25 Inter,system-ui,sans-serif}
+    .cf-sub{margin:0 0 16px;color:#A1A1B5;font-size:14px;line-height:1.5}
+    .cf-x{position:absolute;top:12px;right:12px;width:40px;height:40px;border:0;border-radius:10px;background:transparent;color:#A1A1B5;font-size:22px;cursor:pointer}
+    .cf-tabs{display:flex;gap:4px;padding:4px;background:#0B0B0F;border:1px solid #24242E;border-radius:12px}
+    .cf-tabs button{flex:1;min-height:36px;border:0;border-radius:9px;background:transparent;color:#A1A1B5;font:600 14px Inter,system-ui,sans-serif;cursor:pointer}
+    .cf-tabs button.on{background:#24242E;color:#F4F4F8}
+    .cf-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;color:#C9C9D6;font-size:13px;font-weight:500}
+    .cf-field input,.cf-field select{min-height:44px;padding:0 12px;border:1px solid #24242E;border-radius:10px;background:#0B0B0F;color:#F4F4F8;font:400 16px Inter,system-ui,sans-serif}
+    .cf-field input:focus,.cf-field select:focus,.cf-btn:focus-visible,.cf-primary:focus-visible,.cf-link:focus-visible,.cf-x:focus-visible,.cf-tabs button:focus-visible{outline:2px solid #8B5CF6;outline-offset:2px}
+    .cf-err{min-height:18px;margin:0 0 10px;color:#F87171;font-size:13px}
+    .cf-note{min-height:18px;margin:12px 0 8px;color:#C9C9D6;font-size:14px;line-height:1.5}
+    .cf-plan-list{display:grid;gap:12px}
+    .cf-plan-card{padding:16px;border:1px solid #24242E;border-radius:12px;background:#0B0B0F}
+    .cf-plan-card.hot{border-color:#8B5CF6}
+    .cf-plan-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px}
+    .cf-plan-head b{font-size:16px}
+    .cf-plan-head strong{font-size:20px;font-variant-numeric:tabular-nums}
+    .cf-plan-head small{color:#A1A1B5;font-size:13px;font-weight:500}
+    .cf-plan-card ul{margin:0 0 12px;padding:0 0 0 18px;color:#C9C9D6;font-size:14px;line-height:1.7}
+    .cf-field[hidden],.cf-modal[hidden],#cf-welcome[hidden],#cf-auth-body[hidden]{display:none!important}
+    @media (prefers-reduced-motion: reduce){#cf-bar .cf-meter i,.cf-modal,.cf-sheet,.cf-btn,.cf-primary{transition:none!important}}
   </style>
 </head>
 <body>
@@ -4529,6 +4572,299 @@
   new MutationObserver(() => { clearTimeout(t); t = setTimeout(scan, 250); }).observe(document.body, { childList: true, subtree: true });
   window.addEventListener('resize', () => { placeV(); scan(); });
   scan();
+})();
+</script>
+<div class="cf-modal" id="cf-auth" hidden role="dialog" aria-modal="true" aria-labelledby="cf-auth-title">
+  <div class="cf-sheet">
+    <button class="cf-x" type="button" data-cf="close" aria-label="Close">&times;</button>
+    <div id="cf-auth-body">
+      <div class="cf-tabs" role="tablist">
+        <button type="button" role="tab" data-cf-mode="signup" class="on">Create account</button>
+        <button type="button" role="tab" data-cf-mode="signin">Sign in</button>
+      </div>
+      <h2 id="cf-auth-title">Create your free account</h2>
+      <p class="cf-sub" id="cf-auth-sub">Free includes 60 minutes of source video a month.</p>
+      <form id="cf-auth-form" novalidate>
+        <label class="cf-field cf-signup-only">Name<input name="name" autocomplete="name" maxlength="80"></label>
+        <label class="cf-field">Email<input name="email" type="email" autocomplete="email"></label>
+        <label class="cf-field">Password<input name="password" type="password" minlength="8" autocomplete="current-password"></label>
+        <label class="cf-field cf-signup-only">What brings you here?<select name="reason"><option value="">Choose one</option><option>Repurposing podcasts</option><option>Clipping YouTube videos</option><option>Faceless videos for my brand</option><option>Something else</option></select></label>
+        <p class="cf-err" id="cf-auth-err" role="alert"></p>
+        <button class="cf-primary cf-wide" type="submit" id="cf-auth-submit">Create account</button>
+      </form>
+    </div>
+    <div id="cf-welcome" hidden>
+      <h2 id="cf-welcome-title">Welcome to ClipForge</h2>
+      <p class="cf-sub">You're in the beta, so some rough edges are expected. If anything breaks or feels wrong, reply to the welcome email and tell us. We read every reply.</p>
+      <button class="cf-primary cf-wide" type="button" data-cf="close">Start clipping</button>
+    </div>
+  </div>
+</div>
+<div class="cf-modal" id="cf-plans" hidden role="dialog" aria-modal="true" aria-labelledby="cf-plans-title">
+  <div class="cf-sheet cf-sheet-wide">
+    <button class="cf-x" type="button" data-cf="close" aria-label="Close">&times;</button>
+    <h2 id="cf-plans-title">Upgrade your plan</h2>
+    <p class="cf-sub" id="cf-plans-msg">Pick a plan to keep creating clips.</p>
+    <div class="cf-plan-list" id="cf-plan-list"></div>
+    <p class="cf-note" id="cf-plan-note" aria-live="polite"></p>
+    <button class="cf-link" type="button" data-cf="signout">Sign out</button>
+  </div>
+</div>
+<script>
+(function () {
+  var KEY = 'cf_session';
+  var PLANS = [
+    { id: 'free', name: 'Free', price: '$0', items: ['60 minutes a month', 'ClipForge watermark'] },
+    { id: 'creator', name: 'Creator', price: '$15', hot: true, items: ['300 minutes a month', 'No watermark', 'All aspect ratios'] },
+    { id: 'pro', name: 'Pro', price: '$39', items: ['1,000 minutes a month', 'Studio faceless videos', 'Priority rendering'] }
+  ];
+  var me = null, authMode = 'signup', origFetch = window.fetch.bind(window), refreshing = null;
+
+  function el(id) { return document.getElementById(id); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function getSession() { try { return JSON.parse(localStorage.getItem(KEY)) || null; } catch (e) { return null; } }
+  function setSession(s) {
+    if (s && s.access_token) localStorage.setItem(KEY, JSON.stringify(s));
+    else { localStorage.removeItem(KEY); me = null; }
+  }
+  function show(id) { var m = el(id); clearTimeout(m._t); m.hidden = false; void m.offsetWidth; m.classList.add('on'); }
+  function hide(id) { var m = el(id); m.classList.remove('on'); clearTimeout(m._t); m._t = setTimeout(function () { m.hidden = true; }, 200); }
+
+  function refreshSession() {
+    var s = getSession();
+    if (!s || !s.refresh_token) return Promise.resolve(false);
+    if (!refreshing) {
+      refreshing = origFetch('/api/auth/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: s.refresh_token }) })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (d) { if (d && d.session) { setSession(d.session); return true; } setSession(null); return false; })
+        .catch(function () { return false; })
+        .then(function (ok) { refreshing = null; return ok; });
+    }
+    return refreshing;
+  }
+
+  function isApi(u) { return typeof u === 'string' && (u.indexOf('/api/') === 0 || u.indexOf(location.origin + '/api/') === 0); }
+
+  function handleBlock(status, body, url) {
+    if (!body || !body.code || url === '/api/me') return;
+    if (status === 401 && body.code === 'auth_required') { setSession(null); renderBar(); openAuth(body.error); }
+    else if (status === 402) openUpgrade(body);
+  }
+
+  function send(url, input, init, canRetry) {
+    var s = getSession();
+    var headers = new Headers(init.headers || {});
+    if (s && s.access_token) headers.set('Authorization', 'Bearer ' + s.access_token);
+    init.headers = headers;
+    return origFetch(input, init).then(function (res) {
+      if (res.status === 401 && canRetry && s && s.refresh_token && url.indexOf('/api/auth/') !== 0) {
+        return refreshSession().then(function (ok) { return ok ? send(url, input, init, false) : res; });
+      }
+      if (res.status === 401 || res.status === 402) {
+        return res.clone().json().catch(function () { return null; }).then(function (body) { handleBlock(res.status, body, url); return res; });
+      }
+      if (res.ok && url === '/api/jobs' && (init.method || 'GET').toUpperCase() === 'POST') refreshBar();
+      return res;
+    });
+  }
+
+  window.fetch = function (input, init) {
+    var url = typeof input === 'string' ? input : (input && input.url) || '';
+    if (!isApi(url)) return origFetch(input, init);
+    return send(url.replace(location.origin, ''), input, Object.assign({}, init || {}), true);
+  };
+
+  var xOpen = XMLHttpRequest.prototype.open, xSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (method, url) { this._cfUrl = String(url); return xOpen.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function () {
+    var xhr = this;
+    if (xhr._cfUrl && isApi(xhr._cfUrl)) {
+      var s = getSession();
+      if (s && s.access_token) xhr.setRequestHeader('Authorization', 'Bearer ' + s.access_token);
+      xhr.addEventListener('loadend', function () {
+        if (xhr.status === 401 || xhr.status === 402) {
+          var body = null; try { body = JSON.parse(xhr.responseText); } catch (e) {}
+          handleBlock(xhr.status, body, xhr._cfUrl.replace(location.origin, ''));
+        }
+      });
+    }
+    return xSend.apply(this, arguments);
+  };
+
+  function renderBar() {
+    var bar = el('cf-bar');
+    if (getSession() && !me) { bar.innerHTML = '<div class="cf-bar-main"><span class="cf-bar-text">Loading your plan...</span></div>'; return; }
+    if (!me) {
+      bar.innerHTML = '<div class="cf-bar-main"><span class="cf-bar-text">Free plan: 60 minutes a month</span></div><button class="cf-btn" type="button" data-cf="signin">Sign in</button>';
+      return;
+    }
+    var pct = me.limit_minutes ? Math.min(100, Math.round(me.used_minutes / me.limit_minutes * 100)) : 0;
+    bar.innerHTML = '<div class="cf-bar-main"><span class="cf-pill">' + esc(me.plan_name) + '</span>' +
+      '<span class="cf-bar-text"><b>' + me.used_minutes + '</b> of ' + me.limit_minutes + ' min used</span>' +
+      '<div class="cf-meter" aria-hidden="true"><i style="width:' + pct + '%"></i></div></div>' +
+      (me.plan === 'pro' ? '' : '<button class="cf-btn" type="button" data-cf="plans">Upgrade</button>');
+  }
+
+  function refreshBar() {
+    if (!getSession()) { me = null; renderBar(); return Promise.resolve(); }
+    return window.fetch('/api/me').then(function (r) {
+      if (r.status === 401) setSession(null);
+      return r.ok ? r.json() : null;
+    }).then(function (d) { if (d) me = d; renderBar(); }).catch(function () { renderBar(); });
+  }
+
+  function setAuthMode(mode) {
+    authMode = mode;
+    document.querySelectorAll('[data-cf-mode]').forEach(function (b) {
+      var on = b.dataset.cfMode === mode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    el('cf-auth-title').textContent = mode === 'signup' ? 'Create your free account' : 'Welcome back';
+    el('cf-auth-sub').textContent = mode === 'signup' ? 'Free includes 60 minutes of source video a month.' : 'Sign in to keep creating clips.';
+    el('cf-auth-submit').textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+    el('cf-auth-form').querySelectorAll('.cf-signup-only').forEach(function (l) { l.hidden = mode !== 'signup'; });
+    el('cf-auth-err').textContent = '';
+  }
+
+  function openAuth(msg, mode) {
+    el('cf-auth-body').hidden = false;
+    el('cf-welcome').hidden = true;
+    setAuthMode(mode || 'signup');
+    el('cf-auth-err').textContent = msg || '';
+    show('cf-auth');
+    setTimeout(function () { var i = el('cf-auth-form').querySelector('input[name=email]'); if (i) i.focus(); }, 220);
+  }
+
+  function showWelcome(name) {
+    el('cf-auth-body').hidden = true;
+    el('cf-welcome').hidden = false;
+    el('cf-welcome-title').textContent = 'Welcome to ClipForge' + (name ? ', ' + name.split(' ')[0] : '');
+    refreshBar();
+  }
+
+  el('cf-auth-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var f = new FormData(e.currentTarget), err = el('cf-auth-err'), btn = el('cf-auth-submit');
+    var body = { email: (f.get('email') || '').trim(), password: f.get('password') || '' };
+    if (authMode === 'signup') {
+      body.name = (f.get('name') || '').trim();
+      body.reason = f.get('reason') || '';
+      if (!body.name) { err.textContent = 'Add your name so we know who we\u2019re talking to.'; return; }
+      if (!body.reason) { err.textContent = 'Tell us what brings you here.'; return; }
+    }
+    if (!body.email || !body.password) { err.textContent = 'Enter your email and password.'; return; }
+    btn.disabled = true; btn.textContent = 'Please wait...'; err.textContent = '';
+    origFetch('/api/auth/' + (authMode === 'signup' ? 'signup' : 'login'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) {
+        if (!x.ok) { err.textContent = x.d.error || 'Something went wrong. Try again.'; return; }
+        if (x.d.needs_confirmation) { err.textContent = 'Check your inbox to confirm your email, then sign in.'; return; }
+        setSession(x.d.session);
+        if (authMode === 'signup') return showWelcome(body.name);
+        hide('cf-auth');
+        refreshBar();
+      })
+      .catch(function () { err.textContent = 'Network issue. Try again.'; })
+      .then(function () { btn.disabled = false; btn.textContent = authMode === 'signup' ? 'Create account' : 'Sign in'; });
+  });
+
+  function renderPlans() {
+    var cur = me ? me.plan : 'free';
+    el('cf-plan-list').innerHTML = PLANS.map(function (p) {
+      var btn = p.id === cur ? '<button class="cf-btn cf-wide" type="button" disabled>Current plan</button>'
+        : p.id === 'free' ? '<button class="cf-btn cf-wide" type="button" disabled>Free plan</button>'
+        : '<button class="cf-primary cf-wide" type="button" data-cf="choose" data-plan="' + p.id + '">Upgrade to ' + p.name + '</button>';
+      return '<div class="cf-plan-card' + (p.hot ? ' hot' : '') + '"><div class="cf-plan-head"><b>' + p.name + '</b><strong>' + p.price + '<small>/mo</small></strong></div>' +
+        '<ul>' + p.items.map(function (i) { return '<li>' + esc(i) + '</li>'; }).join('') + '</ul>' + btn + '</div>';
+    }).join('');
+  }
+
+  function openUpgrade(info) {
+    var title = info && info.code === 'plan_required' ? 'Studio is part of Pro'
+      : info && info.code === 'limit_reached' ? 'Your minutes are used up' : 'Upgrade your plan';
+    el('cf-plans-title').textContent = title;
+    el('cf-plans-msg').textContent = (info && info.error) || 'Pick a plan to keep creating clips.';
+    el('cf-plan-note').textContent = '';
+    renderPlans();
+    show('cf-plans');
+  }
+
+  function openPlans() {
+    if (!getSession()) return openAuth('Create an account to choose a plan.');
+    refreshBar().then(function () { openUpgrade(null); });
+  }
+
+  function openStudioLock() {
+    openUpgrade({ code: 'plan_required', error: 'Studio is part of the Pro plan. Upgrade to make faceless videos with a neural voice and captions.' });
+  }
+
+  function choosePlan(plan) {
+    var note = el('cf-plan-note');
+    note.textContent = 'Saving your choice...';
+    window.fetch('/api/upgrade-intent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plan: plan }) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (x) { note.textContent = x.ok ? x.d.message : (x.d.error || 'Could not save that. Try again.'); })
+      .catch(function () { note.textContent = 'Could not save that. Try again.'; });
+  }
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var c = t.closest('[data-cf]');
+    if (c) {
+      var a = c.dataset.cf;
+      if (a === 'close') { var m = c.closest('.cf-modal'); if (m) hide(m.id); }
+      else if (a === 'signin') openAuth('', 'signin');
+      else if (a === 'plans') openPlans();
+      else if (a === 'choose') choosePlan(c.dataset.plan);
+      else if (a === 'signout') { setSession(null); renderBar(); hide('cf-plans'); }
+      return;
+    }
+    var tab = t.closest('[data-cf-mode]');
+    if (tab) { setAuthMode(tab.dataset.cfMode); return; }
+    if (t.classList && t.classList.contains('cf-modal')) hide(t.id);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') ['cf-auth', 'cf-plans'].forEach(function (id) { if (!el(id).hidden) hide(id); });
+  });
+
+  // Gates run before the page's own handlers, so a blocked action never starts.
+  window.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+
+    if (t.closest('#plans [data-p]')) {
+      e.preventDefault(); e.stopImmediatePropagation();
+      return openPlans();
+    }
+
+    var faceless = t.closest('#mode-faceless-btn');
+    if (faceless) {
+      if (!getSession()) { e.preventDefault(); e.stopImmediatePropagation(); return openAuth('Sign in to use Studio.'); }
+      if (!me) { e.preventDefault(); e.stopImmediatePropagation(); return refreshBar().then(function () { if (me && me.plan === 'pro') faceless.click(); else openStudioLock(); }); }
+      if (me.plan !== 'pro') { e.preventDefault(); e.stopImmediatePropagation(); return openStudioLock(); }
+      return;
+    }
+
+    var next = t.closest('#btn-next');
+    if (next && !getSession()) {
+      var step4 = el('tab-4');
+      if ((step4 && step4.classList.contains('active')) || /generate/i.test(next.textContent)) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        openAuth('Sign in to create your clips. Free includes 60 minutes a month.');
+      }
+    }
+  }, true);
+
+  var bar = document.createElement('div');
+  bar.id = 'cf-bar';
+  bar.setAttribute('aria-live', 'polite');
+  document.body.insertBefore(bar, document.body.firstChild);
+  renderBar();
+  refreshBar();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden && getSession()) refreshBar(); });
 })();
 </script>
 </body>
