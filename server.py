@@ -18,6 +18,8 @@ from security import validate_video_url, safe_join_path
 from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs, get_active_job_ids
 from process_manager import submit_job, terminate_job_processes, MAX_CONCURRENT_JOBS
 from memory_guard import get_memory_status
+from accounts import (AccountError, accounts_configured, account_status, current_user, get_duration_minutes,
+                      record_upgrade_intent, refresh_session, reserve_usage, sign_in, sign_up, studio_minutes)
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -326,6 +328,60 @@ def preview():
     meta = get_video_meta(url)
     return jsonify(meta)
 
+def require_accounts():
+    if not accounts_configured():
+        raise AccountError("Sign-in isn't set up on this server yet. Please try again later.", 503, "accounts_unavailable")
+
+
+def require_user():
+    """Return the signed-in user or raise AccountError(401). Every paid action calls this first."""
+    require_accounts()
+    header = request.headers.get("Authorization", "")
+    token = header[7:].strip() if header.startswith("Bearer ") else ""
+    user = current_user(token)
+    if not user:
+        raise AccountError("Sign in to start creating clips.", 401, "auth_required")
+    return user
+
+
+@app.errorhandler(AccountError)
+def account_error(e):
+    return jsonify({"error": e.message, "code": e.code, **e.details}), e.status
+
+
+@app.post("/api/auth/signup")
+def auth_signup():
+    require_accounts()
+    d = request.get_json(silent=True) or {}
+    return jsonify(sign_up(d.get("name"), d.get("email"), d.get("password"), d.get("reason")))
+
+
+@app.post("/api/auth/login")
+def auth_login():
+    require_accounts()
+    d = request.get_json(silent=True) or {}
+    return jsonify(sign_in(d.get("email"), d.get("password")))
+
+
+@app.post("/api/auth/refresh")
+def auth_refresh():
+    require_accounts()
+    d = request.get_json(silent=True) or {}
+    return jsonify(refresh_session(d.get("refresh_token")))
+
+
+@app.get("/api/me")
+def account_me():
+    return jsonify(account_status(require_user()))
+
+
+@app.post("/api/upgrade-intent")
+def upgrade_intent():
+    user = require_user()
+    d = request.get_json(silent=True) or {}
+    return jsonify({"ok": True, "message": record_upgrade_intent(user, d.get("plan"))})
+
+
 WAITLIST_FILE = os.path.join(WORK_DIR, "waitlist.jsonl")
 
 @app.post("/api/waitlist")
@@ -396,6 +452,7 @@ def force_cleanup():
 
 @app.post("/api/upload")
 def upload_video():
+    require_user()
     """
     Accepts direct MP4/MOV/MKV/WEBM file upload,
     saves cleanly into WORK_DIR/uploads/, extracts thumbnail, and returns preview metadata.
@@ -487,6 +544,7 @@ def set_job_email(jid):
 
 @app.post("/api/jobs")
 def create():
+    user = require_user()
     data = request.json or {}
     url = data.get("url", "").strip()
     if not url:
@@ -499,6 +557,10 @@ def create():
         return jsonify({"error": str(ve)}), 400
 
     jid = str(uuid.uuid4())[:8]
+    minutes = get_duration_minutes(url)
+    if minutes is None:
+        raise AccountError("We couldn't read this video's length, so it can't start yet. Try another link, or upload the file.", 422, "duration_unknown")
+    reserve_usage(user, jid, minutes, "clip")
     min_len, max_len = parse_duration_options(data)
 
     options = {
@@ -990,6 +1052,7 @@ def faceless_work(fid, url, script, voice, style, framing, email="", app_url="")
 
 @app.post("/api/faceless")
 def create_faceless():
+    user = require_user()
     data = request.json or {}
     script = data.get("script", "").strip()
     if not script:
@@ -1008,6 +1071,7 @@ def create_faceless():
     email = (data.get("email") or "").strip()
 
     fid = str(uuid.uuid4())[:8]
+    reserve_usage(user, fid, studio_minutes(script), "studio", studio=True)
     faceless_jobs[fid] = {
         "id": fid,
         "status": "Queued in processing pool...",
