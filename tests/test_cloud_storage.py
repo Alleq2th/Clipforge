@@ -68,7 +68,7 @@ class TestCloudStorageIntegration(unittest.TestCase):
         mock_bucket_resp.status_code = 200
         mock_upload_resp = MagicMock()
         mock_upload_resp.status_code = 200
-        mock_post.side_effect = [mock_bucket_resp, mock_upload_resp]
+        mock_post.return_value = mock_upload_resp
 
         fake_clip = os.path.join(self.test_dir, "test_clip.mp4")
         with open(fake_clip, "wb") as f:

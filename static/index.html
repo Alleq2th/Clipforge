@@ -1837,6 +1837,31 @@
     .shortfall-reason { margin-top: 4px; font-size: 13px; opacity: .8; line-height: 1.45; }
     .shortfall-actions { margin-top: var(--s3); display: flex; flex-wrap: wrap; gap: var(--s2); }
     .shortfall-actions .btn-next { width: auto; min-height: 40px; padding: var(--s2) var(--s3); font-size: 14px; }
+
+    /* Batch Status Panel */
+    .batch-status-panel { border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--card); padding: var(--s3); margin-bottom: var(--s3); }
+    .batch-status-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--s2); }
+    .batch-status-title { font-size: var(--fs-meta); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--mute); display: flex; align-items: center; gap: 6px; }
+    .batch-status-badge { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 12px; }
+    .badge-complete { background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-shortfall { background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-failed { background: rgba(239, 68, 68, 0.15); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); }
+    .batch-status-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--s2); margin-bottom: var(--s2); }
+    @media (max-width: 500px) { .batch-status-grid { grid-template-columns: repeat(2, 1fr); } }
+    .batch-stat-card { background: rgba(255, 255, 255, 0.02); border: 1px solid var(--line); border-radius: var(--radius-ctl); padding: 8px 10px; text-align: center; }
+    .batch-stat-val { font-size: 20px; font-weight: 800; line-height: 1.2; }
+    .batch-stat-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; color: var(--mute); margin-top: 2px; }
+    .stat-val-requested { color: #94a3b8; }
+    .stat-val-discovered { color: #60a5fa; }
+    .stat-val-completed { color: #10b981; }
+    .stat-val-failed { color: #ef4444; }
+    .stat-val-ok { color: #10b981; }
+    .batch-reason-box { background: rgba(255, 255, 255, 0.02); border-left: 3px solid var(--acc-light); padding: 8px 12px; border-radius: 4px; font-size: var(--fs-small); line-height: 1.45; color: var(--text); }
+    .batch-reason-box.has-failed { border-left-color: #ef4444; }
+    .batch-reason-box.has-shortfall { border-left-color: #f59e0b; }
+    .batch-reason-heading { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: var(--mute); margin-bottom: 2px; }
+    .batch-reason-text { color: var(--ink-secondary, #cbd5e1); font-size: 12px; }
+    .batch-status-actions { display: flex; gap: var(--s2); margin-top: var(--s2); flex-wrap: wrap; }
     .pv-lim { width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 10px; box-sizing: border-box; }
     .pv-lim .trk { position: relative; height: 10px; border-radius: 99px; background: var(--line); }
     .pv-lim .seg { position: absolute; top: 0; bottom: 0; border-radius: 99px; background: var(--acc); }
@@ -3181,9 +3206,9 @@
               <select class="clip-resolution-select" id="clip-res-${idx}" aria-label="Download resolution">
                 <option value="1080p">1080p</option><option value="720p">720p</option><option value="480p" selected>480p</option><option value="360p">360p</option><option value="shrink">Shrink</option>
               </select>
-              <button class="btn-dl" onclick="exportAndDownload('${c.vid}', ${idx}, 'clip_${idx + 1}', $('clip-res-${idx}').value, this)">Download</button>
+              <button class="btn-dl" onclick="exportAndDownload('${c.vid || window._activeJid || (window._lastJobItem && window._lastJobItem.id) || ""}', ${idx}, 'clip_${idx + 1}', $('clip-res-${idx}').value, this)">Download</button>
             </div>
-            <button class="${shrunkClass}" onclick="shrinkAndDownload('${c.vid}', ${idx}, this)" title="Shrink with Lightsend engine for minimal data (~1 MB)">${shrunkTag}</button>
+            <button class="${shrunkClass}" onclick="shrinkAndDownload('${c.vid || window._activeJid || (window._lastJobItem && window._lastJobItem.id) || ""}', ${idx}, this)" title="Shrink with Lightsend engine for minimal data (~1 MB)">${shrunkTag}</button>
             <button class="btn-copy" onclick="copyCaption('${idx}', this)">Copy</button>
             <button class="btn-copy" onclick="shareClip(${idx}, this)">Share</button>
           </div>
@@ -3214,8 +3239,30 @@
       const oldText = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Preparing…';
+
+      let jobVid = (vid && vid !== 'undefined' && vid !== 'null') ? String(vid).trim() : '';
+      if (!jobVid && libraryEntryId && libraryEntryId !== 'undefined' && libraryEntryId !== 'null') jobVid = String(libraryEntryId).trim();
+      if (!jobVid && window._activeJid) jobVid = window._activeJid;
+      if (!jobVid && window._lastJobItem && window._lastJobItem.id) jobVid = window._lastJobItem.id;
+      if (!jobVid && window._reviewJid) jobVid = window._reviewJid;
+
+      const clipObj = (window._currentClips && window._currentClips[idx]) || null;
+      const currentRes = (clipObj && (clipObj.export_profile || '720p').toLowerCase()) || '';
+      const reqRes = (resolution || '720p').toLowerCase();
+
+      // Fast path: if requested resolution matches current resolution and clip has a URL
+      if (clipObj && currentRes && currentRes === reqRes && (clipObj.download_url || clipObj.cloud_url)) {
+        btn.textContent = oldText;
+        btn.disabled = false;
+        downloadDirect(clipObj.download_url || clipObj.cloud_url, `${title || 'clip'}_${resolution}.mp4`);
+        return;
+      }
+
       try {
-        const endpoint = `/api/jobs/${encodeURIComponent(vid)}/clips/${idx}/transcode`;
+        if (!jobVid) {
+          throw new Error('Video job ID is unavailable for transcoding.');
+        }
+        const endpoint = `/api/jobs/${encodeURIComponent(jobVid)}/clips/${idx}/transcode`;
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3231,6 +3278,16 @@
           window._currentClips[idx][`${resolution}_size_formatted`] = data.size_formatted;
         }
       } catch (err) {
+        console.warn('Transcode error, evaluating fallback:', err);
+        // Fallback: If on-demand transcode fails, fall back to direct download of the original rendered clip if available
+        const fallbackUrl = (clipObj && (clipObj.download_url || clipObj.stream_url || clipObj.cloud_url))
+          || (jobVid && `/clips/${encodeURIComponent(jobVid)}/clip${idx + 1}.mp4?dl=1`);
+        if (fallbackUrl) {
+          btn.textContent = oldText;
+          btn.disabled = false;
+          downloadDirect(fallbackUrl, `${title || 'clip'}.mp4`);
+          return;
+        }
         alert(`Export error: ${err.message}`);
         btn.textContent = oldText;
       } finally {
@@ -3242,8 +3299,13 @@
       const origText = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Shrinking…';
+      let jobVid = (vid && vid !== 'undefined' && vid !== 'null') ? String(vid).trim() : '';
+      if (!jobVid && window._activeJid) jobVid = window._activeJid;
+      if (!jobVid && window._lastJobItem && window._lastJobItem.id) jobVid = window._lastJobItem.id;
+
       try {
-        const res = await fetch(`/api/jobs/${vid}/clips/${idx}/shrink`, { method: 'POST' });
+        if (!jobVid) throw new Error('Video job ID is unavailable.');
+        const res = await fetch(`/api/jobs/${encodeURIComponent(jobVid)}/clips/${idx}/shrink`, { method: 'POST' });
         const data = await res.json();
         if (!res.ok || data.error) throw new Error(data.error || 'Shrink failed');
         btn.textContent = `✓ Shrunk (${data.size_formatted})`;
@@ -3254,6 +3316,13 @@
         }
         downloadDirect(data.download_url, `clip_${idx + 1}_shrunk.mp4`);
       } catch (err) {
+        const fallbackUrl = (window._currentClips && window._currentClips[idx] && (window._currentClips[idx].download_url || window._currentClips[idx].stream_url))
+          || (jobVid && `/clips/${encodeURIComponent(jobVid)}/clip${idx + 1}.mp4?dl=1`);
+        if (fallbackUrl) {
+          btn.textContent = origText;
+          downloadDirect(fallbackUrl, `clip_${idx + 1}.mp4`);
+          return;
+        }
         alert('Shrink error: ' + err.message);
         btn.textContent = origText;
       } finally {
@@ -3938,23 +4007,115 @@
       };
     }
 
-    // Shows how many clips were made when fewer than requested, why, and a retry with relaxed limits
-    function renderShortfall() {
-      const old = $('shortfall-banner'); if (old) old.remove();
-      const info = window._lastJobInfo; window._lastJobInfo = null;
-      if (!info || !info.shortfall) return;
-      const esc2 = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-      const box = document.createElement('div');
-      box.id = 'shortfall-banner';
-      box.className = 'shortfall-banner';
-      box.setAttribute('role', 'status');
-      box.innerHTML = `<div class="shortfall-title">${esc2(info.produced)} of ${esc2(info.requested)} clips made</div>`
-        + `<div class="shortfall-reason">${esc2(info.reason || '')}</div>`
-        + `<div class="shortfall-actions">${info.relaxed ? '' : '<button class="btn-next" id="btn-retry-relaxed" type="button">Try again with relaxed limits</button>'}</div>`;
+    // Shows batch generation diagnostics: requested, discovered, completed, failed, and why generation stopped
+    function renderBatchStatusPanel(customInfo) {
+      const old = $('batch-status-panel');
+      if (old) old.remove();
+
+      const info = customInfo || window._lastJobInfo || {};
+      const clips = window._currentClips || [];
+      const completedCount = info.completed != null ? Number(info.completed) : clips.filter(c => c.ok !== false && c.file).length;
+      const failedCount = info.failed != null ? Number(info.failed) : clips.filter(c => c.ok === false || !c.file).length;
+      const requestedCount = info.requested != null ? Number(info.requested) : Number(state.options?.count || 5);
+      const discoveredCount = info.discovered != null ? Number(info.discovered) : (info.produced != null ? Number(info.produced) : clips.length);
+
+      let stoppedReason = info.stopped_reason || info.reason || '';
+      if (!stoppedReason) {
+        if (completedCount >= requestedCount) {
+          stoppedReason = `All ${requestedCount} requested clips were successfully discovered and rendered.`;
+        } else if (failedCount > 0) {
+          stoppedReason = `Rendered ${completedCount} clip(s); ${failedCount} render(s) failed during encoding.`;
+        } else if (discoveredCount < requestedCount) {
+          stoppedReason = `Only ${discoveredCount} distinct moments met the duration and non-overlap criteria in this video.`;
+        } else {
+          stoppedReason = `Batch finished with ${completedCount} clip(s) ready.`;
+        }
+      }
+
+      const isShortfall = completedCount < requestedCount;
+      const hasFailed = failedCount > 0;
+
+      const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+      const panel = document.createElement('div');
+      panel.id = 'batch-status-panel';
+      panel.className = 'batch-status-panel';
+      panel.setAttribute('role', 'region');
+      panel.setAttribute('aria-label', 'Batch Generation Status');
+      panel.innerHTML = `
+        <div class="batch-status-header">
+          <div class="batch-status-title">
+            <svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+            </svg>
+            Batch Summary & Diagnostics
+          </div>
+          <span class="batch-status-badge ${hasFailed ? 'badge-failed' : (isShortfall ? 'badge-shortfall' : 'badge-complete')}">
+            ${hasFailed ? `${failedCount} Failed` : (isShortfall ? 'Partial Batch' : 'Complete')}
+          </span>
+        </div>
+        <div class="batch-status-grid">
+          <div class="batch-stat-card">
+            <div class="batch-stat-val stat-val-requested">${esc(requestedCount)}</div>
+            <div class="batch-stat-label">Requested</div>
+          </div>
+          <div class="batch-stat-card">
+            <div class="batch-stat-val stat-val-discovered">${esc(discoveredCount)}</div>
+            <div class="batch-stat-label">Discovered</div>
+          </div>
+          <div class="batch-stat-card">
+            <div class="batch-stat-val stat-val-completed">${esc(completedCount)}</div>
+            <div class="batch-stat-label">Completed</div>
+          </div>
+          <div class="batch-stat-card">
+            <div class="batch-stat-val ${hasFailed ? 'stat-val-failed' : 'stat-val-ok'}">${esc(failedCount)}</div>
+            <div class="batch-stat-label">Failed</div>
+          </div>
+        </div>
+        <div class="batch-reason-box ${hasFailed ? 'has-failed' : (isShortfall ? 'has-shortfall' : '')}">
+          <div class="batch-reason-heading">Why generation stopped</div>
+          <div class="batch-reason-text">${esc(stoppedReason)}</div>
+        </div>
+        ${(isShortfall || hasFailed) ? `
+        <div class="batch-status-actions">
+          ${(isShortfall && !info.relaxed) ? `<button class="btn-next" id="btn-batch-relaxed" type="button" style="padding:7px 14px;font-size:12px;">⚡ Try again with relaxed limits</button>` : ''}
+          ${hasFailed ? `<button class="btn-back" id="btn-batch-retry-failed" type="button" style="padding:7px 14px;font-size:12px;color:#ef4444;border-color:#ef4444;">🔄 Retry Failed Clips</button>` : ''}
+        </div>` : ''}
+      `;
+
       const stream = $('clips-stream');
-      if (stream && stream.parentNode) stream.parentNode.insertBefore(box, stream);
-      const b = $('btn-retry-relaxed');
-      if (b) b.onclick = retryRelaxed;
+      const sortbar = $('sortbar');
+      const target = sortbar || stream;
+      if (target && target.parentNode) {
+        target.parentNode.insertBefore(panel, target);
+      }
+
+      const bRelaxed = $('btn-batch-relaxed');
+      if (bRelaxed) bRelaxed.onclick = retryRelaxed;
+
+      const bRetryFailed = $('btn-batch-retry-failed');
+      if (bRetryFailed) {
+        bRetryFailed.onclick = async () => {
+          const jid = window._activeJid || (window._lastJobItem && window._lastJobItem.id);
+          if (!jid) {
+            alert('Job ID not found to retry failed clips.');
+            return;
+          }
+          bRetryFailed.disabled = true;
+          bRetryFailed.textContent = 'Retrying…';
+          try {
+            const res = await fetch(`/api/jobs/${encodeURIComponent(jid)}/retry`, { method: 'POST' });
+            const data = await res.json();
+            if (!res.ok || data.error) throw new Error(data.error || 'Retry failed');
+            alert('Retrying failed clips in background.');
+            pollJob(jid, window._lastJobItem || { title: 'Retrying Batch' });
+          } catch (e) {
+            alert('Retry error: ' + e.message);
+            bRetryFailed.disabled = false;
+            bRetryFailed.textContent = '🔄 Retry Failed Clips';
+          }
+        };
+      }
     }
 
     // Re-runs the same video with relaxed limits (longer range, closer moments allowed)
@@ -3980,7 +4141,7 @@
         grid.appendChild(renderClipCard(c, idx, ratio));
       });
       document.documentElement.style.setProperty('--done', '0%'); sortClips('score');
-      renderShortfall();
+      renderBatchStatusPanel();
     }
 
     $('btn-clip-new').onclick = () => {
@@ -4079,6 +4240,13 @@
                 </div>
               </div>
             </div>
+            ${item.info ? `
+            <div style="width:100%;margin-top:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--line);border-radius:6px;font-size:11px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+              <span><strong style="color:var(--mute);">Batch:</strong> ${item.info.completed != null ? item.info.completed : clipsCount}/${item.info.requested || total} clips</span>
+              <span><strong style="color:#60a5fa;">Discovered:</strong> ${item.info.discovered != null ? item.info.discovered : clipsCount}</span>
+              ${item.info.failed ? `<span style="color:#ef4444;"><strong>Failed:</strong> ${item.info.failed}</span>` : ''}
+              <span style="color:var(--mute);flex:1;min-width:140px;text-align:right;">${item.info.stopped_reason || item.info.reason || ''}</span>
+            </div>` : ''}
             <div style="display:flex;gap:6px;align-items:center;">
               <button class="btn-back" style="padding:6px 12px;font-size:11px;" onclick="toggleLibraryClips('${item.id}')">
                 View & Download (${clipsCount})

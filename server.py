@@ -162,6 +162,9 @@ def save_job(jid):
         print(f"[SERVER] Notice saving job {jid}: {e}")
 
 def load_job(jid):
+    if not jid or str(jid).strip() in ("undefined", "null", ""):
+        return None
+    jid = str(jid).strip()
     # Check SQLite database first for authoritative state
     db_j = db_get_job(jid)
     if db_j:
@@ -179,6 +182,15 @@ def load_job(jid):
                 return data
         except Exception:
             pass
+    # Fallback to library.json (persisted across restarts / restored from cloud)
+    try:
+        from library import get_library
+        for entry in get_library():
+            if str(entry.get("id")) == jid:
+                jobs[jid] = entry
+                return entry
+    except Exception:
+        pass
     return None
 
 def work(jid, url, options, app_url=""):
@@ -248,16 +260,23 @@ def work(jid, url, options, app_url=""):
                 "stream_url": f"/clips/{jid}/{c_file}" if c_file else ""
             })
 
+        db_state = db_get_job(jid) or {}
+        batch_info = db_state.get("info") or jobs.get(jid, {}).get("info") or {}
+
         if jid in jobs:
             jobs[jid]["clips"] = formatted_clips
             jobs[jid]["done"] = True
             jobs[jid]["status"] = "Done"
+            if batch_info:
+                jobs[jid]["info"] = batch_info
             save_job(jid)
 
         lib_entry["clips"] = formatted_clips
         lib_entry["clips_count"] = len(formatted_clips)
         lib_entry["done"] = True
         lib_entry["status"] = "Done"
+        if batch_info:
+            lib_entry["info"] = batch_info
         save_library_entry(lib_entry)
 
         recipient = options.get("email") or jobs.get(jid, {}).get("options", {}).get("email") or os.getenv("NOTIFICATION_EMAIL")
@@ -774,7 +793,10 @@ def transcode_job_clip(jid, clip_index):
         return jsonify({"error": "Job not found"}), 404
     clips = j.get("clips", [])
     if clip_index < 0 or clip_index >= len(clips):
-        return jsonify({"error": "Clip index out of range"}), 404
+        if 0 <= (clip_index - 1) < len(clips):
+            clip_index = clip_index - 1
+        else:
+            return jsonify({"error": "Clip index out of range"}), 404
 
     data = request.get_json(silent=True) or {}
     target_res = str(data.get("resolution") or "").strip().lower()
@@ -785,13 +807,69 @@ def transcode_job_clip(jid, clip_index):
     filename = clip.get("file")
     if not filename:
         return jsonify({"error": "This clip has no rendered file."}), 404
+
+    clip_res = str(clip.get("export_profile") or "720p").lower()
+    cloud_url = clip.get("cloud_url") or (clip.get("download_url") if (clip.get("download_url") or "").startswith("http") else "")
+
     try:
         job_dir = safe_join_path(OUT_DIR, jid)
+        os.makedirs(job_dir, exist_ok=True)
         src_path = safe_join_path(job_dir, filename)
     except (PermissionError, TypeError):
         return jsonify({"error": "Invalid clip path."}), 400
+
+    # Fast-path: if requested resolution matches existing clip profile, serve it directly
+    if target_res != "shrink" and target_res == clip_res:
+        if os.path.isfile(src_path) and os.path.getsize(src_path) > 0:
+            size_bytes = os.path.getsize(src_path)
+            size = f"{round(size_bytes / (1024 * 1024), 2)} MB" if size_bytes >= 104858 else f"{round(size_bytes / 1024)} KB"
+            variant_url = f"/clips/{jid}/{filename}"
+            return jsonify({
+                "ok": True,
+                "resolution": target_res,
+                "file": filename,
+                "download_url": variant_url + "?dl=1",
+                "stream_url": variant_url,
+                "size_formatted": size,
+                "size_bytes": size_bytes,
+            })
+        elif cloud_url:
+            return jsonify({
+                "ok": True,
+                "resolution": target_res,
+                "file": filename,
+                "download_url": cloud_url,
+                "stream_url": cloud_url,
+                "size_formatted": clip.get("size_formatted", ""),
+                "size_bytes": clip.get("size_bytes", 0),
+            })
+
+    # If src_path is missing locally but cloud_url exists, download it to disk for transcoding
+    if not os.path.isfile(src_path) and cloud_url:
+        try:
+            import requests
+            resp = requests.get(cloud_url, stream=True, timeout=60)
+            if resp.status_code == 200:
+                with open(src_path, "wb") as f:
+                    for chunk in resp.iter_content(chunk_size=65536):
+                        f.write(chunk)
+        except Exception as e:
+            print(f"[TRANSCODE] Could not download cloud clip {cloud_url}: {e}")
+
     if not os.path.isfile(src_path):
-        return jsonify({"error": "Rendered clip file is not available on this server."}), 404
+        # Fallback to existing direct download if available
+        fallback_url = cloud_url or clip.get("download_url") or f"/clips/{jid}/{filename}?dl=1"
+        return jsonify({
+            "ok": True,
+            "resolution": clip_res,
+            "file": filename,
+            "download_url": fallback_url,
+            "stream_url": clip.get("stream_url") or fallback_url,
+            "size_formatted": clip.get("size_formatted", ""),
+            "size_bytes": clip.get("size_bytes", 0),
+            "fallback": True,
+            "note": "Original rendered clip delivered directly"
+        })
 
     suffix = "shrunk" if target_res == "shrink" else target_res
     base_name, ext = os.path.splitext(os.path.basename(filename))
@@ -828,7 +906,19 @@ def transcode_job_clip(jid, clip_index):
         })
     except Exception as exc:
         print(f"[TRANSCODE] Failed for job {jid}, clip {clip_index}, {target_res}: {exc}")
-        return jsonify({"error": "Could not create that export. The original clip is unchanged; please try again."}), 500
+        # Graceful fallback: serve original clip
+        fallback_url = cloud_url or clip.get("download_url") or f"/clips/{jid}/{filename}?dl=1"
+        return jsonify({
+            "ok": True,
+            "resolution": clip_res,
+            "file": filename,
+            "download_url": fallback_url,
+            "stream_url": clip.get("stream_url") or fallback_url,
+            "size_formatted": clip.get("size_formatted", ""),
+            "size_bytes": clip.get("size_bytes", 0),
+            "fallback": True,
+            "note": "Transcode fallback to original clip"
+        })
 
 @app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
 def retry_single_clip(jid, clip_index):

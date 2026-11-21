@@ -4,7 +4,7 @@ import threading
 import concurrent.futures
 from download import download
 from transcribe import transcribe
-from pick import pick, clip_run_report
+from pick import pick, clip_run_report, effective_limits
 from cut import cut
 from storage import get_job_work_dir, get_job_out_dir, cleanup_job_work_dir, cleanup_storage, get_storage_provider
 from jobs_db import update_job, save_clip_record
@@ -149,8 +149,9 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
 
         update_stage(f"AI discovering & ranking {count} viral moments...", 55)
         clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus, relax=relax_limits)
+        discovered_count = len(clips)
         total_seconds = max((float(s.get("end", 0)) for s in segs), default=0.0)
-        report = clip_run_report(count, len(clips), min_len, max_len, total_seconds, relax_limits)
+        report = clip_run_report(count, discovered_count, min_len, max_len, total_seconds, relax_limits, discovered=discovered_count)
         if jid:
             update_job(jid, info=report)
         if report["shortfall"]:
@@ -303,11 +304,48 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
                     pass
 
         out = [out_map[i] for i in range(1, total + 1) if i in out_map]
+        completed_clips = sum(1 for item in out if item.get("ok", True) and item.get("file"))
+        failed_renders = sum(1 for item in out if not item.get("ok", True) or not item.get("file"))
+        selected_count = len(clips)
+
+        lo, hi = effective_limits(min_len, max_len, relax_limits)
+        minutes = round(float(total_seconds or 0) / 60.0, 1)
 
         if check_cancelled and check_cancelled():
+            stopped_reason = "Generation was stopped by the user."
             update_stage("Cancelled by user", 0)
-        else:
+        elif failed_renders > 0 and completed_clips == 0:
+            stopped_reason = f"All {failed_renders} clip render(s) encountered encoding or system errors."
+            update_stage("Completed with errors", 100)
+        elif failed_renders > 0:
+            stopped_reason = f"Rendered {completed_clips} clip(s) successfully; {failed_renders} clip render(s) failed."
+            update_stage(f"Completed ({completed_clips} ready, {failed_renders} failed)", 100)
+        elif discovered_count < count:
+            stopped_reason = (f"Only {discovered_count} distinct moments passed the {int(lo)}–{int(hi)}s length "
+                              f"and non-overlap limits in this {minutes}-minute video. Short or dialogue-light videos have limited separate moments.")
             update_stage("Completed", 100)
+        elif selected_count < discovered_count:
+            stopped_reason = f"User selected {selected_count} of {discovered_count} discovered moments during highlight review."
+            update_stage("Completed", 100)
+        else:
+            stopped_reason = f"All {count} requested clips were successfully discovered and rendered."
+            update_stage("Completed", 100)
+
+        final_batch_report = clip_run_report(
+            requested=count,
+            produced=completed_clips,
+            min_len=min_len,
+            max_len=max_len,
+            total_duration=total_seconds,
+            relaxed=relax_limits,
+            discovered=discovered_count,
+            failed=failed_renders,
+            stopped_reason=stopped_reason,
+        )
+        final_batch_report["selected"] = int(selected_count)
+
+        if jid:
+            update_job(jid, info=final_batch_report)
 
         return out
     finally:

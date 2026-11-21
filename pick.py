@@ -119,22 +119,36 @@ def effective_limits(min_len, max_len, relax=False):
         hi = min(120.0, hi * 1.5)
     return lo, hi
 
-def clip_run_report(requested, produced, min_len, max_len, total_duration, relaxed=False):
+def clip_run_report(requested, produced, min_len, max_len, total_duration, relaxed=False,
+                    discovered=None, failed=0, stopped_reason=None):
     """Plain-language account of how many clips were made and why a request came up short."""
     lo, hi = effective_limits(min_len, max_len, relaxed)
     minutes = round(float(total_duration or 0) / 60.0, 1)
     shortfall = int(produced) < int(requested)
-    reason = None
-    if shortfall:
-        reason = (f"Only {produced} distinct moments passed the {int(lo)}–{int(hi)}-second length "
+    discovered_count = int(discovered if discovered is not None else produced)
+    failed_count = int(failed or 0)
+    completed_count = int(produced)
+
+    reason = stopped_reason
+    if not reason and shortfall:
+        reason = (f"Only {discovered_count} distinct moments passed the {int(lo)}–{int(hi)}-second length "
                   f"and no-overlap checks in this {minutes}-minute video. Short videos only have room "
                   f"for so many separate clips.")
         if relaxed:
             reason = (f"Even with relaxed limits ({int(lo)}–{int(hi)} seconds, moments may sit closer "
-                      f"together), only {produced} distinct moments were found in this {minutes}-minute video.")
+                      f"together), only {discovered_count} distinct moments were found in this {minutes}-minute video.")
+
+    stopped = reason
+    if not stopped:
+        stopped = f"All {requested} requested clips were successfully discovered and rendered."
+
     return {
         "requested": int(requested),
-        "produced": int(produced),
+        "discovered": discovered_count,
+        "produced": completed_count,
+        "completed": completed_count,
+        "failed": failed_count,
+        "stopped_reason": stopped,
         "shortfall": shortfall,
         "relaxed": bool(relaxed),
         "min_len": int(lo),
