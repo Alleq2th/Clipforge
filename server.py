@@ -19,6 +19,7 @@ from security import validate_video_url, safe_join_path
 from jobs_db import init_db, create_job as db_create_job, update_job as db_update_job, get_job as db_get_job, list_jobs as db_list_jobs, get_active_job_ids
 from process_manager import submit_job, terminate_job_processes, MAX_CONCURRENT_JOBS
 from memory_guard import get_memory_status
+from auth_quota import verify_user_token, get_user_profile, select_user_plan, check_user_quota, deduct_user_quota, get_user_private_library
 
 app = Flask(__name__, static_folder="static", static_url_path="")
 
@@ -338,6 +339,16 @@ def work(jid, url, options, app_url=""):
         lib_entry["clips"] = formatted_clips
         lib_entry["clips_count"] = len(formatted_clips)
         lib_entry["done"] = True
+
+        # Deduct minutes from user quota if job has an associated user
+        uid = jobs.get(jid, {}).get("user_id") or db_state.get("user_id")
+        if uid and uid != "anonymous":
+            duration_sec = 0
+            for c in formatted_clips:
+                duration_sec += max(0, float(c.get("end", 0)) - float(c.get("start", 0)))
+            if duration_sec <= 0:
+                duration_sec = len(formatted_clips) * 45
+            deduct_user_quota(uid, duration_sec, jid)
         lib_entry["status"] = "Done"
         if batch_info:
             lib_entry["info"] = batch_info
@@ -451,6 +462,16 @@ def save_waitlist():
         with open(WAITLIST_FILE, "a", encoding="utf-8") as f:
             f.write(json.dumps(row) + "\n")
     return jsonify({"ok": True, "saved": saved})
+
+@app.get("/api/auth/config")
+def auth_config():
+    supabase_url = os.getenv("SUPABASE_URL", "").rstrip("/")
+    supabase_anon_key = os.getenv("SUPABASE_ANON_KEY") or os.getenv("SUPABASE_KEY", "")
+    return jsonify({
+        "supabase_url": supabase_url,
+        "supabase_anon_key": supabase_anon_key,
+        "enabled": bool(supabase_url and supabase_anon_key)
+    })
 
 @app.get("/api/storage")
 def storage_info():
@@ -582,6 +603,20 @@ def create():
     except ValueError as ve:
         return jsonify({"error": str(ve)}), 400
 
+    auth_header = request.headers.get("Authorization")
+    user = verify_user_token(auth_header)
+    user_id = user["id"] if user else "anonymous"
+
+    if user:
+        allowed, remaining, req_min, reason = check_user_quota(user["id"])
+        if not allowed:
+            return jsonify({
+                "error": "Quota exhausted",
+                "reason": reason,
+                "code": "QUOTA_EXHAUSTED",
+                "minutes_remaining": remaining
+            }), 403
+
     jid = str(uuid.uuid4())[:8]
     min_len, max_len = parse_duration_options(data)
 
@@ -604,6 +639,7 @@ def create():
     meta = get_video_meta(url)
     jobs[jid] = {
         "id": jid,
+        "user_id": user_id,
         "url": url,
         "preview": meta,
         "status": "Queued in processing pool...",
@@ -616,8 +652,8 @@ def create():
         "created_at": time.time()
     }
 
-    # Persist in SQLite
-    db_create_job(jid, job_type="clipper", url=url, title=meta.get("title", "Video Batch"), thumbnail=meta.get("thumbnail", ""), options=options)
+    # Persist in SQLite with user ownership
+    db_create_job(jid, job_type="clipper", url=url, title=meta.get("title", "Video Batch"), thumbnail=meta.get("thumbnail", ""), options=options, user_id=user_id)
     save_job(jid)
 
     app_url = request.host_url.rstrip("/")
@@ -630,6 +666,26 @@ def status(jid):
     j = load_job(jid)
     if not j: return jsonify({"error": "Job not found"}), 404
     return jsonify(j)
+
+@app.get("/api/user/profile")
+def get_current_user_profile():
+    auth_header = request.headers.get("Authorization")
+    user = verify_user_token(auth_header)
+    if not user:
+        return jsonify({"authenticated": False, "error": "Unauthorized"}), 401
+    profile = get_user_profile(user["id"], email=user.get("email", ""))
+    return jsonify({"authenticated": True, "profile": profile})
+
+@app.post("/api/user/select-plan")
+def set_user_plan():
+    auth_header = request.headers.get("Authorization")
+    user = verify_user_token(auth_header)
+    if not user:
+        return jsonify({"authenticated": False, "error": "Unauthorized"}), 401
+    data = request.json or {}
+    plan = data.get("plan", "free")
+    profile = select_user_plan(user["id"], plan=plan)
+    return jsonify({"ok": True, "profile": profile})
 
 @app.get("/api/jobs/<jid>/review")
 def get_job_review(jid):
@@ -1054,8 +1110,13 @@ def transcode_job_clip(jid, clip_index):
 # ================= PERSISTENT LIBRARY API =================
 @app.get("/api/library")
 def library_api():
+    auth_header = request.headers.get("Authorization")
+    user = verify_user_token(auth_header)
+    if user:
+        lib = get_user_private_library(user["id"])
+        return jsonify({"library": lib, "private": True, "user_id": user["id"]})
     lib = get_library()
-    return jsonify({"library": lib})
+    return jsonify({"library": lib, "private": False})
 
 @app.delete("/api/library/<entry_id>")
 def delete_library_item(entry_id):

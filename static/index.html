@@ -8,6 +8,9 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&display=swap">
   <style>
     :root {
+    --green-glow: rgba(16, 185, 129, 0.2);
+    --gold-glow: rgba(245, 158, 11, 0.2);
+
       --bg: #0a0a0d;
       --card: #121217;
       --card-inner: #1a1a21;
@@ -1119,6 +1122,9 @@
 
     /* ===== Visual redesign: tokens, hierarchy, states ===== */
     :root {
+    --green-glow: rgba(16, 185, 129, 0.2);
+    --gold-glow: rgba(245, 158, 11, 0.2);
+
       --radius: 16px;
       --radius-md: 12px;
       --radius-sm: 10px;
@@ -1265,6 +1271,9 @@
 
     /* ===== v3 system: one spacing scale, one type scale, one motion set ===== */
     :root {
+    --green-glow: rgba(16, 185, 129, 0.2);
+    --gold-glow: rgba(245, 158, 11, 0.2);
+
       --s1: 4px;  /* tight: icon to label, dots, meta */
       --s2: 8px;  /* related items */
       --s3: 12px; /* card padding, gaps inside a block */
@@ -1906,7 +1915,63 @@
     .error-alert-body { font-size: 12px; color: var(--ink-secondary, #cbd5e1); line-height: 1.45; }
     .error-alert-actions { margin-top: 8px; display: flex; gap: 8px; }
 
-</style>
+
+    /* Auth & Plan Views */
+    .auth-tab-btn {
+      flex: 1;
+      padding: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--mute);
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .auth-tab-btn.active {
+      color: var(--ink);
+      border-bottom-color: var(--acc);
+    }
+    .plan-card-option {
+      background: var(--card-inner);
+      border: 2px solid var(--line);
+      border-radius: 12px;
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+    .plan-card-option:hover {
+      border-color: var(--line-active);
+    }
+    .plan-card-option.selected {
+      border-color: #10b981;
+      background: rgba(16, 185, 129, 0.05);
+      box-shadow: 0 0 16px rgba(16, 185, 129, 0.15);
+    }
+    .btn-google {
+      width: 100%;
+      background: #ffffff;
+      color: #1a1a1a;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .btn-google:hover {
+      opacity: 0.92;
+    }
+
+  </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -1920,15 +1985,117 @@
         <button class="mode-btn active" id="mode-clipper-btn"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="2.18"/><path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 17h5M17 7h5"/></svg>Clipper</span></button>
         <button class="mode-btn" id="mode-faceless-btn"><span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 11h4M8 9v4M15 12h.01M18 10h.01"/><path d="M17.32 5H6.68a4 4 0 0 0-3.98 3.59C2.6 9.42 2 14.46 2 16a3 3 0 0 0 3 3c1 0 1.5-.5 2-1l1.41-1.41A2 2 0 0 1 9.83 16h4.34a2 2 0 0 1 1.41.59L17 18c.5.5 1 1 2 1a3 3 0 0 0 3-3c0-1.55-.6-6.58-.69-7.26A4 4 0 0 0 17.32 5z"/></svg>Studio</span></button>
       </div>
-      <button class="btn-lib" id="open-library">
-        <span>Library</span>
-        <span class="badge-count" id="lib-badge">0</span>
-      </button>
+      <div class="user-nav-wrap" style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+        <div id="user-quota-badge" style="display:none;background:rgba(16,185,129,0.15);border:1px solid rgba(16,185,129,0.4);color:var(--acc-light);font-size:12px;font-weight:700;padding:5px 10px;border-radius:8px;cursor:pointer;" title="Your free clipping balance">
+          ⏱️ <span id="quota-mins-label">60m</span> Free Left
+        </div>
+        <div id="user-nav-chip" style="display:none;align-items:center;gap:6px;">
+          <span id="user-email-label" style="font-size:12px;color:var(--ink);font-weight:600;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+          <button id="btn-signout" class="btn-back btn-sm" style="font-size:11px;padding:4px 8px;cursor:pointer;">Sign Out</button>
+        </div>
+        <button id="btn-nav-auth" class="btn-add" style="display:none;font-size:12px;padding:6px 14px;cursor:pointer;">Sign In</button>
+        <button class="btn-lib" id="open-library">
+          <span>Library</span>
+          <span class="badge-count" id="lib-badge">0</span>
+        </button>
+      </div>
     </div>
   </header>
 
   <main>
-    <!-- MODE 1: AI VIDEO CLIPPER -->
+    <!-- VIEW 1: AUTH GATE (Sign In & Sign Up with Supabase) -->
+    <div id="view-auth-gate" style="display:none;max-width:440px;margin:50px auto 80px;padding:28px;background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,0.4);">
+      <div style="text-align:center;margin-bottom:20px;">
+        <div class="hero-badge" style="margin-bottom:12px;">ClipForge Account</div>
+        <h2 style="font-size:22px;font-weight:800;color:var(--ink);margin-bottom:6px;">Sign in to ClipForge</h2>
+        <p style="font-size:13px;color:var(--mute);">Get 60 free minutes to clip, caption, and repurpose videos into viral shorts.</p>
+      </div>
+
+      <div style="display:flex;border-bottom:1px solid var(--line);margin-bottom:20px;">
+        <button type="button" class="auth-tab-btn active" id="tab-auth-signin">Sign In</button>
+        <button type="button" class="auth-tab-btn" id="tab-auth-signup">Create Account</button>
+      </div>
+
+      <div id="auth-error-box" style="display:none;padding:10px 14px;border-radius:8px;background:rgba(239,68,68,0.15);border:1px solid #ef4444;color:#fca5a5;font-size:12px;font-weight:600;margin-bottom:16px;"></div>
+
+      <form id="auth-form" onsubmit="return false;" style="display:flex;flex-direction:column;gap:14px;">
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px;">Email</label>
+          <input type="email" class="url-input" id="auth-email" placeholder="you@domain.com" required style="width:100%;box-sizing:border-box;">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:700;color:var(--ink);display:block;margin-bottom:4px;">Password</label>
+          <input type="password" class="url-input" id="auth-password" placeholder="At least 6 characters" required style="width:100%;box-sizing:border-box;">
+        </div>
+        <button type="button" class="btn-next" id="btn-auth-submit" style="width:100%;padding:12px;font-size:14px;font-weight:800;justify-content:center;cursor:pointer;">
+          Sign In with Email
+        </button>
+      </form>
+
+      <div style="display:flex;align-items:center;margin:20px 0;color:var(--mute);font-size:11px;font-weight:700;">
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+        <span style="padding:0 10px;">OR</span>
+        <div style="flex:1;height:1px;background:var(--line);"></div>
+      </div>
+
+      <button type="button" class="btn-google" id="btn-auth-google">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.66v3.02h3.87c2.26-2.09 3.67-5.17 3.67-9.12z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.87-3.02c-1.08.72-2.45 1.16-4.06 1.16-3.13 0-5.78-2.11-6.73-4.96H1.26v3.12C3.27 21.36 7.34 24 12 24z"/><path fill="#FBBC05" d="M5.27 14.27c-.25-.72-.38-1.49-.38-2.27s.14-1.55.38-2.27V6.61H1.26C.46 8.21 0 10.05 0 12s.46 3.79 1.26 5.39l4.01-3.12z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.27 2.64 1.26 6.61l4.01 3.12c.95-2.85 3.6-4.98 6.73-4.98z"/></svg>
+        Continue with Google
+      </button>
+    </div>
+
+    <!-- VIEW 2: PLAN SELECTION GATE (Mandatory, Cannot Bypass by Scrolling) -->
+    <div id="view-plan-gate" style="display:none;max-width:760px;margin:40px auto 80px;padding:24px;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <div class="hero-badge" style="margin-bottom:10px;">Select Your Plan</div>
+        <h2 style="font-size:26px;font-weight:800;color:var(--ink);margin-bottom:8px;">Choose Your ClipForge Plan</h2>
+        <p style="font-size:14px;color:var(--mute);">Activate your 60 free minutes now. No credit card required to start.</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px;margin-bottom:28px;">
+        <!-- Free Starter Tier -->
+        <div class="plan-card-option selected" id="card-plan-free" onclick="selectPlanOption('free')">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:18px;font-weight:800;color:var(--ink);">Free Starter</div>
+            <span style="background:rgba(16,185,129,0.15);color:#10b981;font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;">60 Mins Free</span>
+          </div>
+          <div style="font-size:28px;font-weight:800;color:var(--ink);margin-bottom:14px;">$0 <span style="font-size:13px;color:var(--mute);font-weight:400;">/ month</span></div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--mute);">
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:#10b981;">✓</span> <strong>60 free minutes</strong> included</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:#10b981;">✓</span> AI Highlight Discovery & Virality Scores</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:#10b981;">✓</span> Dynamic Animated Karaoke Captions</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:#10b981;">✓</span> Smart 9:16, 1:1, 16:9 Reframing</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:#10b981;">✓</span> Private Saved Video Library</li>
+          </ul>
+        </div>
+
+        <!-- Pro Creator Tier -->
+        <div class="plan-card-option" id="card-plan-pro" onclick="selectPlanOption('pro')">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+            <div style="font-size:18px;font-weight:800;color:var(--ink);">Pro Creator</div>
+            <span style="background:rgba(124,58,237,0.15);color:var(--acc-light);font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;">Most Popular</span>
+          </div>
+          <div style="font-size:28px;font-weight:800;color:var(--ink);margin-bottom:14px;">$19 <span style="font-size:13px;color:var(--mute);font-weight:400;">/ month</span></div>
+          <ul style="list-style:none;display:flex;flex-direction:column;gap:10px;font-size:13px;color:var(--mute);">
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--acc-light);">✓</span> <strong>300 minutes</strong> per month</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--acc-light);">✓</span> High-Priority Turbo Processing Queue</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--acc-light);">✓</span> 1080p & 4K Ultra-Fast Renders</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--acc-light);">✓</span> Custom Brand Subtitle Presets</li>
+            <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--acc-light);">✓</span> Email Notification on Batch Finish</li>
+          </ul>
+        </div>
+      </div>
+
+      <div style="text-align:center;">
+        <button type="button" class="btn-next" id="btn-confirm-plan" style="padding:14px 36px;font-size:15px;font-weight:800;margin:0 auto;cursor:pointer;">
+          🚀 Claim 60 Free Minutes & Enter Studio →
+        </button>
+      </div>
+    </div>
+
+    <!-- VIEW 3: CLIPPER & STUDIO WORKSPACE (Gated & Protected) -->
+    <div id="view-workspace">
+      <!-- MODE 1: AI VIDEO CLIPPER -->
     <div id="section-clipper">
       <div class="hx"><div><h1>One long video. Ten clips ready to post</h1><p>Paste a link. ClipForge finds the best moments, captions them and cuts vertical clips you can download</p><button class="hx-cta" onclick="document.getElementById('yt-url').focus()">Paste a link</button><a class="hx-link" href="#pricing">See pricing</a></div><div class="hx-stage" id="hx"><div class="hx-in"><div class="hc l"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:20% 25%"><b>91</b><span>He never <i>saw</i> it coming</span></div><div class="hc r"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:80% 25%"><b>88</b><span>Wait for the <i>end</i></span></div><div class="hc c"><img onerror="this.remove()" src="/previews/podcast-portrait.jpg" alt="" style="object-position:50% 25%"><b>97</b><span>This is <i>wild</i></span></div></div></div></div>
 
@@ -2529,9 +2696,27 @@
         </div>
       </div>
     </div>
-  <section class="pr" id="pricing"><h2>Pricing</h2><p>Start free, upgrade when you post every day</p><div id="plans"></div>
-    <div id="su"><input type="email" id="su-email" placeholder="Your email" aria-label="Email"><button id="su-go">Join</button></div><div id="su-msg"></div></section>
+    </div><!-- end #view-workspace -->
   </main>
+
+  <!-- Out of Minutes Paywall Modal -->
+  <div class="modal-backdrop" id="paywall-modal" style="display:none;">
+    <div class="modal-box modal-narrow" style="text-align:center;padding:28px 24px;">
+      <div style="font-size:42px;margin-bottom:12px;">⏳</div>
+      <h3 style="font-size:20px;font-weight:800;color:var(--ink);margin-bottom:8px;">You're Out of Free Minutes</h3>
+      <p id="paywall-message" style="font-size:13px;color:var(--mute);line-height:1.5;margin-bottom:20px;">
+        You have used all of your 60 free minutes for this month. Your quota will reset on your next monthly cycle.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <button type="button" class="btn-next" id="btn-paywall-upgrade" style="width:100%;padding:12px;font-size:13px;font-weight:800;justify-content:center;cursor:pointer;">
+          💎 Upgrade to Pro (300 Mins)
+        </button>
+        <button type="button" class="btn-back" id="btn-paywall-wait" style="width:100%;padding:10px;font-size:12px;font-weight:700;justify-content:center;cursor:pointer;">
+          Wait Until Next Month
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Library Modal (Server-Backed & Persistent) -->
   <div class="modal-backdrop" id="lib-modal">
@@ -2608,6 +2793,348 @@
   <div id="vp"><div class="vp-b"></div><div class="vp-s" role="dialog" aria-modal="true" aria-label="Video preview"><button class="vp-x" aria-label="Close">&times;</button><div id="vp-body"></div></div></div>
   <script>
     const $ = id => document.getElementById(id);
+
+    // ================= SUPABASE AUTH & ROUTE-GATED WORKSPACE =================
+    const authState = {
+      user: null,
+      token: localStorage.getItem('clipforge_auth_token') || '',
+      profile: null,
+      supabase: null,
+      mode: 'signin',
+      selectedPlan: 'free'
+    };
+
+    function showView(view) {
+      const authView = $('view-auth-gate');
+      const planView = $('view-plan-gate');
+      const workView = $('view-workspace');
+
+      if (authView) authView.style.display = view === 'auth' ? 'block' : 'none';
+      if (planView) planView.style.display = view === 'plan' ? 'block' : 'none';
+      if (workView) workView.style.display = view === 'workspace' ? 'block' : 'none';
+
+      const userBadge = $('user-quota-badge');
+      const userChip = $('user-nav-chip');
+      const navAuthBtn = $('btn-nav-auth');
+
+      if (view === 'workspace') {
+        if (userBadge) userBadge.style.display = 'flex';
+        if (userChip) userChip.style.display = 'flex';
+        if (navAuthBtn) navAuthBtn.style.display = 'none';
+      } else if (view === 'plan') {
+        if (userBadge) userBadge.style.display = 'none';
+        if (userChip) userChip.style.display = 'flex';
+        if (navAuthBtn) navAuthBtn.style.display = 'none';
+      } else {
+        if (userBadge) userBadge.style.display = 'none';
+        if (userChip) userChip.style.display = 'none';
+        if (navAuthBtn) navAuthBtn.style.display = 'inline-block';
+      }
+    }
+
+    async function initSupabaseAuth() {
+      try {
+        const res = await fetch('/api/auth/config');
+        const cfg = await res.json();
+        if (cfg.enabled && window.supabase) {
+          authState.supabase = window.supabase.createClient(cfg.supabase_url, cfg.supabase_anon_key);
+          const { data } = await authState.supabase.auth.getSession();
+          if (data && data.session) {
+            authState.user = data.session.user;
+            authState.token = data.session.access_token;
+            localStorage.setItem('clipforge_auth_token', authState.token);
+          }
+          authState.supabase.auth.onAuthStateChange(async (event, session) => {
+            if (session) {
+              authState.user = session.user;
+              authState.token = session.access_token;
+              localStorage.setItem('clipforge_auth_token', authState.token);
+              await syncUserProfile();
+            } else {
+              authState.user = null;
+              authState.token = '';
+              authState.profile = null;
+              localStorage.removeItem('clipforge_auth_token');
+              showView('auth');
+            }
+          });
+        }
+      } catch (e) {
+        console.warn('Auth config init note:', e);
+      }
+
+      await syncUserProfile();
+    }
+
+    async function syncUserProfile() {
+      if (!authState.token) {
+        showView('auth');
+        return;
+      }
+      try {
+        const res = await fetch('/api/user/profile', {
+          headers: { 'Authorization': `Bearer ${authState.token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.profile) {
+            authState.profile = data.profile;
+            updateUserUI(data.profile);
+            if (!data.profile.plan_selected) {
+              showView('plan');
+            } else {
+              showView('workspace');
+            }
+            if (typeof updateLibBadge === 'function') updateLibBadge();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Profile fetch note:', e);
+      }
+      showView('auth');
+    }
+
+    function updateUserUI(profile) {
+      if (!profile) return;
+      const emailEl = $('user-email-label');
+      if (emailEl) emailEl.textContent = profile.email || 'My Account';
+
+      const minsEl = $('quota-mins-label');
+      const badge = $('user-quota-badge');
+      if (minsEl && badge) {
+        minsEl.textContent = `${profile.minutes_remaining}m`;
+        if (profile.minutes_remaining <= 0) {
+          badge.style.background = 'rgba(239, 68, 68, 0.15)';
+          badge.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+          badge.style.color = '#f87171';
+        } else if (profile.minutes_remaining <= 15) {
+          badge.style.background = 'rgba(245, 158, 11, 0.15)';
+          badge.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+          badge.style.color = '#fbbf24';
+        } else {
+          badge.style.background = 'rgba(16, 185, 129, 0.15)';
+          badge.style.borderColor = 'rgba(16, 185, 129, 0.4)';
+          badge.style.color = '#34d399';
+        }
+      }
+    }
+
+    function selectPlanOption(plan) {
+      authState.selectedPlan = plan;
+      const cardFree = $('card-plan-free');
+      const cardPro = $('card-plan-pro');
+      const btn = $('btn-confirm-plan');
+
+      if (plan === 'free') {
+        if (cardFree) cardFree.classList.add('selected');
+        if (cardPro) cardPro.classList.remove('selected');
+        if (btn) btn.innerHTML = '🚀 Claim 60 Free Minutes & Enter Studio →';
+      } else {
+        if (cardFree) cardFree.classList.remove('selected');
+        if (cardPro) cardPro.classList.add('selected');
+        if (btn) btn.innerHTML = '💎 Continue with Pro Plan (300 Mins) →';
+      }
+    }
+
+    function showPaywall(message) {
+      const msgEl = $('paywall-message');
+      if (msgEl && message) msgEl.textContent = message;
+      const modal = $('paywall-modal');
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function showAuthTab(mode) {
+      authState.mode = mode;
+      const btnIn = $('tab-auth-signin');
+      const btnUp = $('tab-auth-signup');
+      const submitBtn = $('btn-auth-submit');
+      const errBox = $('auth-error-box');
+      if (errBox) errBox.style.display = 'none';
+
+      if (mode === 'signup') {
+        if (btnIn) btnIn.classList.remove('active');
+        if (btnUp) btnUp.classList.add('active');
+        if (submitBtn) submitBtn.textContent = 'Create Account & Get 60m Free';
+      } else {
+        if (btnIn) btnIn.classList.add('active');
+        if (btnUp) btnUp.classList.remove('active');
+        if (submitBtn) submitBtn.textContent = 'Sign In with Email';
+      }
+    }
+
+    function setupAuthListeners() {
+      const btnIn = $('tab-auth-signin');
+      const btnUp = $('tab-auth-signup');
+      if (btnIn) btnIn.onclick = () => showAuthTab('signin');
+      if (btnUp) btnUp.onclick = () => showAuthTab('signup');
+
+      const btnAuthSubmit = $('btn-auth-submit');
+      if (btnAuthSubmit) {
+        btnAuthSubmit.onclick = async () => {
+          const email = $('auth-email').value.trim();
+          const password = $('auth-password').value.trim();
+          const errBox = $('auth-error-box');
+          if (errBox) errBox.style.display = 'none';
+
+          if (!email || !password) {
+            if (errBox) {
+              errBox.textContent = 'Please enter both email and password.';
+              errBox.style.display = 'block';
+            }
+            return;
+          }
+          if (password.length < 6) {
+            if (errBox) {
+              errBox.textContent = 'Password must be at least 6 characters.';
+              errBox.style.display = 'block';
+            }
+            return;
+          }
+
+          btnAuthSubmit.disabled = true;
+          btnAuthSubmit.textContent = 'Authenticating...';
+
+          try {
+            if (authState.supabase) {
+              if (authState.mode === 'signup') {
+                const { data, error } = await authState.supabase.auth.signUp({ email, password });
+                if (error) throw error;
+                if (data && data.session) {
+                  authState.token = data.session.access_token;
+                  localStorage.setItem('clipforge_auth_token', authState.token);
+                  await syncUserProfile();
+                } else {
+                  if (errBox) {
+                    errBox.textContent = 'Account created! Please check your email to confirm, or sign in.';
+                    errBox.style.display = 'block';
+                  }
+                  showAuthTab('signin');
+                }
+              } else {
+                const { data, error } = await authState.supabase.auth.signInWithPassword({ email, password });
+                if (error) throw error;
+                if (data && data.session) {
+                  authState.token = data.session.access_token;
+                  localStorage.setItem('clipforge_auth_token', authState.token);
+                  await syncUserProfile();
+                }
+              }
+            } else {
+              // Local demo token if cloud not yet configured
+              authState.token = 'demo-' + btoa(email).substring(0, 12);
+              localStorage.setItem('clipforge_auth_token', authState.token);
+              await syncUserProfile();
+            }
+          } catch (err) {
+            if (errBox) {
+              errBox.textContent = err.message || 'Authentication error. Please check your credentials.';
+              errBox.style.display = 'block';
+            }
+          } finally {
+            btnAuthSubmit.disabled = false;
+            btnAuthSubmit.textContent = authState.mode === 'signup' ? 'Create Account & Get 60m Free' : 'Sign In with Email';
+          }
+        };
+      }
+
+      const btnGoogle = $('btn-auth-google');
+      if (btnGoogle) {
+        btnGoogle.onclick = async () => {
+          if (authState.supabase) {
+            const { error } = await authState.supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: { redirectTo: window.location.origin }
+            });
+            if (error) {
+              const errBox = $('auth-error-box');
+              if (errBox) {
+                errBox.textContent = error.message;
+                errBox.style.display = 'block';
+              }
+            }
+          } else {
+            authState.token = 'google-demo-user';
+            localStorage.setItem('clipforge_auth_token', authState.token);
+            await syncUserProfile();
+          }
+        };
+      }
+
+      const btnConfirmPlan = $('btn-confirm-plan');
+      if (btnConfirmPlan) {
+        btnConfirmPlan.onclick = async () => {
+          btnConfirmPlan.disabled = true;
+          btnConfirmPlan.textContent = 'Activating workspace...';
+          try {
+            const res = await fetch('/api/user/select-plan', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authState.token}`
+              },
+              body: JSON.stringify({ plan: authState.selectedPlan })
+            });
+            const data = await res.json();
+            if (data.ok && data.profile) {
+              authState.profile = data.profile;
+              updateUserUI(data.profile);
+              showView('workspace');
+            }
+          } catch (e) {
+            alert('Notice activating plan: ' + e.message);
+          } finally {
+            btnConfirmPlan.disabled = false;
+            btnConfirmPlan.textContent = '🚀 Claim 60 Free Minutes & Enter Studio →';
+          }
+        };
+      }
+
+      const btnSignout = $('btn-signout');
+      if (btnSignout) {
+        btnSignout.onclick = async () => {
+          if (authState.supabase) {
+            await authState.supabase.auth.signOut();
+          }
+          authState.user = null;
+          authState.token = '';
+          authState.profile = null;
+          localStorage.removeItem('clipforge_auth_token');
+          showView('auth');
+        };
+      }
+
+      const btnNavAuth = $('btn-nav-auth');
+      if (btnNavAuth) btnNavAuth.onclick = () => showView('auth');
+
+      const userBadge = $('user-quota-badge');
+      if (userBadge) {
+        userBadge.onclick = () => {
+          if (authState.profile && authState.profile.minutes_remaining <= 0) {
+            showPaywall();
+          } else {
+            alert(`You have ${authState.profile ? authState.profile.minutes_remaining : 60}m remaining in your Free Plan quota.`);
+          }
+        };
+      }
+
+      const btnPaywallWait = $('btn-paywall-wait');
+      if (btnPaywallWait) {
+        btnPaywallWait.onclick = () => {
+          $('paywall-modal').style.display = 'none';
+        };
+      }
+
+      const btnPaywallUpgrade = $('btn-paywall-upgrade');
+      if (btnPaywallUpgrade) {
+        btnPaywallUpgrade.onclick = () => {
+          $('paywall-modal').style.display = 'none';
+          showView('plan');
+          selectPlanOption('pro');
+        };
+      }
+    }
+
 
     // Escape untrusted text before inserting it into review-card HTML.
     function escapeHtml(value) {
@@ -3431,7 +3958,9 @@
 
     async function updateLibBadge() {
       try {
-        const res = await fetch('/api/library');
+        const libHeaders = {};
+        if (authState && authState.token) libHeaders['Authorization'] = `Bearer ${authState.token}`;
+        const res = await fetch('/api/library', { headers: libHeaders });
         const data = await res.json();
         let total = 0;
         (data.library || []).forEach(item => total += (item.clips || []).length);
@@ -3470,9 +3999,19 @@
         $('status-text').textContent = `Starting video ${i + 1} of ${state.queue.length}: "${item.title}"...`;
 
         try {
+          // Quota gate check
+          if (authState.profile && authState.profile.minutes_remaining <= 0) {
+            showPaywall('You have used all of your 60 free minutes for this month. Upgrade to Pro or wait until your quota refreshes next month.');
+            state.running = false;
+            return;
+          }
+
+          const jobHeaders = { 'Content-Type': 'application/json' };
+          if (authState.token) jobHeaders['Authorization'] = `Bearer ${authState.token}`;
+
           const res = await fetch('/api/jobs', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: jobHeaders,
             body: JSON.stringify({
               url: item.url,
               count: parseInt(state.options.count, 10),
@@ -4377,7 +4916,9 @@
       $('lib-content').innerHTML = '<p style="color:var(--mute);padding:20px;text-align:center;">Loading saved videos from server...</p>';
 
       try {
-        const res = await fetch('/api/library');
+        const libHeaders = {};
+        if (authState && authState.token) libHeaders['Authorization'] = `Bearer ${authState.token}`;
+        const res = await fetch('/api/library', { headers: libHeaders });
         const data = await res.json();
         renderLibraryContent(data.library || []);
       } catch (e) {

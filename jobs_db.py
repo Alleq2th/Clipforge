@@ -54,6 +54,11 @@ def init_db():
                     conn.execute("ALTER TABLE jobs ADD COLUMN info TEXT;")
                 except Exception:
                     pass
+                try:
+                    conn.execute("ALTER TABLE jobs ADD COLUMN user_id TEXT DEFAULT 'anonymous';")
+                except Exception:
+                    pass
+                conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_user_id ON jobs(user_id);")
 
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);")
                 conn.execute("CREATE INDEX IF NOT EXISTS idx_jobs_created ON jobs(created_at);")
@@ -81,7 +86,7 @@ def init_db():
         finally:
             conn.close()
 
-def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="", options=None, candidates=None):
+def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="", options=None, candidates=None, user_id="anonymous"):
     init_db()
     now = time.time()
     options_json = json.dumps(options or {})
@@ -92,16 +97,17 @@ def create_job(jid, job_type="clipper", url="", title="Video Batch", thumbnail="
         try:
             with conn:
                 conn.execute("""
-                INSERT INTO jobs (id, type, url, title, thumbnail, status, stage, progress, options, clips, candidates, error, done, cancelled, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, 'queued', 'Queued in processing pool...', 0, ?, ?, ?, NULL, 0, 0, ?, ?)
+                INSERT INTO jobs (id, type, url, title, thumbnail, status, stage, progress, options, clips, candidates, user_id, error, done, cancelled, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'queued', 'Queued in processing pool...', 0, ?, ?, ?, ?, NULL, 0, 0, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
                     url = excluded.url,
                     title = excluded.title,
                     thumbnail = excluded.thumbnail,
                     options = excluded.options,
                     candidates = excluded.candidates,
+                    user_id = excluded.user_id,
                     updated_at = excluded.updated_at;
-                """, (jid, job_type, url, title, thumbnail, options_json, clips_json, candidates_json, now, now))
+                """, (jid, job_type, url, title, thumbnail, options_json, clips_json, candidates_json, str(user_id or "anonymous"), now, now))
         finally:
             conn.close()
     return get_job(jid)
