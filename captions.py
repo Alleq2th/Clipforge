@@ -222,6 +222,35 @@ def get_ass_dimensions(aspect_ratio="9:16", export_profile=None):
         margin_v = round(80 * (h / 1080.0))
     return w, h, margin_v
 
+def build_word_chunks(words_list, max_words=3, max_gap=0.45):
+    """
+    Groups words into punchy short-form cards (default 3 words) respecting:
+    1. Speech pauses: if silence between words > max_gap (0.45s), starts a new card.
+    2. Sentence punctuation: if previous word ends with '.', '!', '?', starts a new card.
+    3. Max card word length: caps at max_words (default 3 words).
+    Prevents subtitles from lingering across dead silence or jumping across sentences.
+    """
+    if not words_list:
+        return []
+    chunks = []
+    current = []
+    for w in words_list:
+        if not current:
+            current.append(w)
+            continue
+        prev = current[-1]
+        gap = float(w.get("start", 0)) - float(prev.get("end", 0))
+        prev_txt = str(prev.get("word") or prev.get("text") or "").strip()
+        ends_sentence = prev_txt.endswith((".", "!", "?"))
+        if len(current) >= max_words or gap > max_gap or ends_sentence:
+            chunks.append(current)
+            current = [w]
+        else:
+            current.append(w)
+    if current:
+        chunks.append(current)
+    return chunks
+
 def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", export_profile=None, words=3, animation_mode="karaoke", highlight_color=None):
     """
     Builds styled Advanced SubStation Alpha (.ass) subtitles with animated
@@ -289,27 +318,24 @@ def make_ass(segs, start, end, path, style_key="beasty", aspect_ratio="9:16", ex
                     })
 
     if has_genuine_words and all_words:
-        # Group into word chunks (cards of `words` length)
-        for i in range(0, len(all_words), words):
-            chunk = all_words[i:i + words]
+        # Group into intelligent word chunks respecting natural pauses and punctuation
+        chunks = build_word_chunks(all_words, max_words=words, max_gap=0.45)
+        for i, chunk in enumerate(chunks):
             t1 = max(0.0, chunk[0]["start"] - start)
-            t2 = max(t1 + 0.35, chunk[-1]["end"] - start)
+            t2 = max(t1 + 0.35, chunk[-1]["end"] - start + 0.10)
 
-            # Bridge micro-pause to next chunk if close (< 0.25s) to eliminate visual flicker
-            if i + words < len(all_words):
-                next_start = max(0.0, all_words[i + words]["start"] - start)
-                if 0 < next_start - t2 <= 0.25:
+            # Bridge micro-pause to next chunk only if very close (< 0.18s) to eliminate visual flicker
+            if i + 1 < len(chunks):
+                next_start = max(0.0, chunks[i + 1][0]["start"] - start)
+                if 0 < next_start - t2 <= 0.18:
                     t2 = next_start
 
             # Build karaoke tags for each word
             k_parts = []
             for j, wd in enumerate(chunk):
-                if j < len(chunk) - 1:
-                    span = max(0.05, chunk[j + 1]["start"] - wd["start"])
-                else:
-                    span = max(0.05, wd["end"] - wd["start"])
-                dur_cs = max(1, int(round(span * 100)))
-                k_parts.append(f"{{\\{k_tag}{dur_cs}}}{wd['text']}")
+                word_span = max(0.08, min(2.0, wd["end"] - wd["start"]))
+                dur_cs = max(1, int(round(word_span * 100)))
+                k_parts.append("{" + chr(92) + k_tag + str(dur_cs) + "}" + wd["text"])
 
             k_text = " ".join(k_parts)
             events.append(f"Dialogue: 0,{_t_ass(t1)},{_t_ass(t2)},{style_name},,0,0,0,,{k_text}")
@@ -374,14 +400,13 @@ def make_srt(segs, start, end, path, words=3):
                     })
 
     if has_genuine_words and all_words:
-        # Group into word chunks of size `words` (default 3 words)
-        for i in range(0, len(all_words), words):
-            chunk = all_words[i:i + words]
-            t1 = _t(chunk[0]["start"] - start)
-            t2 = _t(chunk[-1]["end"] - start)
-            # Ensure subtitle display is at least 0.25s long for visual legibility
-            if chunk[-1]["end"] - chunk[0]["start"] < 0.25:
-                t2 = _t(chunk[0]["start"] - start + 0.35)
+        # Group into intelligent word chunks respecting natural pauses and punctuation
+        chunks = build_word_chunks(all_words, max_words=words, max_gap=0.45)
+        for i, chunk in enumerate(chunks):
+            t1_val = max(0.0, chunk[0]["start"] - start)
+            t2_val = max(t1_val, chunk[-1]["end"] - start)
+            t1 = _t(t1_val)
+            t2 = _t(t2_val)
             text = " ".join(w["text"] for w in chunk).upper()
             lines.append(f"{n}\n{t1} --> {t2}\n{text}\n")
             n += 1

@@ -131,9 +131,9 @@ def clip_run_report(requested, produced, min_len, max_len, total_duration, relax
 
     reason = stopped_reason
     if not reason and shortfall:
-        reason = (f"Only {discovered_count} distinct moments passed the {int(lo)}–{int(hi)}-second length "
-                  f"and no-overlap checks in this {minutes}-minute video. Short videos only have room "
-                  f"for so many separate clips.")
+        reason = (f"Found {discovered_count} of {requested} requested clips. You requested {requested} clips of "
+                  f"{int(lo)}–{int(hi)}s each from a {minutes}-minute video. Because clips cannot overlap "
+                  f"without repeating the same scenes, there were only enough unique moments for {discovered_count} clips.")
         if relaxed:
             reason = (f"Even with relaxed limits ({int(lo)}–{int(hi)} seconds, moments may sit closer "
                       f"together), only {discovered_count} distinct moments were found in this {minutes}-minute video.")

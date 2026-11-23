@@ -1872,6 +1872,40 @@
     .clip-resolution-select { min-width:86px; border-radius:8px; border:1px solid rgba(255,255,255,.18); background:#20202a; color:var(--ink); padding:7px 8px; font-weight:700; }
     .video-res-pill { position:absolute; top:8px; right:8px; z-index:5; padding:5px 9px; border-radius:20px; background:rgba(18,18,23,.86); border:1px solid rgba(255,255,255,.2); color:#fff; font-size:11px; font-weight:700; cursor:pointer; }
 
+
+    /* Live Batch Status Panel and Failed Items */
+    .batch-failed-section { margin-top: var(--s2); padding-top: var(--s2); border-top: 1px solid var(--line); }
+    .batch-failed-heading { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #ef4444; margin-bottom: 8px; }
+    .batch-failed-list { display: flex; flex-direction: column; gap: 8px; }
+    .batch-failed-item { display: flex; align-items: center; justify-content: space-between; background: rgba(239, 68, 68, 0.05); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: var(--radius-ctl); padding: 8px 12px; gap: 10px; flex-wrap: wrap; }
+    .batch-failed-info { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
+    .batch-failed-err-msg { font-size: 11px; color: var(--mute); word-break: break-word; }
+    .btn-single-retry { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171; border-radius: 6px; padding: 4px 10px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all 0.2s ease; white-space: nowrap; }
+    .btn-single-retry:hover { background: rgba(239, 68, 68, 0.25); color: #ffffff; }
+
+    /* Toast Notification Container */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; max-width: 380px; width: calc(100% - 40px); pointer-events: none; }
+    .toast { pointer-events: auto; background: rgba(18, 18, 26, 0.96); backdrop-filter: blur(12px); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); display: flex; align-items: flex-start; gap: 10px; animation: toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    .toast-hide { opacity: 0; transform: translateY(10px); transition: all 0.25s ease; }
+    @keyframes toastSlideIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+    .toast-error { border-left: 4px solid #ef4444; }
+    .toast-warning { border-left: 4px solid #f59e0b; }
+    .toast-success { border-left: 4px solid #10b981; }
+    .toast-info { border-left: 4px solid var(--acc-light); }
+    .toast-icon { font-size: 16px; line-height: 1.2; margin-top: 1px; }
+    .toast-content { flex: 1; }
+    .toast-title { font-size: 12px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+    .toast-message { font-size: 11px; color: var(--mute); line-height: 1.4; word-break: break-word; }
+    .toast-action-btn { margin-top: 6px; background: rgba(255,255,255,0.08); border: 1px solid var(--line); color: #fff; border-radius: 4px; padding: 3px 8px; font-size: 10px; font-weight: 700; cursor: pointer; }
+    .toast-close { background: none; border: none; color: var(--mute); font-size: 16px; cursor: pointer; padding: 0 4px; line-height: 1; }
+    .toast-close:hover { color: #fff; }
+
+    /* Redesigned Error Alert Card */
+    .error-alert { display: none; background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-left: 4px solid #ef4444; border-radius: var(--radius-ctl); padding: 12px 14px; margin-bottom: var(--s3); }
+    .error-alert-header { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #ef4444; margin-bottom: 4px; }
+    .error-alert-body { font-size: 12px; color: var(--ink-secondary, #cbd5e1); line-height: 1.45; }
+    .error-alert-actions { margin-top: 8px; display: flex; gap: 8px; }
+
 </style>
 </head>
 <body>
@@ -2236,6 +2270,7 @@
 
         <div class="status-alert" id="status-text">Starting pipeline...</div>
         <div class="error-alert" id="error-text"></div>
+        <div id="live-batch-status-container" style="display:none;margin-bottom:var(--s3);"></div>
         <div class="row actions">
           <button class="btn-back btn-danger btn-retry" id="btn-cancel-batch">Cancel Batch</button>
           <button class="btn-next btn-retry" id="btn-retry-failed" style="display:none;">Retry Failed Clips</button>
@@ -3174,12 +3209,39 @@
     function renderClipCard(c, idx, ratio) {
       const card = document.createElement('div');
       card.className = 'clip-card';
+      const isFailed = (c.ok === false) || (!c.file && c.error);
       const score = c.score || 94; card.dataset.score = score; card.dataset.i = idx;
       const cat = c.category || 'Viral Hook';
       const hookReason = c.hook_reason || 'Strong opening hook and emotional payoff.';
       const ratioClass = ratio === '1:1' ? 'ratio-1-1' : (ratio === '16:9' ? 'ratio-16-9' : '');
       const dlUrl = c.download_url || `/clips/${c.vid}/${c.file}?dl=1`;
       const streamUrl = c.stream_url || `/clips/${c.vid}/${c.file}`;
+
+      if (isFailed) {
+        card.innerHTML = `
+          <div class="video-wrap ${ratioClass}" style="display:flex;align-items:center;justify-content:center;background:rgba(239,68,68,0.06);border:1px dashed rgba(239,68,68,0.3);min-height:200px;">
+            <div style="text-align:center;padding:16px;">
+              <div style="font-size:28px;margin-bottom:8px;">⚠️</div>
+              <div style="font-size:13px;font-weight:700;color:#ef4444;margin-bottom:4px;">Render Failed</div>
+              <div style="font-size:11px;color:var(--mute);max-width:220px;line-height:1.4;">${escapeHtml(c.error || 'Video encoding interrupted')}</div>
+            </div>
+          </div>
+          <div class="clip-details">
+            <div class="clip-badges">
+              <span class="score-badge" style="background:rgba(239,68,68,0.15);color:#ef4444;border:none;">Render Error</span>
+              <span class="cat-badge">${escapeHtml(cat)}</span>
+            </div>
+            <div class="clip-heading">${escapeHtml(c.title || ('Highlight #' + (idx + 1)))}</div>
+            <div class="hook-alert" style="border-left-color:#ef4444;"><b>Reason:</b> ${escapeHtml(c.error || 'Video rendering failed during encoding.')}</div>
+            <div class="clip-acts" style="margin-top:12px;">
+              <button class="btn-single-retry" type="button" style="padding:8px 16px;font-size:12px;" onclick="retrySingleClip('${c.vid || window._activeJid || ""}', ${c.index != null ? (c.index - 1) : idx}, this)">
+                🔄 Retry This Clip
+              </button>
+            </div>
+          </div>
+        `;
+        return card;
+      }
       const exportProf = c.export_profile || '720p';
       const sizeTag = c.size_formatted ? ` • ${escapeHtml(c.size_formatted)}` : '';
       const sizeBadge = c.size_formatted ? `<span class="score-badge" style="background:rgba(59,130,246,0.15);color:#60a5fa;border:none;">📦 ${escapeHtml(c.size_formatted)}</span>` : '';
@@ -3453,10 +3515,38 @@
           showResults(clips, item, state.options.aspect_ratio);
         } catch (err) {
           clearInterval(state.timer);
-          $('error-text').textContent = 'Error: ' + err.message;
-          $('error-text').style.display = 'block';
+          const errTextEl = $('error-text');
+          const errMsg = String(err.message || 'Unknown processing error');
+          let errTitle = 'Processing Interrupted';
+          let errDesc = errMsg;
+          let showRelaxedBtn = false;
+
+          if (errMsg.includes('429') || errMsg.toLowerCase().includes('rate limit') || errMsg.toLowerCase().includes('bot')) {
+            errTitle = 'YouTube Rate Limit / Bot Verification';
+            errDesc = 'YouTube temporarily blocked automated download from this cloud server IP. Please upload the video file directly using the Upload Video tab, which bypasses YouTube completely.';
+          } else if (errMsg.toLowerCase().includes('not found') || errMsg.toLowerCase().includes('job not found')) {
+            errTitle = 'Job Not Found';
+            errDesc = 'The processing session could not be located on the server. If the server recently restarted or cleared temp files, please restart the batch.';
+          } else if (errMsg.toLowerCase().includes('transcript') || errMsg.toLowerCase().includes('whisper')) {
+            errTitle = 'Transcription Issue';
+            errDesc = 'Speech recognition encountered a delay or missing audio stream. Retrying with direct upload or relaxed limits will resolve this.';
+            showRelaxedBtn = true;
+          }
+
+          errTextEl.innerHTML = `
+            <div class="error-alert-header">
+              <span style="font-size:16px;">⚠️</span> ${escapeHtml(errTitle)}
+            </div>
+            <div class="error-alert-body">${escapeHtml(errDesc)}</div>
+            <div class="error-alert-actions">
+              <button class="btn-back" type="button" style="padding:6px 12px;font-size:11px;" onclick="location.reload()">↺ Start Over</button>
+              ${showRelaxedBtn ? '<button class="btn-next" type="button" style="padding:6px 12px;font-size:11px;" onclick="retryRelaxed()">⚡ Retry with Relaxed Limits</button>' : ''}
+            </div>
+          `;
+          errTextEl.style.display = 'block';
           state.running = false;
           localStorage.removeItem('clipforge_active_job');
+          showToast(errDesc, 'error', errTitle);
           return;
         }
       }
@@ -3615,6 +3705,11 @@
             const renderTotal = (stageLabel.match(/Rendering clip \d+ of (\d+)/i) || [])[1];
             const expectedTotal = renderTotal ? Number(renderTotal) : totalOpt;
             updateStepIndicator(stageLabel, data.clips ? data.clips.length : 0, expectedTotal, data.progress);
+
+            // Live updates to the batch status panel
+            window._lastJobInfo = data.info || window._lastJobInfo || null;
+            window._currentClips = data.clips || window._currentClips || [];
+            renderBatchStatusPanel(data.info, data.clips, data, jid);
 
             // In-Browser Clip Review & Trim Trigger
             if (data.status === 'awaiting_review' && data.candidates && data.candidates.length) {
@@ -4008,25 +4103,102 @@
     }
 
     // Shows batch generation diagnostics: requested, discovered, completed, failed, and why generation stopped
-    function renderBatchStatusPanel(customInfo) {
-      const old = $('batch-status-panel');
-      if (old) old.remove();
+    
+    // Redesigned Toast Notification System
+    window.showToast = function(message, type = 'error', title = '', action = null) {
+      let container = $('toast-container');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container';
+        document.body.appendChild(container);
+      }
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      const iconMap = { error: '❌', warning: '⚠️', success: '✅', info: 'ℹ️' };
+      const icon = iconMap[type] || 'ℹ️';
+      const displayTitle = title || (type === 'error' ? 'Notice' : (type === 'warning' ? 'Warning' : 'Success'));
 
+      toast.innerHTML = `
+        <div class="toast-icon">${icon}</div>
+        <div class="toast-content">
+          <div class="toast-title">${escapeHtml(displayTitle)}</div>
+          <div class="toast-message">${escapeHtml(message)}</div>
+          ${action ? `<button class="toast-action-btn" type="button">${escapeHtml(action.label || 'Action')}</button>` : ''}
+        </div>
+        <button class="toast-close" type="button" aria-label="Close">&times;</button>
+      `;
+
+      const closeBtn = toast.querySelector('.toast-close');
+      const removeToast = () => {
+        toast.classList.add('toast-hide');
+        setTimeout(() => toast.remove(), 250);
+      };
+      closeBtn.onclick = removeToast;
+
+      if (action && action.onClick) {
+        const actBtn = toast.querySelector('.toast-action-btn');
+        if (actBtn) {
+          actBtn.onclick = () => {
+            action.onClick();
+            removeToast();
+          };
+        }
+      }
+
+      container.appendChild(toast);
+      setTimeout(removeToast, 6500);
+    };
+
+    window.retrySingleClip = async function(jid, clipIndex, btn) {
+      if (!jid) {
+        showToast('Job ID not found to retry clip.', 'error', 'Retry Error');
+        return;
+      }
+      const oldText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '🔄 Retrying…';
+      try {
+        const res = await fetch(`/api/jobs/${jid}/clips/${clipIndex}/retry`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok || data.error) {
+          throw new Error(data.error || 'Server failed to start retry');
+        }
+        showToast(`Clip ${data.index || (clipIndex + 1)} is being re-rendered in background.`, 'info', 'Retrying Clip');
+        if (!state.running) {
+          pollJob(jid, window._lastJobItem || { title: 'Retrying Clip' }).then(clips => {
+            window._currentClips = clips;
+            showResults(clips, window._lastJobItem || { title: 'Clips' }, state.options.aspect_ratio);
+          });
+        }
+      } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = oldText;
+        showToast(err.message, 'error', 'Retry Failed');
+      }
+    };
+
+    function renderBatchStatusPanel(customInfo, currentClips, fullJobData, activeJid) {
       const info = customInfo || window._lastJobInfo || {};
-      const clips = window._currentClips || [];
+      const clips = currentClips || window._currentClips || [];
+      const jid = activeJid || window._activeJid || (window._lastJobItem && window._lastJobItem.id) || (fullJobData && fullJobData.id);
+
       const completedCount = info.completed != null ? Number(info.completed) : clips.filter(c => c.ok !== false && c.file).length;
-      const failedCount = info.failed != null ? Number(info.failed) : clips.filter(c => c.ok === false || !c.file).length;
+      const failedClips = clips.filter(c => c.ok === false || (c.error && !c.file));
+      const failedCount = info.failed != null ? Number(info.failed) : failedClips.length;
       const requestedCount = info.requested != null ? Number(info.requested) : Number(state.options?.count || 5);
-      const discoveredCount = info.discovered != null ? Number(info.discovered) : (info.produced != null ? Number(info.produced) : clips.length);
+      const discoveredCount = info.discovered != null ? Number(info.discovered) : (info.produced != null ? Number(info.produced) : (fullJobData?.candidates?.length || clips.length));
 
       let stoppedReason = info.stopped_reason || info.reason || '';
       if (!stoppedReason) {
-        if (completedCount >= requestedCount) {
+        if (fullJobData && !fullJobData.done) {
+          stoppedReason = fullJobData.stage || fullJobData.status || 'Generating batch clips in background...';
+        } else if (completedCount >= requestedCount) {
           stoppedReason = `All ${requestedCount} requested clips were successfully discovered and rendered.`;
         } else if (failedCount > 0) {
-          stoppedReason = `Rendered ${completedCount} clip(s); ${failedCount} render(s) failed during encoding.`;
+          stoppedReason = `Rendered ${completedCount} clip(s); ${failedCount} render(s) encountered encoding issues.`;
         } else if (discoveredCount < requestedCount) {
-          stoppedReason = `Only ${discoveredCount} distinct moments met the duration and non-overlap criteria in this video.`;
+          stoppedReason = `Found ${discoveredCount} of ${requestedCount} requested clips. You requested ${requestedCount} clips from a short video, and there were only enough unique non-overlapping moments for ${discoveredCount} clips.`;
         } else {
           stoppedReason = `Batch finished with ${completedCount} clip(s) ready.`;
         }
@@ -4034,15 +4206,36 @@
 
       const isShortfall = completedCount < requestedCount;
       const hasFailed = failedCount > 0;
-
       const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-      const panel = document.createElement('div');
-      panel.id = 'batch-status-panel';
-      panel.className = 'batch-status-panel';
-      panel.setAttribute('role', 'region');
-      panel.setAttribute('aria-label', 'Batch Generation Status');
-      panel.innerHTML = `
+      let failedListHtml = '';
+      if (failedClips.length > 0) {
+        failedListHtml = `
+          <div class="batch-failed-section">
+            <div class="batch-failed-heading">Failed Clip Details (${failedClips.length})</div>
+            <div class="batch-failed-list">
+              ${failedClips.map((fc, fcIdx) => {
+                const clipNum = fc.index != null ? fc.index : (fcIdx + 1);
+                const errDetail = fc.error || 'Video rendering was interrupted';
+                const clipIdxParam = fc.index != null ? (fc.index - 1) : fcIdx;
+                return `
+                  <div class="batch-failed-item">
+                    <div class="batch-failed-info">
+                      <span class="badge-failed">Clip #${clipNum} Failed</span>
+                      <span class="batch-failed-err-msg">${esc(errDetail)}</span>
+                    </div>
+                    <button class="btn-single-retry" type="button" onclick="retrySingleClip('${jid}', ${clipIdxParam}, this)">
+                      🔄 Retry Clip #${clipNum}
+                    </button>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      const panelHtml = `
         <div class="batch-status-header">
           <div class="batch-status-title">
             <svg class="ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -4073,21 +4266,41 @@
           </div>
         </div>
         <div class="batch-reason-box ${hasFailed ? 'has-failed' : (isShortfall ? 'has-shortfall' : '')}">
-          <div class="batch-reason-heading">Why generation stopped</div>
+          <div class="batch-reason-heading">${(fullJobData && !fullJobData.done) ? 'Live Pipeline Status' : 'Why generation stopped'}</div>
           <div class="batch-reason-text">${esc(stoppedReason)}</div>
         </div>
+        ${failedListHtml}
         ${(isShortfall || hasFailed) ? `
         <div class="batch-status-actions">
           ${(isShortfall && !info.relaxed) ? `<button class="btn-next" id="btn-batch-relaxed" type="button" style="padding:7px 14px;font-size:12px;">⚡ Try again with relaxed limits</button>` : ''}
-          ${hasFailed ? `<button class="btn-back" id="btn-batch-retry-failed" type="button" style="padding:7px 14px;font-size:12px;color:#ef4444;border-color:#ef4444;">🔄 Retry Failed Clips</button>` : ''}
+          ${hasFailed ? `<button class="btn-back" id="btn-batch-retry-failed" type="button" style="padding:7px 14px;font-size:12px;color:#ef4444;border-color:#ef4444;">🔄 Retry All Failed Clips</button>` : ''}
         </div>` : ''}
       `;
 
-      const stream = $('clips-stream');
-      const sortbar = $('sortbar');
-      const target = sortbar || stream;
-      if (target && target.parentNode) {
-        target.parentNode.insertBefore(panel, target);
+      // Mount into live status card if in progress
+      const procContainer = $('live-batch-status-container');
+      if (procContainer) {
+        procContainer.innerHTML = panelHtml;
+        procContainer.style.display = 'block';
+      }
+
+      // Mount into results view
+      let resultsPanel = $('batch-status-panel');
+      if (!resultsPanel) {
+        resultsPanel = document.createElement('div');
+        resultsPanel.id = 'batch-status-panel';
+        resultsPanel.className = 'batch-status-panel';
+        resultsPanel.setAttribute('role', 'region');
+        resultsPanel.setAttribute('aria-label', 'Batch Generation Status');
+        const stream = $('clips-stream');
+        const sortbar = $('sortbar');
+        const target = sortbar || stream;
+        if (target && target.parentNode) {
+          target.parentNode.insertBefore(resultsPanel, target);
+        }
+      }
+      if (resultsPanel) {
+        resultsPanel.innerHTML = panelHtml;
       }
 
       const bRelaxed = $('btn-batch-relaxed');
@@ -4096,23 +4309,28 @@
       const bRetryFailed = $('btn-batch-retry-failed');
       if (bRetryFailed) {
         bRetryFailed.onclick = async () => {
-          const jid = window._activeJid || (window._lastJobItem && window._lastJobItem.id);
-          if (!jid) {
-            alert('Job ID not found to retry failed clips.');
+          const activeId = jid || window._activeJid;
+          if (!activeId) {
+            showToast('Job ID not found to retry failed clips.', 'error', 'Retry Error');
             return;
           }
           bRetryFailed.disabled = true;
           bRetryFailed.textContent = 'Retrying…';
           try {
-            const res = await fetch(`/api/jobs/${encodeURIComponent(jid)}/retry`, { method: 'POST' });
+            const res = await fetch(`/api/jobs/${encodeURIComponent(activeId)}/retry-failed`, { method: 'POST' });
             const data = await res.json();
-            if (!res.ok || data.error) throw new Error(data.error || 'Retry failed');
-            alert('Retrying failed clips in background.');
-            pollJob(jid, window._lastJobItem || { title: 'Retrying Batch' });
+            if (!res.ok || data.error) throw new Error(data.error || 'Retry request failed');
+            showToast('Retrying failed clips in background.', 'info', 'Retry Started');
+            if (!state.running) {
+              pollJob(activeId, window._lastJobItem || { title: 'Retrying Batch' }).then(clips => {
+                window._currentClips = clips;
+                showResults(clips, window._lastJobItem || { title: 'Clips' }, state.options.aspect_ratio);
+              });
+            }
           } catch (e) {
-            alert('Retry error: ' + e.message);
             bRetryFailed.disabled = false;
-            bRetryFailed.textContent = '🔄 Retry Failed Clips';
+            bRetryFailed.textContent = '🔄 Retry All Failed Clips';
+            showToast(e.message, 'error', 'Retry Error');
           }
         };
       }

@@ -49,6 +49,16 @@ def download(url, dest_dir=None, max_duration=None, check_cancelled=None):
     target_dir = dest_dir or WORK_DIR
     os.makedirs(target_dir, exist_ok=True)
 
+    # Check if a valid downloaded source video already exists in target_dir (e.g. from previous run / resume)
+    if dest_dir and os.path.exists(dest_dir):
+        for fname in os.listdir(dest_dir):
+            if fname.startswith("source_") and fname.endswith(".mp4"):
+                existing_src = os.path.join(dest_dir, fname)
+                if os.path.exists(existing_src) and os.path.getsize(existing_src) > 1024 * 50:
+                    print(f"[DOWNLOAD] Reusing existing valid source video on disk: {existing_src} ({os.path.getsize(existing_src)} bytes).")
+                    vid_id = fname.replace("source_", "").replace(".mp4", "")
+                    return existing_src, vid_id
+
     if url.startswith("upload://"):
         upload_id = url.replace("upload://", "").strip()
         from security import safe_join_path

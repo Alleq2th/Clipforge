@@ -55,16 +55,21 @@ def cleanup_review(jid):
 def _render_clip_worker(video, segs, c, i, vid, aspect_ratio, caption_style, framing, out_dir, jid, job_id, export_profile=None, highlight_color=None):
     """Renders an individual clip cleanly; returns (index, item_dict, error)."""
     try:
-        f = cut(
-            video, segs, c, i, vid,
-            aspect_ratio=aspect_ratio,
-            caption_style=caption_style,
-            framing=framing,
-            out_dir=out_dir,
-            jid=jid,
-            export_profile=export_profile,
-            highlight_color=highlight_color
-        )
+        existing_clip = os.path.join(out_dir, f"clip{i}.mp4")
+        if os.path.exists(existing_clip) and os.path.getsize(existing_clip) > 1024:
+            f = existing_clip
+            print(f"[RESUME] Clip {i} already rendered at {f} ({os.path.getsize(f)} bytes). Reusing.")
+        else:
+            f = cut(
+                video, segs, c, i, vid,
+                aspect_ratio=aspect_ratio,
+                caption_style=caption_style,
+                framing=framing,
+                out_dir=out_dir,
+                jid=jid,
+                export_profile=export_profile,
+                highlight_color=highlight_color
+            )
         # Offload to durable cloud storage if configured (Supabase / S3)
         provider = get_storage_provider()
         rel_dest = f"{job_id}/{os.path.basename(f)}"
@@ -148,7 +153,16 @@ def run(url, jid=None, cb=print, on_clip=None, options=None, check_cancelled=Non
             return []
 
         update_stage(f"AI discovering & ranking {count} viral moments...", 55)
-        clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus, relax=relax_limits)
+        disc_path = os.path.join(out_dir, "discovered_clips.json")
+        if os.path.exists(disc_path) and os.path.getsize(disc_path) > 10:
+            try:
+                with open(disc_path, "r", encoding="utf-8") as f:
+                    clips = json.load(f)
+                print(f"[RESUME] Loaded {len(clips)} existing discovered clips from {disc_path}")
+            except Exception:
+                clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus, relax=relax_limits)
+        else:
+            clips = pick(segs, count=count, min_len=min_len, max_len=max_len, focus=focus, relax=relax_limits)
         discovered_count = len(clips)
         total_seconds = max((float(s.get("end", 0)) for s in segs), default=0.0)
         report = clip_run_report(count, discovered_count, min_len, max_len, total_seconds, relax_limits, discovered=discovered_count)

@@ -25,17 +25,52 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 # Initialize SQLite database on startup
 init_db()
 
-def _mark_interrupted_jobs():
-    # Jobs still unfinished in the database when the server starts were killed by a restart or redeploy.
-    for jid in get_active_job_ids():
-        db_update_job(
-            jid,
-            status="Interrupted: the server restarted while this job was running. Please start it again.",
-            error="Interrupted by server restart",
-            done=True,
-        )
+def resume_unfinished_jobs():
+    """
+    On startup, inspects SQLite for any active jobs interrupted by server restart or redeploy.
+    Automatically resumes incomplete batches from the last rendered clip,
+    saving users from lost progress and ensuring requested clip counts are fulfilled.
+    """
+    try:
+        active_ids = get_active_job_ids()
+        if not active_ids:
+            return
 
-_mark_interrupted_jobs()
+        print(f"[RECOVERY] Found {len(active_ids)} active job(s) from previous server run.")
+        for jid in active_ids:
+            job = db_get_job(jid)
+            if not job or job.get("cancelled") or job.get("done"):
+                continue
+
+            created_at = float(job.get("created_at") or 0)
+            # Skip jobs older than 24 hours
+            if time.time() - created_at > 86400:
+                db_update_job(jid, done=True, status="Expired (created > 24h ago)")
+                continue
+
+            # If awaiting manual review in the browser, leave it available for review!
+            if job.get("status") == "awaiting_review":
+                print(f"[RECOVERY] Job {jid} is awaiting review. Preserving state.")
+                continue
+
+            url = job.get("url") or ""
+            options = job.get("options") or {}
+            print(f"[RECOVERY] Resuming interrupted batch job {jid} (url: {url})...")
+
+            db_update_job(
+                jid,
+                status="Server restarted. Resuming batch generation from last clip...",
+                stage="Resuming batch generation...",
+                progress=max(15, job.get("progress", 0))
+            )
+
+            # Re-submit to the job worker queue
+            submit_job(work, jid, url, options)
+
+    except Exception as e:
+        print(f"[RECOVERY] Notice during startup job resumption: {e}")
+
+resume_unfinished_jobs()
 
 # In-memory caches with database fallback
 jobs = {}
@@ -156,7 +191,8 @@ def save_job(jid):
             options=j.get("options"),
             error=j.get("error"),
             done=j.get("done", False),
-            cancelled=j.get("cancelled", False)
+            cancelled=j.get("cancelled", False),
+            info=j.get("info")
         )
     except Exception as e:
         print(f"[SERVER] Notice saving job {jid}: {e}")
@@ -221,17 +257,45 @@ def work(jid, url, options, app_url=""):
             c_file = clip_item.get("file", "")
             clip_record = {
                 **clip_item,
-                "download_url": f"/clips/{jid}/{c_file}?dl=1",
-                "stream_url": f"/clips/{jid}/{c_file}"
+                "download_url": f"/clips/{jid}/{c_file}?dl=1" if c_file else "",
+                "stream_url": f"/clips/{jid}/{c_file}" if c_file else ""
             }
             if jid in jobs:
                 if "clips" not in jobs[jid]:
                     jobs[jid]["clips"] = []
-                jobs[jid]["clips"].append(clip_record)
+                c_idx = clip_item.get("index", idx)
+                found = False
+                for k, existing_c in enumerate(jobs[jid]["clips"]):
+                    if existing_c.get("index") == c_idx:
+                        jobs[jid]["clips"][k] = clip_record
+                        found = True
+                        break
+                if not found:
+                    jobs[jid]["clips"].append(clip_record)
+
+                total_req = options.get("count", total)
+                compl = sum(1 for c in jobs[jid]["clips"] if c.get("ok", True) and c.get("file"))
+                fail_cnt = sum(1 for c in jobs[jid]["clips"] if not c.get("ok", True) or not c.get("file"))
+                jobs[jid]["info"] = {
+                    "requested": total_req,
+                    "discovered": total,
+                    "completed": compl,
+                    "failed": fail_cnt,
+                    "produced": compl,
+                    "shortfall": compl < total_req,
+                    "stopped_reason": f"Generating clip {idx} of {total}..." if compl + fail_cnt < total else None
+                }
                 jobs[jid]["status"] = f"Generated clip {idx} of {total} • Ready to watch and download!"
                 save_job(jid)
 
-            lib_entry["clips"].append(clip_record)
+            found_lib = False
+            for k, existing_c in enumerate(lib_entry.get("clips", [])):
+                if existing_c.get("index") == clip_item.get("index", idx):
+                    lib_entry["clips"][k] = clip_record
+                    found_lib = True
+                    break
+            if not found_lib:
+                lib_entry["clips"].append(clip_record)
             lib_entry["clips_count"] = len(lib_entry["clips"])
             lib_entry["status"] = f"Generated clip {idx} of {total} • Ready to download!"
             save_library_entry(lib_entry)
@@ -682,6 +746,73 @@ def cancel_job(jid):
             break
     return jsonify({"ok": True, "status": "Cancelled"})
 
+@app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
+def retry_single_clip(jid, clip_index):
+    """
+    Retries an individual failed clip by index (0-indexed or 1-indexed) without re-rendering completed clips.
+    """
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+
+    url = j.get("url")
+    options = j.get("options", {})
+    existing_clips = j.get("clips", [])
+
+    target = None
+    target_k = None
+    if 0 <= clip_index < len(existing_clips):
+        target = existing_clips[clip_index]
+        target_k = clip_index
+    else:
+        for k, c in enumerate(existing_clips):
+            if c.get("index") == clip_index:
+                target = c
+                target_k = k
+                break
+
+    if not target:
+        return jsonify({"error": f"Clip {clip_index} not found in job"}), 404
+
+    target["ok"] = False
+    target["error"] = "Retrying render..."
+    target["file"] = ""
+    jobs[jid]["clips"] = existing_clips
+    jobs[jid]["cancelled"] = False
+    jobs[jid]["done"] = False
+    jobs[jid]["status"] = f"Retrying clip {target.get('index', clip_index + 1)}..."
+    save_job(jid)
+
+    app_url = request.host_url.rstrip("/")
+    submit_job(work, jid, url, options, app_url)
+    return jsonify({
+        "ok": True,
+        "status": "Retrying clip",
+        "clip_index": clip_index,
+        "index": target.get("index", clip_index + 1)
+    })
+
+@app.post("/api/jobs/<jid>/resume")
+def resume_job_route(jid):
+    """
+    Resumes an unfinished batch job after server restart or timeout.
+    """
+    j = load_job(jid)
+    if not j:
+        return jsonify({"error": "Job not found"}), 404
+
+    url = j.get("url")
+    options = j.get("options", {})
+    jobs[jid]["cancelled"] = False
+    jobs[jid]["done"] = False
+    jobs[jid]["status"] = "Resuming batch generation..."
+    jobs[jid]["stage"] = "Resuming batch generation..."
+    save_job(jid)
+
+    app_url = request.host_url.rstrip("/")
+    submit_job(work, jid, url, options, app_url)
+    return jsonify({"ok": True, "status": "Resuming generation", "jid": jid})
+
 @app.post("/api/jobs/<jid>/retry-failed")
 def retry_failed(jid):
     """
@@ -919,75 +1050,6 @@ def transcode_job_clip(jid, clip_index):
             "fallback": True,
             "note": "Transcode fallback to original clip"
         })
-
-@app.post("/api/jobs/<jid>/clips/<int:clip_index>/retry")
-def retry_single_clip(jid, clip_index):
-    """Retries a single specific clip without restarting the entire video batch."""
-    j = load_job(jid)
-    if not j:
-        return jsonify({"error": "Job not found"}), 404
-
-    out_dir = get_job_out_dir(jid)
-    transcript_cache = os.path.join(out_dir, "transcript.json")
-    discovered_cache = os.path.join(out_dir, "discovered_clips.json")
-
-    if not os.path.exists(discovered_cache):
-        # Fall back to general retry
-        return retry_failed(jid)
-
-    try:
-        with open(discovered_cache, "r", encoding="utf-8") as f:
-            candidates = json.load(f)
-        if clip_index < 1 or clip_index > len(candidates):
-            return jsonify({"error": "Invalid clip index"}), 400
-        
-        target_candidate = candidates[clip_index - 1]
-        options = j.get("options", {})
-
-        # Run independent clip cut in background
-        def do_single_retry():
-            work_dir = os.path.join(WORK_DIR, "jobs", f"{jid}_retry_{clip_index}")
-            os.makedirs(work_dir, exist_ok=True)
-            try:
-                from download import download
-                video, vid = download(j["url"], dest_dir=work_dir)
-                with open(transcript_cache, "r", encoding="utf-8") as tf:
-                    segs = json.load(tf)
-                f = cut(
-                    video, segs, target_candidate, clip_index, vid,
-                    aspect_ratio=options.get("aspect_ratio", "9:16"),
-                    caption_style=options.get("caption_style", "beasty"),
-                    framing=options.get("framing", "crop"),
-                    export_profile=options.get("export_profile") or options.get("resolution", DEFAULT_EXPORT_PROFILE),
-                    out_dir=out_dir,
-                    jid=jid
-                )
-                filename = os.path.basename(f)
-                # Update clip record
-                clips = j.get("clips", [])
-                for idx, c in enumerate(clips):
-                    if c.get("index") == clip_index:
-                        clips[idx] = {
-                            **c,
-                            "file": filename,
-                            "ok": True,
-                            "error": None,
-                            "download_url": f"/clips/{jid}/{filename}?dl=1",
-                            "stream_url": f"/clips/{jid}/{filename}"
-                        }
-                        break
-                j["clips"] = clips
-                save_job(jid)
-            except Exception as e:
-                print(f"[RETRY] Error retrying clip {clip_index}: {e}")
-            finally:
-                import shutil
-                shutil.rmtree(work_dir, ignore_errors=True)
-
-        submit_job(do_single_retry)
-        return jsonify({"ok": True, "status": f"Retrying clip {clip_index}"})
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
 
 # ================= PERSISTENT LIBRARY API =================
 @app.get("/api/library")

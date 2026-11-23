@@ -204,8 +204,10 @@ def cut(video, segs, c, i, vid, aspect_ratio="9:16", caption_style="beasty", fra
     cmd = [
         "ffmpeg", "-y",
         "-ss", str(c["start"]),
+        "-accurate_seek",
         "-i", os.path.abspath(video),
         "-t", str(c["end"] - c["start"]),
+        "-avoid_negative_ts", "make_zero",
         "-filter_complex", vf,
         "-c:v", "libx264",
         "-threads:v", adaptive_ffmpeg["threads"],

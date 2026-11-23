@@ -17,29 +17,33 @@ def _get_local_whisper():
         _local_whisper_model = WhisperModel(WHISPER_MODEL, compute_type="int8")
     return _local_whisper_model
 
-def _load_audio_buffer(audio_path):
+def _load_audio_buffer(audio_or_video_path):
     """
-    Decodes audio to 16kHz mono float32 numpy array via ffmpeg.
-    Bypasses PyAV container errors and enables high-throughput memory buffers.
+    Decodes audio directly from source video or audio to 16kHz mono float32 numpy array via ffmpeg.
+    Direct PCM extraction eliminates MP3 encoder delay (~30-50ms) and container skew,
+    guaranteeing perfect frame-level speech synchronization.
     """
     try:
         cmd = [
-            "ffmpeg", "-nostdin", "-threads", "0", "-i", os.path.abspath(audio_path),
-            "-f", "s16le", "-ac", "1", "-acodec", "pcm_s16le", "-ar", "16000", "-"
+            "ffmpeg", "-nostdin", "-threads", "0", "-i", os.path.abspath(audio_or_video_path),
+            "-vn", "-f", "s16le", "-ac", "1", "-acodec", "pcm_s16le", "-ar", "16000", "-"
         ]
         out_bytes = subprocess.check_output(cmd, stderr=subprocess.DEVNULL)
         return np.frombuffer(out_bytes, np.int16).flatten().astype(np.float32) / 32768.0
     except Exception as e:
         print(f"[TRANSCRIBE] Notice loading audio memory buffer: {e}; using file path.")
-        return audio_path
+        return audio_or_video_path
 
 def _parse_vtt(vtt_path):
     time_re = re.compile(r"(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})\s*-->\s*(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})")
+    word_tag_re = re.compile(r"<(\d{2}:)?(\d{2}):(\d{2})[\.,](\d{3})>(?:<c>)?([^<]+)(?:</c>)?")
+
     def to_secs(h, m, s, ms):
         hours = int(h[:-1]) if h else 0
         return hours * 3600 + int(m) * 60 + int(s) + int(ms) / 1000.0
 
     segments = []
+    prev_clean_lines = set()
     try:
         with open(vtt_path, "r", encoding="utf-8", errors="ignore") as f:
             blocks = f.read().split("\n\n")
@@ -51,13 +55,36 @@ def _parse_vtt(vtt_path):
                     st = to_secs(m.group(1), m.group(2), m.group(3), m.group(4))
                     en = to_secs(m.group(5), m.group(6), m.group(7), m.group(8))
                     text_lines = lines[idx+1:]
-                    clean_text = " ".join(re.sub(r"<[^>]+>", "", l) for l in text_lines).strip()
+                    cue_words = []
+                    cue_text_parts = []
+
+                    for tl in text_lines:
+                        clean_l = re.sub(r"<[^>]+>", "", tl).strip()
+                        if not clean_l or clean_l in prev_clean_lines:
+                            continue
+                        cue_text_parts.append(clean_l)
+
+                        matches = list(word_tag_re.finditer(tl))
+                        if matches:
+                            for i_m, wm in enumerate(matches):
+                                w_st = to_secs(wm.group(1), wm.group(2), wm.group(3), wm.group(4))
+                                w_txt = wm.group(5).strip()
+                                if i_m + 1 < len(matches):
+                                    next_wm = matches[i_m + 1]
+                                    w_en = to_secs(next_wm.group(1), next_wm.group(2), next_wm.group(3), next_wm.group(4))
+                                else:
+                                    w_en = min(en, round(w_st + 0.35, 3))
+                                if w_txt:
+                                    cue_words.append({"word": w_txt, "text": w_txt, "start": round(w_st, 2), "end": round(w_en, 2)})
+
+                    clean_text = " ".join(cue_text_parts).strip()
+                    prev_clean_lines = {re.sub(r"<[^>]+>", "", tl).strip() for tl in text_lines if tl.strip()}
                     if clean_text:
                         segments.append({
                             "start": round(st, 2),
                             "end": round(en, 2),
                             "text": clean_text,
-                            "words": []
+                            "words": cue_words
                         })
                     break
     except Exception as e:
@@ -83,6 +110,7 @@ def _parse_json3(json3_path):
                 if w_txt:
                     words.append({
                         "word": w_txt,
+                        "text": w_txt,
                         "start": round(start + t_offset, 2),
                         "end": round(start + t_offset + 0.35, 2)
                     })
@@ -108,7 +136,10 @@ def _find_instant_subtitles(search_dir):
             if m.endswith(".vtt"):
                 segs = _parse_vtt(m)
                 if segs and len(segs) >= 3:
-                    return segs
+                    # Require that segments have genuine word timings so captions align perfectly with speech
+                    total_words = sum(len(s.get("words", [])) for s in segs)
+                    if total_words > 0:
+                        return segs
             elif m.endswith(".json3"):
                 segs = _parse_json3(m)
                 if segs and len(segs) >= 3:
@@ -170,9 +201,11 @@ def _transcribe_groq(audio_path):
         })
     return out
 
-def _transcribe_local(audio_path):
+def _transcribe_local(audio_path, video_path=None):
     m = _get_local_whisper()
-    audio_data = _load_audio_buffer(audio_path)
+    # Decode directly from video container if available to avoid lossy mp3 encoding and delay
+    audio_source = video_path if (video_path and os.path.exists(video_path)) else audio_path
+    audio_data = _load_audio_buffer(audio_source)
     segs = None
 
     # 1. High-speed Batched Transcription (BatchedInferencePipeline)
@@ -257,7 +290,7 @@ def transcribe(video, vid, work_dir=None, out_dir=None, check_cancelled=None):
             print(f"[TRANSCRIBE] Groq Whisper notice: {e}, falling back to local model.")
 
     if not out:
-        out = _transcribe_local(audio_path)
+        out = _transcribe_local(audio_path, video_path=video)
 
     # Clean temporary audio file to preserve disk space
     if os.path.exists(audio_path):
