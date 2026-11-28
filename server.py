@@ -26,6 +26,42 @@ app = Flask(__name__, static_folder="static", static_url_path="")
 # Initialize SQLite database on startup
 init_db()
 
+# Permissive CORS headers and preflight handling for mobile / cross-origin requests
+@app.before_request
+def handle_preflight():
+    if request.method == "OPTIONS":
+        res = app.make_default_options_response()
+        res.headers["Access-Control-Allow-Origin"] = "*"
+        res.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+        res.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+        res.headers["Access-Control-Max-Age"] = "86400"
+        return res
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+    return response
+
+@app.errorhandler(400)
+def handle_bad_request(e):
+    return jsonify({"error": str(getattr(e, "description", e)), "code": "BAD_REQUEST"}), 400
+
+@app.errorhandler(404)
+def handle_not_found(e):
+    return jsonify({"error": "Resource not found", "code": "NOT_FOUND"}), 404
+
+@app.errorhandler(500)
+def handle_internal_error(e):
+    return jsonify({"error": "Server temporary error. Retrying will succeed once worker is ready.", "code": "INTERNAL_SERVER_ERROR"}), 500
+
+@app.errorhandler(Exception)
+def handle_general_exception(e):
+    import traceback
+    traceback.print_exc()
+    return jsonify({"error": str(e), "code": "SERVER_ERROR"}), 500
+
 def resume_unfinished_jobs():
     """
     On startup, inspects SQLite for any active jobs interrupted by server restart or redeploy.
@@ -175,7 +211,8 @@ def save_job(jid):
     try:
         j = jobs.get(jid, {})
         db_cur = db_get_job(jid)
-        if db_cur and db_cur.get("cancelled"):
+        is_canc = bool(j.get("cancelled") or (db_cur and db_cur.get("cancelled")))
+        if is_canc:
             j["cancelled"] = True
             j["status"] = "Cancelled by user"
             j["stage"] = "Cancelled by user"
@@ -192,7 +229,7 @@ def save_job(jid):
             options=j.get("options"),
             error=j.get("error"),
             done=j.get("done", False),
-            cancelled=j.get("cancelled", False),
+            cancelled=is_canc,
             info=j.get("info")
         )
     except Exception as e:
@@ -592,7 +629,7 @@ def set_job_email(jid):
 
 @app.post("/api/jobs")
 def create():
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     url = data.get("url", "").strip()
     if not url:
         return jsonify({"error": "URL required"}), 400
@@ -682,7 +719,7 @@ def set_user_plan():
     user = verify_user_token(auth_header)
     if not user:
         return jsonify({"authenticated": False, "error": "Unauthorized"}), 401
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     plan = data.get("plan", "free")
     profile = select_user_plan(user["id"], plan=plan)
     return jsonify({"ok": True, "profile": profile})
@@ -1179,7 +1216,7 @@ def create_profile():
         audio_bytes = audio_file.read() if audio_file else None
         filename = audio_file.filename if audio_file else ""
     else:
-        data = request.json or {}
+        data = request.get_json(silent=True) or {}
         name = data.get("name", "Custom Voice")
         consent = bool(data.get("consent"))
         base_voice = data.get("base_voice", "en-US-ChristopherNeural")
@@ -1213,7 +1250,7 @@ def preview_voice(vpid):
 
 @app.put("/api/voice-profiles/<vpid>")
 def rename_profile(vpid):
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     new_name = (data.get("name") or "").strip()
     if not new_name:
         return jsonify({"error": "Name required"}), 400
@@ -1242,7 +1279,7 @@ def save_faceless_job(fid):
             stage=j.get("status"),
             error=j.get("error"),
             done=j.get("done", False),
-            cancelled=j.get("cancelled", False)
+            cancelled=is_canc
         )
     except Exception as e:
         print(f"[SERVER] Notice saving faceless job {fid}: {e}")
@@ -1345,7 +1382,7 @@ def faceless_work(fid, url, script, voice, style, framing, email="", app_url="")
 
 @app.post("/api/faceless")
 def create_faceless():
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     script = data.get("script", "").strip()
     if not script:
         return jsonify({"error": "Script text is required"}), 400

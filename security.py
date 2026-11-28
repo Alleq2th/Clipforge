@@ -84,8 +84,10 @@ def validate_video_url(url):
             if is_private_ip(ip):
                 raise ValueError(f"Domain resolves to private/internal IP ({ip}), access denied.")
     except socket.gaierror:
-        # If hostname cannot be resolved, raise clear error
-        raise ValueError(f"Unable to resolve domain '{hostname}'. Please check the URL.")
+        # For known public video platforms, do not fail on transient container DNS resolver blips
+        is_known = any(re.match(p, hostname) for p in ALLOWED_HOST_PATTERNS)
+        if not is_known:
+            raise ValueError(f"Unable to resolve domain '{hostname}'. Please check the URL.")
 
     return url
 

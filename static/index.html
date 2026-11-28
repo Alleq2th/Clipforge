@@ -3969,6 +3969,39 @@
     }
     updateLibBadge();
 
+
+    // Resilient network fetch with automatic exponential retry
+    // Prevents mobile connection drops and Render sleep/wake stalls from interrupting user jobs
+    async function fetchWithRetry(url, options = {}, maxRetries = 4, delayMs = 1500) {
+      let lastError = null;
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const res = await fetch(url, options);
+          if (res.status >= 502 && res.status <= 504 && attempt < maxRetries) {
+            console.warn(`[FETCH] HTTP ${res.status} on attempt ${attempt}. Server waking up, retrying...`);
+            const statusEl = $('status-text');
+            if (statusEl && state.running) {
+              statusEl.textContent = `Connecting to cloud worker (waking up server, attempt ${attempt}/${maxRetries})...`;
+            }
+            await new Promise(r => setTimeout(r, delayMs * attempt));
+            continue;
+          }
+          return res;
+        } catch (err) {
+          lastError = err;
+          console.warn(`[FETCH] Connection blip on attempt ${attempt}/${maxRetries}:`, err);
+          if (attempt < maxRetries) {
+            const statusEl = $('status-text');
+            if (statusEl && state.running) {
+              statusEl.textContent = `Connecting to cloud worker (attempt ${attempt}/${maxRetries})...`;
+            }
+            await new Promise(r => setTimeout(r, delayMs * attempt));
+          }
+        }
+      }
+      throw lastError || new Error('Network connection failed after retries');
+    }
+
     // Start Clipper Processing
     function startProcessing() {
       if (!state.queue.length || state.running) return;
@@ -4009,7 +4042,7 @@
           const jobHeaders = { 'Content-Type': 'application/json' };
           if (authState.token) jobHeaders['Authorization'] = `Bearer ${authState.token}`;
 
-          const res = await fetch('/api/jobs', {
+          const res = await fetchWithRetry('/api/jobs', {
             method: 'POST',
             headers: jobHeaders,
             body: JSON.stringify({
@@ -4072,20 +4105,31 @@
             showRelaxedBtn = true;
           }
 
+          const isNetworkError = errMsg.toLowerCase().includes('fetch') || errMsg.toLowerCase().includes('network') || errMsg.toLowerCase().includes('connection');
+          if (isNetworkError) {
+            errTitle = 'Cloud Connection Reconnecting';
+            errDesc = 'The connection to the cloud processing server experienced a brief network delay (common when waking from standby). Your video request is preserved.';
+          }
+
+          const resumeBtnHtml = `<button class="btn-step btn-next" type="button" style="padding:6px 14px;font-size:12px;" onclick="resumeActiveBatch()">🔄 Reconnect & Resume</button>`;
+
           errTextEl.innerHTML = `
             <div class="error-alert-header">
               <span style="font-size:16px;">⚠️</span> ${escapeHtml(errTitle)}
             </div>
             <div class="error-alert-body">${escapeHtml(errDesc)}</div>
-            <div class="error-alert-actions">
-              <button class="btn-back" type="button" style="padding:6px 12px;font-size:11px;" onclick="location.reload()">↺ Start Over</button>
+            <div class="error-alert-actions" style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+              ${resumeBtnHtml}
+              <button class="btn-back" type="button" style="padding:6px 12px;font-size:11px;" onclick="cancelAndStartOver()">↺ Start Over</button>
               ${showRelaxedBtn ? '<button class="btn-next" type="button" style="padding:6px 12px;font-size:11px;" onclick="retryRelaxed()">⚡ Retry with Relaxed Limits</button>' : ''}
             </div>
           `;
           errTextEl.style.display = 'block';
           state.running = false;
-          localStorage.removeItem('clipforge_active_job');
-          showToast(errDesc, 'error', errTitle);
+          if (!isNetworkError) {
+            localStorage.removeItem('clipforge_active_job');
+          }
+          showToast(errDesc, isNetworkError ? 'info' : 'error', errTitle);
           return;
         }
       }
@@ -4221,16 +4265,21 @@
         const interval = setInterval(async () => {
           try {
             const res = await fetch('/api/jobs/' + jid);
-            if (!res.ok && res.status !== 404) {
+            if (!res.ok) {
               consecutiveErrors++;
-              if (consecutiveErrors > 25) {
+              if (consecutiveErrors > 30) {
                 clearInterval(interval);
                 reject(new Error(`Server returned HTTP ${res.status}`));
+              }
+              const statusEl = $('status-text');
+              if (statusEl && consecutiveErrors > 3) {
+                statusEl.textContent = (window._lastStage || 'Processing video') + ' (reconnecting...)';
               }
               return;
             }
             const data = await res.json();
             consecutiveErrors = 0;
+            if (data.stage) window._lastStage = data.stage;
 
             if (data.error) {
               clearInterval(interval);
@@ -5289,7 +5338,7 @@
       }, 1000);
 
       try {
-        const res = await fetch('/api/faceless', {
+        const res = await fetchWithRetry('/api/faceless', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -5461,6 +5510,80 @@
       }
     }
 
+
+    window.resumeActiveBatch = async function() {
+      const errTextEl = $('error-text');
+      if (errTextEl) errTextEl.style.display = 'none';
+
+      const activeStr = localStorage.getItem('clipforge_active_job');
+      let jid = window._activeJid;
+      let item = state.queue[0] || { title: 'Video Batch' };
+
+      if (activeStr) {
+        try {
+          const active = JSON.parse(activeStr);
+          if (active && active.jid) {
+            jid = active.jid;
+            item = active.item || item;
+          }
+        } catch (e) {}
+      }
+
+      if (!jid) {
+        startProcessing();
+        return;
+      }
+
+      $('wizard-box').style.display = 'none';
+      $('results-view').style.display = 'none';
+      $('run-view').style.display = 'block';
+      $('status-text').textContent = 'Reconnecting to processing worker...';
+      state.running = true;
+
+      try {
+        const clips = await pollJob(jid, item);
+        saveToClientLibrary({
+          id: jid,
+          type: "clipper",
+          title: item.title || "Video Batch",
+          thumbnail: item.thumbnail || "",
+          clips,
+          done: true,
+          total_target: state.options.count,
+          clips_count: clips.length
+        });
+        showResults(clips, item, state.options.aspect_ratio);
+      } catch (e) {
+        console.error('Resume error:', e);
+        showToast('Could not reconnect immediately. Please try again in a few seconds.', 'error', 'Reconnect Notice');
+      }
+    };
+
+    window.cancelAndStartOver = function() {
+      localStorage.removeItem('clipforge_active_job');
+      window._activeJid = null;
+      location.reload();
+    };
+
+    window.addEventListener('online', () => {
+      console.log('[NETWORK] Connection restored.');
+      const activeStr = localStorage.getItem('clipforge_active_job');
+      if (activeStr && $('error-text') && $('error-text').style.display === 'block') {
+        showToast('Internet connection restored. Reconnecting to batch...', 'info', 'Network Restored');
+        window.resumeActiveBatch();
+      }
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        const activeStr = localStorage.getItem('clipforge_active_job');
+        if (activeStr && !state.running && $('run-view') && $('run-view').style.display === 'block') {
+          console.log('[TAB] Tab returned to foreground. Re-syncing active batch...');
+          window.resumeActiveBatch();
+        }
+      }
+    });
+
     checkBackgroundJob();
 
     (function(){var h=document.getElementById('hx'),n=h&&h.firstElementChild;if(!n)return;
@@ -5477,10 +5600,14 @@
       try{await navigator.clipboard.writeText(x+' '+location.origin+u)}catch(e){}
       btn.textContent='Link copied';setTimeout(function(){btn.textContent='Share'},2000)};
     var PLANS=[['Free','$0','60 minutes a month, ClipForge watermark','Start free'],['Creator','$15','300 minutes a month, no watermark, all aspect ratios','Get Creator'],['Pro','$39','1,000 minutes a month, Studio faceless videos, priority rendering','Get Pro']],plan='';
-    $('plans').innerHTML=PLANS.map(function(p,i){return '<div class="pl'+(i==1?' hot':'')+'"><div><b>'+p[0]+'</b><span>'+p[2]+'</span></div><strong>'+p[1]+'<small>/mo</small></strong><button data-p="'+p[0]+'">'+p[3]+'</button></div>'}).join('');
-    $('plans').addEventListener('click',function(e){var b=e.target.closest('[data-p]');if(!b)return;plan=b.dataset.p;$('su').classList.add('on');$('su-msg').textContent='Sign up for '+plan;$('su-email').focus()});
-    $('su-go').onclick=function(){var m=$('su-email').value.trim();if(!/^\S+@\S+\.\S+$/.test(m)){$('su-msg').textContent='Enter a valid email';return}
-      fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:m,plan:plan})}).then(function(r){if(!r.ok)throw 0;$('su-msg').textContent='You\u2019re on the list for '+plan+'. We\u2019ll email you'}).catch(function(){$('su-msg').textContent='Could not save that. Try again in a minute'})};
+    if ($('plans')) {
+      $('plans').innerHTML=PLANS.map(function(p,i){return '<div class="pl'+(i==1?' hot':'')+'"><div><b>'+p[0]+'</b><span>'+p[2]+'</span></div><strong>'+p[1]+'<small>/mo</small></strong><button data-p="'+p[0]+'">'+p[3]+'</button></div>'}).join('');
+      $('plans').addEventListener('click',function(e){var b=e.target.closest('[data-p]');if(!b)return;plan=b.dataset.p;if($('su')){$('su').classList.add('on');if($('su-msg'))$('su-msg').textContent='Sign up for '+plan;if($('su-email'))$('su-email').focus()}});
+    }
+    if ($('su-go')) {
+      $('su-go').onclick=function(){var m=$('su-email').value.trim();if(!/^\S+@\S+\.\S+$/.test(m)){if($('su-msg'))$('su-msg').textContent='Enter a valid email';return}
+        fetch('/api/waitlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:m,plan:plan})}).then(function(r){if(!r.ok)throw 0;if($('su-msg'))$('su-msg').textContent='You\u2019re on the list for '+plan+'. We\u2019ll email you'}).catch(function(){if($('su-msg'))$('su-msg').textContent='Could not save that. Try again in a minute'})};
+    }
 
     function embedOf(u){var m,h=location.hostname;u=u||'';
       if(m=u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{6,})/))return['https://www.youtube.com/embed/'+m[1]+'?autoplay=1&playsinline=1',/shorts\//.test(u)];

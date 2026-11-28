@@ -98,6 +98,12 @@ def download(url, dest_dir=None, max_duration=None, check_cancelled=None):
             "writeautomaticsub": True,
             "subtitleslangs": ["en", "en-US", "en-GB", "a.en", "en-orig"],
             "subtitlesformat": "vtt/json3/srt",
+            "extractor_args": {
+                "youtube": {
+                    "player_client": ["android", "ios", "web"],
+                    "player_skip": ["configs"],
+                }
+            }
         }
 
         if max_duration:
