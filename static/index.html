@@ -1970,6 +1970,192 @@
       opacity: 0.92;
     }
 
+  
+    /* Cyberpunk Grid-Dot Matrix Skeleton Loader */
+    .clip-skel {
+      position: relative;
+      flex: 0 0 min(72vw, 280px);
+      min-height: 380px;
+      border-radius: var(--radius-card, 16px);
+      border: 1px solid rgba(200, 245, 66, 0.38);
+      background-color: #0b0c0f;
+      background-image: 
+        radial-gradient(circle, rgba(200, 245, 66, 0.42) 1.5px, transparent 1.5px),
+        radial-gradient(circle, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+      background-size: 18px 18px, 9px 9px;
+      background-position: 0 0, 4px 4px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      box-shadow: inset 0 0 35px rgba(0, 0, 0, 0.85), 0 0 16px rgba(200, 245, 66, 0.1);
+      animation: skelGridWave 3.5s ease-in-out infinite alternate;
+    }
+
+    /* Animated Scanning Laser Beam sweeping up and down */
+    .clip-skel .skel-laser-beam {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: -20%;
+      height: 32%;
+      background: linear-gradient(180deg, 
+        transparent 0%, 
+        rgba(200, 245, 66, 0.06) 30%, 
+        rgba(200, 245, 66, 0.28) 70%, 
+        rgba(200, 245, 66, 0.65) 95%, 
+        #c8f542 100%
+      );
+      filter: drop-shadow(0 0 14px rgba(200, 245, 66, 0.85));
+      pointer-events: none;
+      animation: laserSweep 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+      z-index: 2;
+    }
+
+    @keyframes laserSweep {
+      0% { top: -20%; opacity: 0.3; }
+      50% { opacity: 0.95; }
+      100% { top: 92%; opacity: 0.3; }
+    }
+
+    @keyframes skelGridWave {
+      0% { background-position: 0 0, 4px 4px; border-color: rgba(200, 245, 66, 0.25); }
+      50% { background-position: 0 10px, 4px 14px; border-color: rgba(200, 245, 66, 0.55); box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 0 22px rgba(200, 245, 66, 0.2); }
+      100% { background-position: 0 20px, 4px 24px; border-color: rgba(200, 245, 66, 0.25); }
+    }
+
+    .skel-hud {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 12px;
+    }
+    .skel-hud-icon {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(200, 245, 66, 0.12);
+      border: 1px solid rgba(200, 245, 66, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: var(--accent);
+      animation: skelIconPulse 1.6s ease-in-out infinite alternate;
+    }
+    @keyframes skelIconPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 6px rgba(200, 245, 66, 0.2); }
+      100% { transform: scale(1.08); box-shadow: 0 0 20px rgba(200, 245, 66, 0.6); }
+    }
+    .skel-hud-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #f3f4f6;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .skel-hud-sub {
+      font-size: 11px;
+      color: #9ca3af;
+      max-width: 190px;
+      line-height: 1.4;
+    }
+    .skel-wave-dots {
+      display: flex;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .skel-wave-dots span {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: skelWaveBounce 1.2s ease-in-out infinite;
+    }
+    .skel-wave-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .skel-wave-dots span:nth-child(3) { animation-delay: 0.30s; }
+    .skel-wave-dots span:nth-child(4) { animation-delay: 0.45s; }
+    @keyframes skelWaveBounce {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40% { transform: scale(1.3); opacity: 1; filter: drop-shadow(0 0 6px var(--accent)); }
+    }
+
+    /* Floating BSD (Batch Summary & Diagnostics) Agent Pill */
+    .bsd-floating-agent {
+      position: fixed;
+      bottom: 22px;
+      right: 18px;
+      z-index: 990;
+      display: none;
+      align-items: center;
+      gap: 8px;
+      background: rgba(18, 19, 23, 0.94);
+      border: 1px solid rgba(200, 245, 66, 0.4);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 16px rgba(200, 245, 66, 0.2);
+      backdrop-filter: blur(12px);
+      padding: 7px 14px;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+      user-select: none;
+    }
+    .bsd-floating-agent:hover {
+      transform: translateY(-2px) scale(1.03);
+      border-color: var(--accent);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.75), 0 0 20px rgba(200, 245, 66, 0.35);
+    }
+    .bsd-floating-agent:active {
+      transform: scale(0.97);
+    }
+    .bsd-pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      animation: bsdPulse 1.8s ease-in-out infinite;
+    }
+    @keyframes bsdPulse {
+      0% { transform: scale(0.8); opacity: 0.5; }
+      50% { transform: scale(1.3); opacity: 1; }
+      100% { transform: scale(0.8); opacity: 0.5; }
+    }
+    .bsd-agent-icon {
+      font-size: 16px;
+      line-height: 1;
+    }
+    .bsd-agent-title {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+      text-transform: uppercase;
+    }
+    .bsd-agent-badge {
+      background: rgba(200, 245, 66, 0.16);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 10px;
+      border: 1px solid rgba(200, 245, 66, 0.3);
+    }
+    .bsd-agent-badge.has-error {
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.5);
+      animation: bsdErrorPulse 1.2s ease-in-out infinite;
+    }
+    @keyframes bsdErrorPulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 1; filter: drop-shadow(0 0 6px #ef4444); }
+    }
+
   </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -2437,21 +2623,24 @@
 
         <div class="status-alert" id="status-text">Starting pipeline...</div>
         <div class="error-alert" id="error-text"></div>
-        <div id="live-batch-status-container" style="display:none;margin-bottom:var(--s3);"></div>
-        <div class="row actions">
-          <button class="btn-back btn-danger btn-retry" id="btn-cancel-batch">Cancel Batch</button>
-          <button class="btn-next btn-retry" id="btn-retry-failed" style="display:none;">Retry Failed Clips</button>
-        </div>
 
-        <!-- Real-Time Streaming Grid for Completed Clips -->
-        <div id="live-clips-wrap" class="live-clips" style="display:none;">
+        <!-- Real-Time Streaming Grid for Completed Clips (MOVED UP TO EYE LEVEL!) -->
+        <div id="live-clips-wrap" class="live-clips" style="display:none;margin-top:var(--s3);margin-bottom:var(--s3);">
           <div class="row row-between section-head">
             <div class="section-title row row-tight">
-              <span></span> <span id="live-stream-title">Finished Clips</span>
+              <span>⚡</span> <span id="live-stream-title">Rendering clips…</span>
             </div>
           </div>
           <div class="live-bar"><i></i></div>
           <div class="clips-stream" id="live-clips-grid"></div>
+        </div>
+
+        <!-- Secondary Batch Status Container / Modal Target -->
+        <div id="live-batch-status-container" style="display:none;margin-bottom:var(--s3);"></div>
+
+        <div class="row actions">
+          <button class="btn-back btn-danger btn-retry" id="btn-cancel-batch">Cancel Batch</button>
+          <button class="btn-next btn-retry" id="btn-retry-failed" style="display:none;">Retry Failed Clips</button>
         </div>
       </div>
 
@@ -4324,6 +4513,12 @@
               updateLibBadge();
             }
 
+            // Discovery Popup Trigger (shows once when discovery finishes)
+            if (data.info && data.info.discovered && !window._discoveryPopupSeen) {
+              window._discoveryPopupSeen = true;
+              window.showDiscoveryNotice(data.info);
+            }
+
             const renderingNow = /cut|render|clip/i.test(stageLabel) && !data.done;
             const doneClips = data.clips ? data.clips.length : 0;
             if (renderingNow || doneClips) {
@@ -4336,6 +4531,17 @@
                 const sk = document.createElement('div');
                 sk.className = 'clip-skel';
                 sk.setAttribute('aria-hidden', 'true');
+                sk.innerHTML = `
+                  <div class="skel-laser-beam"></div>
+                  <div class="skel-hud">
+                    <div class="skel-hud-icon">⚡</div>
+                    <div class="skel-hud-title">Rendering Clip ${doneClips + k + 1}...</div>
+                    <div class="skel-wave-dots">
+                      <span></span><span></span><span></span><span></span>
+                    </div>
+                    <div class="skel-hud-sub">AI Frame Sync & Captions</div>
+                  </div>
+                `;
                 grid.appendChild(sk);
               }
             }
@@ -4348,9 +4554,15 @@
             }
           } catch (e) {
             consecutiveErrors++;
-            if (consecutiveErrors > 25) {
+            // Mobile browser sleep or transient network drop: allow up to 120 polling cycles (~3.5 minutes)
+            if (consecutiveErrors > 120) {
               clearInterval(interval);
               reject(e);
+              return;
+            }
+            const statusEl = $('status-text');
+            if (statusEl && state.running) {
+              statusEl.innerHTML = `<span style="color:#f59e0b;">📡 Connection paused. Resuming background sync... (${consecutiveErrors})</span>`;
             }
           }
         }, 1800);
@@ -4865,11 +5077,30 @@
         </div>` : ''}
       `;
 
-      // Mount into live status card if in progress
+      // Mount into floating BSD Agent indicator and BSD modal
+      const bsdAgent = $('bsd-floating-agent');
+      const bsdBadge = $('bsd-badge');
+      if (bsdAgent && bsdBadge) {
+        bsdAgent.style.display = 'flex';
+        if (hasFailed) {
+          bsdBadge.className = 'bsd-agent-badge has-error';
+          bsdBadge.textContent = `! ${failedCount} err`;
+        } else {
+          bsdBadge.className = 'bsd-agent-badge';
+          bsdBadge.textContent = `${completedCount}/${discoveredCount || requestedCount}`;
+        }
+      }
+
+      const modalContent = $('bsd-modal-content');
+      if (modalContent) {
+        modalContent.innerHTML = panelHtml;
+      }
+
+      // Keep live-batch-status-container updated for tests & accessibility, but unobtrusive
       const procContainer = $('live-batch-status-container');
       if (procContainer) {
         procContainer.innerHTML = panelHtml;
-        procContainer.style.display = 'block';
+        procContainer.style.display = 'none'; // Replaced by floating BSD agent in run-view
       }
 
       // Mount into results view
@@ -5466,11 +5697,16 @@
         const active = JSON.parse(activeStr);
         if (!active || !active.jid) return;
 
+        // Don't wipe active job if server is cold-booting (502/503) or temporarily unreachable
         const res = await fetch('/api/jobs/' + active.jid);
         if (!res.ok) {
-          localStorage.removeItem('clipforge_active_job');
-          goToStep(1);
-          return;
+          if (res.status === 404) {
+            // Truly deleted / not found on server
+            localStorage.removeItem('clipforge_active_job');
+            goToStep(1);
+            return;
+          }
+          // Server starting up or temporary glitch: proceed to run-view and resume polling!
         }
 
         const data = await res.json();
@@ -5584,6 +5820,44 @@
       }
     });
 
+    
+    // BSD (Batch Summary & Diagnostics) Modal & Discovery Notice Handlers
+    window.toggleBsdModal = function(show) {
+      const modal = $('bsd-modal');
+      if (!modal) return;
+      if (show === undefined) {
+        modal.style.display = modal.style.display === 'flex' ? 'none' : 'flex';
+      } else {
+        modal.style.display = show ? 'flex' : 'none';
+      }
+    };
+
+    window.showDiscoveryNotice = function(info) {
+      const modal = $('discovery-notice-modal');
+      const textEl = $('discovery-notice-text');
+      if (!modal || !textEl) return;
+
+      const requested = info.requested || (state.options && state.options.count) || 20;
+      const discovered = info.discovered || info.produced || 0;
+      let reason = info.stopped_reason || info.reason || '';
+
+      if (!reason) {
+        if (discovered < requested) {
+          reason = `Found ${discovered} of ${requested} requested clips. You requested ${requested} clips from this video, and because clips cannot overlap without repeating scenes, there were ${discovered} unique high-retention moments found.`;
+        } else {
+          reason = `Discovered all ${discovered} high-impact moments! Now cutting, reframing, and styling clips.`;
+        }
+      }
+
+      textEl.textContent = reason;
+      modal.style.display = 'flex';
+    };
+
+    window.dismissDiscoveryNotice = function() {
+      const modal = $('discovery-notice-modal');
+      if (modal) modal.style.display = 'none';
+    };
+
     checkBackgroundJob();
 
     (function(){var h=document.getElementById('hx'),n=h&&h.firstElementChild;if(!n)return;
@@ -5677,5 +5951,49 @@
   scan();
 })();
 </script>
+
+    <!-- Floating BSD (Batch Summary & Diagnostics) Agent Pill -->
+    <div id="bsd-floating-agent" class="bsd-floating-agent" onclick="toggleBsdModal()" title="Batch Diagnostics (BSD)">
+      <div class="bsd-pulse-dot"></div>
+      <span class="bsd-agent-icon">🤖</span>
+      <span class="bsd-agent-title">BSD</span>
+      <span class="bsd-agent-badge" id="bsd-badge">0/0</span>
+    </div>
+
+    <!-- Discovery Notice Popup Modal -->
+    <div id="discovery-notice-modal" class="modal-backdrop" style="display:none;">
+      <div class="modal-box modal-narrow" style="border: 1px solid rgba(200, 245, 66, 0.45); box-shadow: 0 0 30px rgba(200, 245, 66, 0.18);">
+        <div class="row row-between" style="margin-bottom: 12px;">
+          <div class="row row-tight">
+            <span style="font-size: 20px;">✨</span>
+            <h3 style="font-size: 16px; font-weight: 700; color: #fff; margin: 0;">Live Pipeline Status</h3>
+          </div>
+          <button type="button" class="btn-icon" onclick="dismissDiscoveryNotice()" style="background:none;border:none;color:#9ca3af;font-size:22px;cursor:pointer;">&times;</button>
+        </div>
+        <div id="discovery-notice-text" style="font-size: 13px; line-height: 1.5; color: #d1d5db; margin-bottom: 16px;">
+          Found moments from the video.
+        </div>
+        <div class="row" style="justify-content: flex-end; gap: 8px;">
+          <button class="btn-step btn-next" type="button" onclick="dismissDiscoveryNotice()" style="padding: 8px 18px; font-size: 13px;">✓ Got It & Continue</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- BSD Modal (Batch Diagnostics) -->
+    <div id="bsd-modal" class="modal-backdrop" style="display:none;" onclick="if(event.target===this)toggleBsdModal(false)">
+      <div class="modal-box" style="max-width: 620px; max-height: 88vh; overflow-y: auto;">
+        <div class="row row-between" style="margin-bottom: 14px; border-bottom: 1px solid var(--line); padding-bottom: 10px;">
+          <div class="row row-tight">
+            <span style="font-size: 18px;">🤖</span>
+            <h3 style="font-size: 15px; font-weight: 800; color: #fff; margin: 0; text-transform: uppercase; letter-spacing: 0.5px;">Batch Diagnostics (BSD)</h3>
+          </div>
+          <button type="button" class="btn-icon" onclick="toggleBsdModal(false)" style="background:none;border:none;color:#9ca3af;font-size:22px;cursor:pointer;">&times;</button>
+        </div>
+        <div id="bsd-modal-content">
+          <!-- Populated by renderBatchStatusPanel -->
+        </div>
+      </div>
+    </div>
+
 </body>
 </html>

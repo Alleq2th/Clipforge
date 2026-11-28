@@ -82,9 +82,9 @@ EXPORT_PROFILES = {
         "crf": 23,
         "maxrate": "1600k",
         "bufsize": "3200k",
-        "preset": "veryfast",
+        "preset": "ultrafast",
         "audio_bitrate": "128k",
-        "normalize_audio": True,
+        "normalize_audio": False,
         "font_scale": 1.35,
     },
     "1080p": {
